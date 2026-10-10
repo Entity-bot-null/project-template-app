@@ -3,6 +3,7 @@ import { type ConfigPlugin, withGradleProperties } from 'expo/config-plugins';
 
 import pkg from './package.json';
 import { parsePublicEnv } from './src/config/env.schema.ts';
+import { APP_LINK_PATHS } from './src/lib/links.ts';
 
 // The app config, evaluated by Expo CLI and EAS at build time (docs/RELEASES.md).
 // Everything returned here ends up in the app's manifest, readable by anyone
@@ -34,7 +35,8 @@ const APP: AppIdentity = {
   identifier: 'com.example.templateapp',
   // Custom URL scheme for deep links: templateapp://items/42
   scheme: 'templateapp',
-  // EAS project and account: printed by `pnpm eas init`. Empty: EAS Update off.
+  // EAS project and account: printed by `eas init` (EAS CLI, not a project
+  // dependency: README.md#commands). Empty: EAS Update off.
   easProjectId: '',
   owner: undefined,
   // Domain of universal links / Android App Links (https://<domain>/items/42),
@@ -177,7 +179,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
               {
                 action: 'VIEW',
                 autoVerify: true,
-                data: [{ scheme: 'https', host: APP.linkDomain, pathPrefix: '/items' }],
+                // The paths src/lib/links.ts accepts, one per route (links.spec.ts).
+                data: APP_LINK_PATHS.map((path) => ({
+                  scheme: 'https',
+                  host: APP.linkDomain,
+                  ...path,
+                })),
                 category: ['BROWSABLE', 'DEFAULT'],
               },
             ],

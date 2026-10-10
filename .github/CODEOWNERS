@@ -35,9 +35,15 @@
 # /.husky/                       @your-org/mobile-leads
 # /scripts/                      @your-org/mobile-leads
 # /eslint.config.mjs             @your-org/mobile-leads
+# /tsconfig.json                 @your-org/mobile-leads
+# /commitlint.config.mjs         @your-org/mobile-leads
+# /.gitignore                    @your-org/mobile-leads
 # /jest.config.js                @your-org/mobile-leads
 # /bundle-budget.json            @your-org/mobile-leads
 # /lint-staged.config.mjs        @your-org/mobile-leads
 # /.secretlintrc.json            @your-org/mobile-leads
 # /.secretlintignore             @your-org/mobile-leads
 # /.semgrepignore                @your-org/security-reviewers
+# What AI coding agents may run and reach in this repository.
+# /.claude/settings.json         @your-org/security-reviewers
+# /.mcp.json                     @your-org/security-reviewers

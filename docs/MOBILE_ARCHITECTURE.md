@@ -445,8 +445,11 @@ sign-in, payment, deletion or sharing from a URL): it opens a screen where the u
 to a signed-in screen while signed out lands on the sign-in screen (the guards apply).
 
 To add a link (password reset, invitation, product page): add its pattern to `ROUTES` in
-`src/lib/links.ts` with a test, then the route. For https links, add the path to the Android
-intent filter in `app.config.ts` and to the domain's association files.
+`src/lib/links.ts` with a test, then the route. Each route also declares the https path that opens
+the app on Android (`appLink`: exact, or a prefix for a route with a parameter): the App Links
+intent filter in `app.config.ts` is built from them (`APP_LINK_PATHS`), and `links.spec.ts` checks
+that it opens exactly the paths the allowlist accepts. Add the path to the domain's
+`apple-app-site-association` file too.
 
 ## Notifications
 

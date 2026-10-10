@@ -77,6 +77,12 @@ jobs:
       # same app config gives the same runtime version (fingerprint).
       APP_VARIANT: ${{ inputs.channel }}
       EXPO_PUBLIC_APP_ENV: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
+      # Source maps go to Sentry only when this environment has everything the
+      # upload needs: the repository variables SENTRY_ORG and SENTRY_PROJECT
+      # and the environment secret SENTRY_AUTH_TOKEN (optional for preview,
+      # docs/CI_CD.md#environments). Without them the upload is skipped with a
+      # notice, instead of failing the run after the update is published.
+      SENTRY_UPLOAD: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && secrets.SENTRY_AUTH_TOKEN != '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -96,12 +102,18 @@ jobs:
           args=(--channel "$CHANNEL" --environment "$CHANNEL" --message "$MESSAGE" --non-interactive)
           if [[ "$ROLLOUT" != '100' ]]; then args+=(--rollout-percentage "$ROLLOUT"); fi
           pnpm dlx "eas-cli@$EAS_CLI_VERSION" update "${args[@]}"
-      # Readable stack traces for errors raised by this update's code. Off
-      # until the repository variables SENTRY_ORG and SENTRY_PROJECT are set.
+      # Readable stack traces for errors raised by this update's code, when
+      # the Sentry settings are all there (SENTRY_UPLOAD above).
       - name: Upload source maps to Sentry
-        if: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' }}
+        if: ${{ env.SENTRY_UPLOAD == 'true' }}
         env:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: pnpm exec sentry-expo-upload-sourcemaps dist
+      - name: Note the skipped source map upload
+        if: ${{ env.SENTRY_UPLOAD != 'true' }}
+        run: >-
+          echo "::notice title=Source maps not uploaded::This environment does not have
+          SENTRY_ORG, SENTRY_PROJECT and SENTRY_AUTH_TOKEN all set, so stack traces of this
+          update stay minified in Sentry (docs/CI_CD.md#secrets-and-variables)."
