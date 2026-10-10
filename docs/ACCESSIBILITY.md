@@ -90,8 +90,8 @@ manual testing below before relying on them):
 | Tests query by role and label                       | every screen and integration test                                                                                                                    | a control a screen reader cannot find (the test cannot find it either) |
 
 Add each new screen to `src/a11y.spec.tsx`, in each of its states (loaded, empty, error, with
-validation errors): it is checked in light and dark mode. What tests cannot judge (whether a label makes sense, the reading order, how an
-announcement sounds) is the manual checklist below.
+validation errors): it is checked in light and dark mode. What tests cannot judge (whether a label
+makes sense, the reading order, how an announcement sounds) is the manual checklist below.
 
 ## Manual testing
 
