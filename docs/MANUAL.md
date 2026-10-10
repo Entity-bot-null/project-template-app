@@ -199,7 +199,7 @@ EAS (global CLI, `eas <command>`): `login`, `init`, `build`, `build:list`, `subm
 | ------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | CI            | every pull request and push to `main`       | conventions, every gate (format, lint, types, doctor, SAST, tests, security, bundle, prebuild); one required check: **CI passed** |
 | E2E (Android) | pull requests and pushes that touch the app | release APK of the `e2e` variant, mock API, emulator, Maestro                                                                     |
-| Release       | push to `main`                              | the release pull request; on merge, the tag and the GitHub release with the SBOM                                                  |
+| Release       | push to `main`                              | the release pull request and CI on it; on merge, the tag and the GitHub release with the SBOM                                     |
 | EAS build     | by hand, from `main`                        | gates, then an EAS build of `preview` or `production` (optional submission to internal testing)                                   |
 | EAS update    | by hand, from `main`                        | gates, then an OTA update to `preview` or `production`, optionally staged                                                         |
 | EAS rollback  | by hand, from `main`                        | republish an earlier update or go back to the embedded bundle                                                                     |
