@@ -2,6 +2,7 @@
 appId: ${APP_ID}
 name: Sign out
 env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
   APP_ID: com.example.templateapp.e2e
 ---
 - tapOn: Settings

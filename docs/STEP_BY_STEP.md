@@ -193,7 +193,7 @@ Open `app.config.ts` and change the `APP` block:
 | `colors`                | leave until phase 6 (branding)       |
 
 Then: `package.json` → `"name"`; `README.md` → title and first paragraph; `SECURITY.md` → the
-security contact; `.github/CODEOWNERS` → real users or teams, uncommented;
+security contact and the response times; `.github/CODEOWNERS` → real users or teams, uncommented;
 `.maestro/flows/*.yaml` → `APP_ID: <identifier>.e2e` and `SCHEME: <scheme>-e2e`.
 
 **Check:** `git grep -n "com.example.templateapp"` lists only documentation (`docs/`,
@@ -268,8 +268,8 @@ directly; no `adb reverse`).
 | "A restricted method in java.lang.System has been called"   | `JAVA_HOME` must be JDK 17                                                                          |
 | Windows: `CMAKE_OBJECT_PATH_MAX`, "build.ninja still dirty" | 1.2 step 6 (short path, long paths, hoisted), then `rm -rf node_modules android` and `pnpm install` |
 
-From now on: `pnpm mock:api` and `pnpm start`, then open the installed app; rebuild with
-`pnpm android` only after a native change.
+From now on: `pnpm mock:api` and `pnpm start`, then open the installed app. After a native change,
+`pnpm prebuild`, then `pnpm android`: `pnpm android` generates `android/` only when it is missing.
 
 ---
 
@@ -309,6 +309,8 @@ pnpm test:e2e
 ```
 
 **Check:** `5/5 Flows Passed`. CI runs the same on every pull request.
+
+`android/` now holds the `e2e` variant: run `pnpm prebuild` before going back to `pnpm android`.
 
 ---
 
@@ -402,7 +404,7 @@ Every change from here goes through [the daily loop](#phase-14-the-daily-loop).
 2. Colors: `src/ui/theme/tokens.ts` (palette and light/dark colors) and `APP.colors` in
    `app.config.ts`. `pnpm test` checks the contrast of text in both themes.
 3. The texts of the screens (`src/features/*`), the onboarding points, the app name.
-4. Icons and splash are native: `pnpm android` / `pnpm ios` again to see them.
+4. Icons and splash are native: `pnpm prebuild`, then `pnpm android` / `pnpm ios`, to see them.
 
 **Check:** the icon, splash and colors on the emulator are yours; `pnpm test` passes (contrast).
 
@@ -411,9 +413,11 @@ Every change from here goes through [the daily loop](#phase-14-the-daily-loop).
 Add each one next to `src/features/items`, following
 [MOBILE_ARCHITECTURE.md](MOBILE_ARCHITECTURE.md#adding-a-feature): contract → data hooks → screen →
 route → tests → a Maestro flow for a critical journey. When yours cover the app, delete the example:
-`src/features/items`, its routes in `src/app/(app)`, the `newItemForm` flag, its tests, the items
-paths of the contract and the mock API, and `.maestro/flows/03-items.yaml` (adapt
-`04-deep-links.yaml`).
+`src/features/items`, its routes in `src/app/(app)` (the home tab, `(tabs)/index.tsx`, included),
+the `/items` links of `src/lib/links.ts` and their tests, the `newItemForm` flag, the `item_created`
+analytics event, its tests, the items paths of the contract and the mock API, and
+`.maestro/flows/03-items.yaml`. Flows `01` and `02` wait for `items-list` after sign-in, and `04`
+opens an item link: point them at your home screen and your own links.
 
 ### 6.4 Optional pieces
 

@@ -6,7 +6,9 @@ a store app needs, with a small example feature (sign-in, a list with search and
 creation, settings) that shows every layer working together. Replace the example with the product;
 keep the structure.
 
-Everything project-specific is a placeholder marked **REQUIERE CONFIGURACIÓN**.
+Everything project-specific is a placeholder marked **REQUIERE CONFIGURACIÓN**, except in the files
+that cannot hold a comment: `package.json` (`name`) and `eas.json` (`ascAppId`), which
+[docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md) covers.
 
 **Starting a new app?** Follow the step-by-step guide, [docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md):
 what to do, in order, from the information and store accounts you need to the app published, with a
@@ -70,33 +72,35 @@ pnpm android                 # terminal 2: compile and run a development build o
 On an Android emulator or a USB device, forward the mock API's port once per session:
 `adb reverse tcp:4010 tcp:4010`. Sign in with `member@example.com` / `member-password`.
 
-After the first native build, `pnpm start` is enough: JavaScript changes reload instantly. Rebuild
-(`pnpm android` / `pnpm ios`) only after a native change (a dependency with native code, a config
-plugin, `app.config.ts` native fields).
+After the first native build, `pnpm start` is enough: JavaScript changes reload instantly. After a
+native change (a dependency with native code, a config plugin, `app.config.ts` native fields, the
+icons or the splash), run `pnpm prebuild`, then `pnpm android` / `pnpm ios`: those two generate
+`android/` and `ios/` only when the folders are missing, so on their own they rebuild the old native
+project.
 
 ## Commands
 
-| Command                                      | Does                                                                                                           |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `pnpm start`                                 | Metro dev server for an installed development build                                                            |
-| `pnpm android` / `pnpm ios`                  | compile, install and run a development build locally                                                           |
-| `pnpm prebuild`                              | regenerate `android/` and `ios/` from `app.config.ts` (never edit them)                                        |
-| `pnpm mock:api`                              | the mock API on `127.0.0.1:4010` (`MOCK_ACCESS_TTL_SEC`, `MOCK_LATENCY_MS` to test renewal and loading states) |
-| `pnpm lint` / `pnpm lint:fix`                | ESLint, zero warnings                                                                                          |
-| `pnpm format` / `pnpm format:check`          | Prettier                                                                                                       |
-| `pnpm typecheck`                             | contract drift check, typed routes, `tsc`                                                                      |
-| `pnpm types:generate`                        | Expo's generated types (`expo-env.d.ts`, typed routes in `.expo/types`); run by install, lint and typecheck    |
-| `pnpm test` / `test:watch` / `test:coverage` | Jest; coverage with thresholds                                                                                 |
-| `pnpm test:e2e`                              | Maestro flows on a running emulator/simulator ([docs/TESTING.md](docs/TESTING.md#end-to-end))                  |
-| `pnpm expo:doctor`                           | expo-doctor: dependency versions against the installed SDK, config, native module issues                       |
-| `pnpm security`                              | `pnpm audit`, dependency and license policy, secret scan                                                       |
-| `pnpm sast`                                  | Semgrep (Docker)                                                                                               |
-| `pnpm lint:workflows`                        | actionlint, zizmor, shellcheck on hooks (Docker)                                                               |
-| `pnpm contract`                              | regenerate `src/api/schema.d.ts` from `openapi/openapi.json`                                                   |
-| `pnpm export`                                | production JavaScript bundles for both platforms in `dist/`                                                    |
-| `pnpm build:check`                           | `export` + bundle budget                                                                                       |
-| `pnpm sbom:generate`                         | CycloneDX SBOM of the production dependencies                                                                  |
-| `pnpm verify`                                | everything a pull request must pass: format, lint, typecheck, coverage, doctor, security, build check          |
+| Command                                      | Does                                                                                                                          |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm start`                                 | Metro dev server for an installed development build                                                                           |
+| `pnpm android` / `pnpm ios`                  | compile, install and run a development build locally (generate `android/` / `ios/` only when missing)                         |
+| `pnpm prebuild`                              | regenerate `android/` and `ios/` from `app.config.ts` (never edit them)                                                       |
+| `pnpm mock:api`                              | the mock API on `127.0.0.1:4010` (`MOCK_ACCESS_TTL_SEC`, `MOCK_LATENCY_MS` to test renewal and loading states)                |
+| `pnpm lint` / `pnpm lint:fix`                | ESLint, zero warnings                                                                                                         |
+| `pnpm format` / `pnpm format:check`          | Prettier                                                                                                                      |
+| `pnpm typecheck`                             | contract drift check, typed routes, `tsc`                                                                                     |
+| `pnpm types:generate`                        | Expo's generated types (`expo-env.d.ts`, typed routes in `.expo/types`); run by install, lint and typecheck                   |
+| `pnpm test` / `test:watch` / `test:coverage` | Jest; coverage with thresholds                                                                                                |
+| `pnpm test:e2e`                              | Maestro flows on a running emulator/simulator ([docs/TESTING.md](docs/TESTING.md#end-to-end))                                 |
+| `pnpm expo:doctor`                           | expo-doctor: dependency versions against the installed SDK, config, native module issues                                      |
+| `pnpm security`                              | `pnpm audit`, dependency and license policy, secret scan                                                                      |
+| `pnpm sast`                                  | Semgrep (Docker)                                                                                                              |
+| `pnpm lint:workflows`                        | actionlint, zizmor, shellcheck on hooks (Docker)                                                                              |
+| `pnpm contract`                              | regenerate `src/api/schema.d.ts` from `openapi/openapi.json`                                                                  |
+| `pnpm export`                                | production JavaScript bundles for both platforms in `dist/`                                                                   |
+| `pnpm build:check`                           | `export` + bundle budget                                                                                                      |
+| `pnpm sbom:generate`                         | CycloneDX SBOM of the production dependencies                                                                                 |
+| `pnpm verify`                                | format, lint, typecheck, coverage, doctor, security, build check (CI adds `test:scripts`, `sast`, `lint:workflows`, prebuild) |
 
 EAS commands use the EAS CLI, installed globally as Expo recommends (`npm install -g eas-cli`, or
 `pnpm dlx eas-cli <command>`): `eas <command>`. The CI workflows pin its version.
@@ -150,13 +154,15 @@ where it lives):
 8. **Push notifications** (optional): FCM and APNs credentials on EAS, and a `PushTokenRegistrar`
    for the backend ([docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md#notifications)).
 9. **Analytics** (optional): a provider in `src/lib/analytics/providers.ts`.
-10. **Repository**: rulesets, environments, secrets, CODEOWNERS, the security contact in
-    `SECURITY.md` ([docs/CI_CD.md](docs/CI_CD.md#setting-up-the-repository)).
+10. **Repository**: rulesets, environments, secrets, CODEOWNERS, the security contact and response
+    times in `SECURITY.md` ([docs/CI_CD.md](docs/CI_CD.md#setting-up-the-repository)).
 11. **Stores**: the app records in Play Console and App Store Connect, signing and submission
     credentials on EAS ([docs/RELEASES.md](docs/RELEASES.md#store-and-service-credentials)).
 12. **The example feature**: build the product's features alongside `items`, using it as the
-    reference, then delete `src/features/items`, its routes, the `newItemForm` flag, its Maestro flow
-    and its contract paths.
+    reference, then delete `src/features/items`, its routes (the home tab included), its links in
+    `src/lib/links.ts`, the `newItemForm` flag, the `item_created` event, its Maestro flow and its
+    contract paths; flows 01 and 02 wait for the items list after sign-in
+    ([docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md#63-your-features)).
 
 Search for `REQUIERE CONFIGURACIÓN` to find anything left.
 

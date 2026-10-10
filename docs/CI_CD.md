@@ -29,7 +29,8 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 | `eas-update.yml`            | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                           |
 | `eas-rollback.yml`          | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                                 |
 
-The quality gates, the same checks `pnpm verify` runs locally, plus the Docker-based ones:
+The quality gates: the checks `pnpm verify` runs locally, plus the Docker-based ones, the
+repository scripts' tests (`pnpm test:scripts`) and the native projects (`expo prebuild`):
 
 | Job                                   | Runs                                                                                                                                                                                                                                 |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

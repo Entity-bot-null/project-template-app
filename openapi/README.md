@@ -65,5 +65,6 @@ endpoints for mobile clients, with the same rotation and reuse detection.
 and the end-to-end flows: accounts `member@example.com` / `member-password` and
 `admin@example.com` / `admin-password`, 45 example items, rotating single-use refresh tokens.
 `MOCK_ACCESS_TTL_SEC=20 pnpm mock:api` makes access tokens expire quickly, to watch the app renew
-its session; `MOCK_LATENCY_MS=1500` slows every answer, to see loading states. It is not a backend:
-no persistence, public passwords, local HTTP only.
+its session; `MOCK_LATENCY_MS=1500` slows every answer, to see loading states; `MOCK_API_PORT`
+moves it from 4010 (then change `EXPO_PUBLIC_API_URL` and the `adb reverse` port to match). It is
+not a backend: no persistence, public passwords, local HTTP only.
