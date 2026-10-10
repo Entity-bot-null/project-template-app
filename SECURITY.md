@@ -234,10 +234,13 @@ exemption also fails the check from its expiry date on.
 `scripts/check-dependencies.mjs` (`pnpm deps:check`, part of `pnpm security`) enforces
 `scripts/dependency-policy.json`:
 
-- every package comes from the npm registry, with an integrity hash in the lockfile;
+- every package comes from the npm registry, with an integrity hash in the lockfile (a direct
+  dependency linked from a local directory fails too);
 - licenses: an allowlist for everything, a wider one for development-only packages, and named
   exceptions with their reason (for example the Sentry CLI, a build-time tool under the Functional
-  Source License);
+  Source License). An SPDX expression passes when it can be met with allowed licenses alone, read
+  as SPDX reads it (`(MIT OR Apache-2.0) AND GPL-3.0` needs GPL-3.0), each version on its own
+  (`scripts/licenses.mjs`);
 - the supply-chain settings above cannot be weakened without failing the check
   (`scripts/install-settings.mjs`, which reads `pnpm-workspace.yaml` as YAML and fails on what it
   cannot read unambiguously, such as anchors or a key set twice):
