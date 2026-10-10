@@ -120,6 +120,10 @@ The job queues the build on EAS and ends (`--no-wait`): progress, logs and artif
 expo.dev. Development and E2E builds are not built here: developers build `development` profiles
 themselves, and the E2E workflow compiles its APK on the runner.
 
+The gates are those of `main` when the workflow runs, checking the chosen commit: a release tag
+older than a gate added since can fail it (a script the tag does not have). Ship the fix from
+`main` with a new version rather than rebuilding such a tag.
+
 **EAS update** (`eas-update.yml`) and **EAS rollback** (`eas-rollback.yml`): see
 [RELEASES.md](RELEASES.md#ota-updates) and [RELEASES.md](RELEASES.md#rollback).
 
