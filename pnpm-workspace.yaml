@@ -10,23 +10,19 @@ engineStrict: true
 # Supply chain: a version must be public for seven days before it can be
 # installed, so a hijacked release is usually caught and pulled before it
 # reaches us. Dependabot waits as long (cooldown). For an urgent security fix,
-# exempt that one package with minimumReleaseAgeExclude and remove the entry
-# afterwards (SECURITY.md#dependencies).
+# exempt that exact version in a minimumReleaseAgeExclude list
+# (name@1.2.3, never a name or a pattern) and record it, with its reason and
+# the date it is old enough, in scripts/dependency-policy.json: `pnpm
+# deps:check` fails from that date until both entries are deleted
+# (SECURITY.md#dependency-policy).
 minimumReleaseAge: 10080
-
-# TEMPORARY: one security fix (GHSA-68fv-2mgg-jv7q, see overrides below)
-# published on 2026-09-30, under the urgent-fix exception. Old enough on
-# 2026-10-07 at 14:08 UTC: delete this list from 2026-10-08 on
-# (`pnpm deps:check` reminds you while it is not empty). Exact version only:
-# any other version still waits seven days.
-minimumReleaseAgeExcludePrune: true
-minimumReleaseAgeExclude:
-  - source-map-js@1.2.2
 
 # Supply chain: a new version published with weaker evidence than its earlier
 # ones (for example without the provenance or trusted publisher they had) is
 # refused: the typical sign of a stolen maintainer token. Versions older than
-# 30 days are not compared. Exempt a reviewed package with trustPolicyExclude.
+# 30 days are not compared (a shorter window fails `pnpm deps:check`).
+# Exempt a reviewed package with trustPolicyExclude, recorded with its reason
+# in scripts/dependency-policy.json.
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 43200
 
@@ -36,8 +32,10 @@ trustPolicyIgnoreAfter: 43200
 blockExoticSubdeps: true
 
 # Supply chain: dependencies may run install scripts only when listed here
-# with true. pnpm stops the install when a new dependency wants to run one,
-# so every addition is a reviewed decision.
+# with true, an exception recorded with its reason in
+# scripts/dependency-policy.json (`pnpm deps:check` fails on any other). pnpm
+# stops the install when a new dependency wants to run one, so every addition
+# is a reviewed decision.
 allowBuilds:
   # Each one ships its native binary as a platform package in
   # optionalDependencies (locked with integrity); the install script only

@@ -104,7 +104,8 @@ auth, storage, observability, native configuration, release and CI files.
    code.
 3. Install with `pnpm exec expo install <package>` (SDK-compatible version).
 4. If pnpm reports an ignored build script, decide in `pnpm-workspace.yaml` `allowBuilds` with the
-   reason (default `false`).
+   reason (default `false`). `true` also needs the reviewed exception, with its reason, in
+   `scripts/dependency-policy.json`, or `pnpm deps:check` fails.
 5. `pnpm expo:doctor`, `pnpm security` (license and source policy) and `pnpm build:check` (bundle budget)
    must pass.
 6. Explain the choice in the pull request; with native code, mark the release impact (store build).

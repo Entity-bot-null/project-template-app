@@ -200,6 +200,10 @@ screens that need it. Each one is a native change: a new store build
   is refused (`trustPolicy: no-downgrade`), transitive dependencies from outside the registry are
   refused (`blockExoticSubdeps`), and **no install script runs** unless listed in `allowBuilds`
   (every entry is `false`, each with its reason).
+- For an urgent security fix younger than seven days, exempt that exact version
+  (`minimumReleaseAgeExclude: [name@1.2.3]`, never a name or a pattern) and record it in
+  `scripts/dependency-policy.json` with its reason and `expires`, the date the version is old
+  enough. From that date `pnpm deps:check` fails until both entries are deleted.
 - `pnpm audit --audit-level=high` in `pnpm security` and CI; Dependabot security updates.
 - Expo SDK packages move together through SDK upgrades; Dependabot proposes their patches only.
 - Every release carries a CycloneDX SBOM of the production dependencies (`pnpm sbom:generate`).
@@ -221,7 +225,8 @@ yet, it is handled in the open, in `pnpm-workspace.yaml`, never by lowering the 
 | GHSA-w5hq-g745-h8pq, GHSA-hp3w-g68c-fv3c (moderate) | uuid (`xcode`, prebuild), sprintf-js (Jest coverage) | build and test tools only                                                                                                                                                                                                                                             |
 
 `pnpm deps:check` prints the ignored advisories and the release-age exemptions on every run. Each
-entry is removed as soon as a fix ships; the Expo SDK upgrades usually bring them.
+entry is removed as soon as a fix ships; the Expo SDK upgrades usually bring them. A release-age
+exemption also fails the check from its expiry date on.
 
 ## Dependency policy
 
@@ -232,7 +237,21 @@ entry is removed as soon as a fix ships; the Expo SDK upgrades usually bring the
 - licenses: an allowlist for everything, a wider one for development-only packages, and named
   exceptions with their reason (for example the Sentry CLI, a build-time tool under the Functional
   Source License);
-- the supply-chain settings above cannot be weakened without failing the check.
+- the supply-chain settings above cannot be weakened without failing the check
+  (`scripts/install-settings.mjs`, which reads `pnpm-workspace.yaml` as YAML and fails on what it
+  cannot read unambiguously, such as anchors or a key set twice):
+
+| Setting                                        | Fails when                                                                                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `minimumReleaseAge`                            | missing or below 10080 minutes (seven days)                                                                                                |
+| `minimumReleaseAgeStrict`                      | `false` (pnpm would fall back to a younger version)                                                                                        |
+| `minimumReleaseAgeExclude`                     | an entry is a name or a pattern, is not recorded in the policy, or has reached its `expires` date (set at most the delay plus a day ahead) |
+| `trustPolicy`, `blockExoticSubdeps`            | not `no-downgrade`, not `true`                                                                                                             |
+| `trustPolicyIgnoreAfter`                       | below 43200 minutes (30 days); left out, every version is compared                                                                         |
+| `trustPolicyExclude`                           | an entry is not recorded in the policy with its reason                                                                                     |
+| `allowBuilds`                                  | an entry is not `false` and not recorded in the policy with its reason                                                                     |
+| `dangerouslyAllowAllBuilds`, `strictDepBuilds` | `true` (every install script would run), `false` (an unreviewed build script would no longer stop the install)                             |
+| an exception in the policy (any of the above)  | its entry is gone from `pnpm-workspace.yaml`, or it has no reason                                                                          |
 
 Changing the policy is a reviewed decision (CODEOWNERS).
 

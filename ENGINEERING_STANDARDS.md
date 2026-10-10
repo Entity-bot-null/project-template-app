@@ -70,15 +70,15 @@ The layers and their import rules are in
 
 ## Supply chain
 
-| Rule                                                                                   | Enforced by                                          |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Dependencies from the registry, locked with integrity hashes                           | frozen installs, `pnpm deps:check`                   |
-| A release must be seven days old; a version with weaker publishing evidence is refused | `minimumReleaseAge`, `trustPolicy`, Dependabot       |
-| No install script runs unless reviewed                                                 | `allowBuilds`                                        |
-| SDK-managed packages at the versions the Expo SDK expects                              | `pnpm expo:doctor`                                   |
-| Allowed licenses; exceptions recorded with a reason                                    | `pnpm deps:check` (`scripts/dependency-policy.json`) |
-| No high or critical advisory                                                           | `pnpm audit`                                         |
-| Actions pinned by SHA, tool images by digest; workflows least-privilege                | zizmor, actionlint                                   |
+| Rule                                                                                   | Enforced by                                                       |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Dependencies from the registry, locked with integrity hashes                           | frozen installs, `pnpm deps:check`                                |
+| A release must be seven days old; a version with weaker publishing evidence is refused | `minimumReleaseAge`, `trustPolicy`, Dependabot, `pnpm deps:check` |
+| No install script runs unless reviewed                                                 | `allowBuilds`, `pnpm deps:check`                                  |
+| SDK-managed packages at the versions the Expo SDK expects                              | `pnpm expo:doctor`                                                |
+| Allowed licenses; exceptions recorded with a reason                                    | `pnpm deps:check` (`scripts/dependency-policy.json`)              |
+| No high or critical advisory                                                           | `pnpm audit`                                                      |
+| Actions pinned by SHA, tool images by digest; workflows least-privilege                | zizmor, actionlint                                                |
 
 ## Performance
 

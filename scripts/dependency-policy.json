@@ -1,11 +1,23 @@
 {
   "description": "Dependency policy enforced by scripts/check-dependencies.mjs (pnpm deps:check, part of pnpm security, pnpm verify and CI). See SECURITY.md#dependency-policy. Changing this file is a reviewed decision (CODEOWNERS).",
   "installSettings": {
-    "description": "What pnpm-workspace.yaml must keep, so weakening the supply-chain settings fails the gate instead of passing unnoticed: the release delay (minutes, at least), the trust policy and the refusal of transitive dependencies from outside the registry.",
+    "description": "What pnpm-workspace.yaml must keep, so weakening the supply-chain settings fails the gate instead of passing unnoticed (scripts/install-settings.mjs): the release delay and the trust policy's window (minutes, at least), the settings with one accepted value, the settings left at pnpm's safe default, and the reviewed exceptions, each with its reason.",
     "minimumReleaseAgeAtLeast": 10080,
+    "trustPolicyIgnoreAfterAtLeast": 43200,
     "required": {
       "trustPolicy": "no-downgrade",
-      "blockExoticSubdeps": "true"
+      "blockExoticSubdeps": true
+    },
+    "unsetOrEqual": {
+      "dangerouslyAllowAllBuilds": false,
+      "strictDepBuilds": true,
+      "minimumReleaseAgeStrict": true
+    },
+    "exceptions": {
+      "description": "Entries of pnpm-workspace.yaml that weaken a setting, each a reviewed decision: allowBuilds entries not set to false and trustPolicyExclude entries, by their exact text, with { reason }; minimumReleaseAgeExclude entries (exact versions only), with { reason, expires }. From the date in expires (YYYY-MM-DD, at most the release delay plus a day ahead) the check fails until the entry is deleted from both files. An exception whose entry is gone fails too.",
+      "allowBuilds": {},
+      "trustPolicyExclude": {},
+      "minimumReleaseAgeExclude": {}
     }
   },
   "licenses": {
