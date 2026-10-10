@@ -177,5 +177,7 @@ createServer((request, response) => {
   }, LATENCY_MS);
 }).listen(PORT, '127.0.0.1', () => {
   console.log(`Mock API on http://127.0.0.1:${PORT} (access tokens live ${ACCESS_TTL_SEC} s).`);
-  console.log('Android: adb reverse tcp:4010 tcp:4010 so the emulator reaches it as localhost.');
+  console.log(
+    `Android: adb reverse tcp:${PORT} tcp:${PORT} so the emulator reaches it as localhost.`,
+  );
 });
