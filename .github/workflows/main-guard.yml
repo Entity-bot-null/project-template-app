@@ -38,6 +38,13 @@ jobs:
             echo "::notice::main was created by this push (the first push of a new repository)."
             exit 0
           fi
+          # A repository created from the template starts with the one commit
+          # GitHub made for it: the project's first push extends that commit
+          # (docs/STEP_BY_STEP.md, phase 5.1), before the ruleset exists.
+          if [ "$(gh api "repos/$REPO/commits/$BEFORE" --jq '.parents | length')" = 0 ]; then
+            echo "::notice::main held only the commit it was created with: this is the project's first push."
+            exit 0
+          fi
 
           # The pushed commits. A forced push can replace main with a history
           # that shares no commit with the previous one: GitHub then cannot
@@ -49,14 +56,18 @@ jobs:
 
           # A squash merge is one commit on main whose pull request records it
           # as its merge commit. GitHub links the two a few seconds after the
-          # merge, hence the retries.
+          # merge, hence the retries: one minute for the whole push, not per
+          # commit, so a long direct push is still reported within the job's
+          # time limit.
           direct=()
+          deadline=$((SECONDS + 60))
           for sha in $shas; do
             found=no
-            for _ in 1 2 3 4 5 6; do
+            while :; do
               count=$(gh api "repos/$REPO/commits/$sha/pulls" |
                 jq --arg sha "$sha" '[.[] | select(.merged_at != null and .merge_commit_sha == $sha)] | length')
               if [ "$count" -gt 0 ]; then found=yes; break; fi
+              [ "$SECONDS" -lt "$deadline" ] || break
               sleep 10
             done
             [ "$found" = yes ] || direct+=("$sha")
