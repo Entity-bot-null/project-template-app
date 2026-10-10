@@ -1,0 +1,22 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.readonlyInclude": {
+    "src/api/schema.d.ts": true
+  },
+  "search.exclude": {
+    "**/dist": true,
+    "**/coverage": true,
+    "android": true,
+    "ios": true,
+    "pnpm-lock.yaml": true
+  }
+}

@@ -1,0 +1,84 @@
+name: EAS rollback
+run-name: Roll back ${{ inputs.channel }} (${{ inputs.target }})
+
+# Takes a bad OTA update out of users' hands (docs/RELEASES.md#rollback). It
+# publishes no new code, so no gates: speed matters here. Like the other
+# release workflows: manual, from main, EXPO_TOKEN only in the protected
+# environments. Users get the rollback at their next launch.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Channel
+        type: choice
+        options: [preview, production]
+        required: true
+      target:
+        description: Back to an earlier update (its group ID) or to the bundle embedded in the builds
+        type: choice
+        options: [earlier-update, embedded]
+        required: true
+      group:
+        description: earlier-update only, the update group ID to publish again (eas update:list)
+        type: string
+        default: ''
+      runtime-version:
+        description: embedded only, the runtime version to roll back (eas update:list)
+        type: string
+        default: ''
+      message:
+        description: Why (shown in the update history)
+        type: string
+        required: true
+
+concurrency:
+  group: eas-update-${{ inputs.channel }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # EAS CLI is not a project dependency (expo-doctor): this exact version runs
+  # here. Raise it by hand; keep it at or above eas.json cli.version.
+  EAS_CLI_VERSION: 24.8.0
+
+jobs:
+  rollback:
+    name: Roll back ${{ inputs.channel }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.channel }}
+    steps:
+      - name: Refuse runs from another branch
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error title=Wrong branch::Run this workflow from main."
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: node scripts/check-eas-project.mjs
+      - name: Roll back
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CHANNEL: ${{ inputs.channel }}
+          TARGET: ${{ inputs.target }}
+          GROUP: ${{ inputs.group }}
+          RUNTIME_VERSION: ${{ inputs.runtime-version }}
+          MESSAGE: ${{ inputs.message }}
+        run: |
+          if [[ "$TARGET" == 'earlier-update' ]]; then
+            if [[ ! "$GROUP" =~ ^[0-9a-f-]{36}$ ]]; then
+              echo "::error title=Invalid input::group must be an update group ID (eas update:list)."
+              exit 1
+            fi
+            pnpm dlx "eas-cli@$EAS_CLI_VERSION" update:republish --group "$GROUP" --destination-channel "$CHANNEL" --message "$MESSAGE" --non-interactive
+          else
+            if [[ ! "$RUNTIME_VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+              echo "::error title=Invalid input::runtime-version is required to roll back to the embedded bundle (eas update:list)."
+              exit 1
+            fi
+            pnpm dlx "eas-cli@$EAS_CLI_VERSION" update:roll-back-to-embedded --channel "$CHANNEL" --runtime-version "$RUNTIME_VERSION" --message "$MESSAGE" --non-interactive
+          fi

@@ -1,0 +1,137 @@
+name: Quality gates
+
+# Reusable: every gate a commit must pass, the same ones `pnpm verify` runs
+# locally (docs/CI_CD.md). Called by CI on every pull request and push to
+# main, and by the EAS build and update workflows for the exact commit they
+# ship. No secrets: nothing here talks to EAS or the stores.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to check out (default the triggering commit).
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  # Tool images hosted on Docker Hub are pulled through this mirror, by digest
+  # (scripts/tool-image.mjs): Docker Hub limits anonymous pulls per address,
+  # and runners share theirs.
+  TOOL_IMAGE_MIRROR: mirror.gcr.io
+
+jobs:
+  static:
+    name: Format, lint, types, workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm format:check
+      - run: pnpm lint
+      # Includes the contract check: src/api/schema.d.ts matches openapi/openapi.json.
+      - run: pnpm typecheck
+      # The repository tooling's own tests: Doberman's engine (scripts/*.test.mjs).
+      - run: pnpm test:scripts
+      # actionlint, zizmor and shellcheck on the Git hooks: the pinned images
+      # of .github/tool-images/Dockerfile (docs/CI_CD.md#workflow-security).
+      # The token, read-only here, enables zizmor's impostor-commit check.
+      - name: Lint GitHub workflows and hooks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/lint-workflows.mjs
+
+  doctor:
+    name: Expo doctor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # Dependency versions against the Expo SDK, duplicate native modules,
+      # config and New Architecture compatibility.
+      - run: pnpm expo:doctor
+
+  sast:
+    name: Static analysis (Semgrep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      # Any finding fails (SECURITY.md#static-analysis). No install needed.
+      - run: node scripts/sast.mjs
+
+  unit:
+    name: Unit, component and integration tests, coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # Fails below the coverage thresholds of jest.config.js.
+      - run: pnpm test:coverage
+      - name: Upload the coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+  security:
+    name: Security (dependencies, licenses, secrets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          # Full history, so the secret scan also sees commits that were reverted.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # Known vulnerabilities (high and critical fail), the dependency policy
+      # (registry sources, licenses) and secrets in the tree.
+      - run: pnpm security
+      - name: Secrets in the git history (gitleaks)
+        run: >-
+          docker run --rm -v "$PWD:/repo"
+          "$(node scripts/tool-image.mjs gitleaks)"
+          git /repo --redact --no-banner
+
+  build:
+    name: Bundle, budget and native projects
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # A production configuration with a placeholder API: what is checked
+      # is that the release bundle builds and fits its budget.
+      APP_VARIANT: production
+      EXPO_PUBLIC_APP_ENV: production
+      EXPO_PUBLIC_API_URL: https://api.example.com
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # Hermes bytecode for both platforms, then bundle-budget.json.
+      - run: pnpm build:check
+      # The config plugins produce both native projects (no compilation:
+      # EAS builds compile; the Android end-to-end workflow too).
+      - name: Generate the native projects
+        run: pnpm exec expo prebuild --no-install --platform all

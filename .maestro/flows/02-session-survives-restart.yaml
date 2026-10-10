@@ -1,0 +1,14 @@
+# The session is restored from secure storage on the next launch: no sign-in.
+appId: ${APP_ID}
+name: Session survives a restart
+env:
+  APP_ID: com.example.templateapp.e2e
+---
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 15000
+- assertNotVisible:
+    id: sign-in-screen

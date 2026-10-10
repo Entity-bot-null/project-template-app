@@ -1,0 +1,328 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Example API",
+    "version": "0.1.0",
+    "description": "The contract the app is generated against. A placeholder: replace it with your backend's OpenAPI document (openapi/README.md), then run `pnpm contract`. Every response uses the envelope { data, message }."
+  },
+  "servers": [{ "url": "http://localhost:4010", "description": "Local mock API (pnpm mock:api)" }],
+  "security": [{ "bearer": [] }],
+  "paths": {
+    "/api/auth/sign-in": {
+      "post": {
+        "operationId": "signIn",
+        "tags": ["auth"],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/SignInRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in: a new session.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/SessionEnvelope" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "operationId": "refreshSession",
+        "tags": ["auth"],
+        "security": [],
+        "description": "Exchanges a refresh token for a new pair. The presented token is rotated: it works once.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/RefreshRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A new token pair.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/TokensEnvelope" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "tags": ["auth"],
+        "security": [],
+        "description": "Ends the session the refresh token belongs to.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/RefreshRequest" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Signed out.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/EmptyEnvelope" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/me": {
+      "get": {
+        "operationId": "getMe",
+        "tags": ["users"],
+        "responses": {
+          "200": {
+            "description": "The signed-in user.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/UserEnvelope" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/items": {
+      "get": {
+        "operationId": "listItems",
+        "tags": ["items"],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 20 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive search in titles.",
+            "schema": { "type": "string", "maxLength": 100 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of items, newest first.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ItemPageEnvelope" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "operationId": "createItem",
+        "tags": ["items"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/CreateItemRequest" } }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The created item.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ItemEnvelope" } }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/items/{id}": {
+      "get": {
+        "operationId": "getItem",
+        "tags": ["items"],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "The item.",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ItemEnvelope" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "responses": {
+      "ValidationError": {
+        "description": "The request is invalid; `errors` names each field.",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, expired or invalid credentials.",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } }
+        }
+      },
+      "NotFound": {
+        "description": "No such record (or not visible to the caller).",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limited; retry after the Retry-After header.",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } }
+        }
+      }
+    },
+    "schemas": {
+      "SignInRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "maxLength": 254 },
+          "password": { "type": "string", "minLength": 1, "maxLength": 256 }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": { "refreshToken": { "type": "string", "minLength": 1 } }
+      },
+      "Tokens": {
+        "type": "object",
+        "required": ["accessToken", "refreshToken", "expiresIn"],
+        "properties": {
+          "accessToken": { "type": "string" },
+          "refreshToken": { "type": "string" },
+          "expiresIn": { "type": "integer", "description": "Seconds until the access token expires." }
+        }
+      },
+      "Session": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Tokens" },
+          {
+            "type": "object",
+            "required": ["user"],
+            "properties": { "user": { "$ref": "#/components/schemas/User" } }
+          }
+        ]
+      },
+      "User": {
+        "type": "object",
+        "required": ["id", "email", "name", "role"],
+        "properties": {
+          "id": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "role": { "type": "string", "enum": ["member", "admin"] }
+        }
+      },
+      "Item": {
+        "type": "object",
+        "required": ["id", "title", "createdAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 2000 },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateItemRequest": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "description": { "type": "string", "maxLength": 2000 }
+        }
+      },
+      "ItemPage": {
+        "type": "object",
+        "required": ["items", "total"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/Item" } },
+          "total": { "type": "integer" }
+        }
+      },
+      "FieldError": {
+        "type": "object",
+        "required": ["path", "message"],
+        "properties": { "path": { "type": "string" }, "message": { "type": "string" } }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["data", "message"],
+        "properties": {
+          "data": { "type": "null" },
+          "message": { "type": "string" },
+          "errors": { "type": "array", "items": { "$ref": "#/components/schemas/FieldError" } }
+        }
+      },
+      "EmptyEnvelope": {
+        "type": "object",
+        "required": ["data", "message"],
+        "properties": { "data": { "type": "null" }, "message": { "type": "string" } }
+      },
+      "SessionEnvelope": {
+        "type": "object",
+        "required": ["data", "message"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Session" },
+          "message": { "type": "string" }
+        }
+      },
+      "TokensEnvelope": {
+        "type": "object",
+        "required": ["data", "message"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Tokens" },
+          "message": { "type": "string" }
+        }
+      },
+      "UserEnvelope": {
+        "type": "object",
+        "required": ["data", "message"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/User" },
+          "message": { "type": "string" }
+        }
+      },
+      "ItemEnvelope": {
+        "type": "object",
+        "required": ["data", "message"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/Item" },
+          "message": { "type": "string" }
+        }
+      },
+      "ItemPageEnvelope": {
+        "type": "object",
+        "required": ["data", "message"],
+        "properties": {
+          "data": { "$ref": "#/components/schemas/ItemPage" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  }
+}

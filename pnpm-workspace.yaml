@@ -1,0 +1,71 @@
+# pnpm settings of this repository (one app, no workspace packages). Isolated
+# installs (pnpm's default) are supported by Expo since SDK 54: every import
+# must be a declared dependency, nothing works by accident through hoisting.
+# (Native Android builds on Windows need a hoisted node_modules on that
+# machine only: docs/TESTING.md#end-to-end.)
+
+# Fail the install on a Node.js version outside package.json "engines".
+engineStrict: true
+
+# Supply chain: a version must be public for seven days before it can be
+# installed, so a hijacked release is usually caught and pulled before it
+# reaches us. Dependabot waits as long (cooldown). For an urgent security fix,
+# exempt that one package with minimumReleaseAgeExclude and remove the entry
+# afterwards (SECURITY.md#dependencies).
+minimumReleaseAge: 10080
+
+# TEMPORARY: one security fix (GHSA-68fv-2mgg-jv7q, see overrides below)
+# published on 2026-09-30, under the urgent-fix exception. Old enough on
+# 2026-10-07 at 14:08 UTC: delete this list from 2026-10-08 on
+# (`pnpm deps:check` reminds you while it is not empty). Exact version only:
+# any other version still waits seven days.
+minimumReleaseAgeExcludePrune: true
+minimumReleaseAgeExclude:
+  - source-map-js@1.2.2
+
+# Supply chain: a new version published with weaker evidence than its earlier
+# ones (for example without the provenance or trusted publisher they had) is
+# refused: the typical sign of a stolen maintainer token. Versions older than
+# 30 days are not compared. Exempt a reviewed package with trustPolicyExclude.
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 43200
+
+# Supply chain: only the dependencies declared in package.json may come from
+# a git repository or a tarball URL; a transitive one doing so fails the
+# install, since it bypasses the registry and its integrity checks.
+blockExoticSubdeps: true
+
+# Supply chain: dependencies may run install scripts only when listed here
+# with true. pnpm stops the install when a new dependency wants to run one,
+# so every addition is a reviewed decision.
+allowBuilds:
+  # Each one ships its native binary as a platform package in
+  # optionalDependencies (locked with integrity); the install script only
+  # checks it or falls back to a download.
+  '@sentry/cli': false
+  unrs-resolver: false
+
+# Security overrides: transitive versions forced past a published advisory
+# until the dependency that pins them ships the fix. Each entry names the
+# advisory; delete it once `pnpm why <package>` shows a fixed version without
+# the override (SECURITY.md#known-advisories).
+overrides:
+  # GHSA-68fv-2mgg-jv7q (high): postcss in Expo's Metro config, build time only.
+  source-map-js: ^1.2.2
+  # GHSA-pqg4-j6r4-53mv (critical): react-devtools-core in React Native,
+  # development tooling only.
+  shell-quote: ^1.11.0
+
+# Advisories `pnpm audit` (pnpm security, CI) skips, each reviewed: no fixed
+# version exists, and the package never reaches the app binary. `pnpm
+# deps:check` lists them on every run; re-check each one when Expo or React
+# Native updates, and delete it as soon as a fix ships
+# (SECURITY.md#known-advisories).
+audit:
+  ignore:
+    # node-forge <=1.4.0 (high), RSA signature verification: @expo/cli's
+    # update code-signing helpers, a development tool.
+    - GHSA-86w9-cpqp-85rv
+    # braces <=3.0.3 (high), denial of service on deeply nested patterns:
+    # Metro's file watcher, fed by the project's own configuration.
+    - GHSA-vfj7-8cjw-p6xm

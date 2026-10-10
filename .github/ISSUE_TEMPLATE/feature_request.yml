@@ -1,0 +1,41 @@
+name: Feature or story
+description: New behavior, written so it can be built and verified.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      placeholder: As a <role>, I want <capability>, so that <benefit>.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Observable, testable conditions. Each one becomes at least one test.
+      placeholder: |
+        - Given ..., when ..., then ...
+        - Given ..., when ..., then ...
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Out of scope
+      description: What this story deliberately does not include.
+  - type: textarea
+    id: states
+    attributes:
+      label: Screens and states
+      description: Designs, and what the user sees while loading, when empty, on error and offline.
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical notes
+      description: API contract changes, new permissions or native modules (they need a new build, not an OTA update), deep links, notifications, feature flag.
+  - type: textarea
+    id: non-functional
+    attributes:
+      label: Non-functional needs
+      description: Performance on low-end devices, offline behavior, personal data involved, accessibility, store policy impact. "None" is a valid answer.

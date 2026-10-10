@@ -1,0 +1,17 @@
+# LF everywhere, whatever the OS or core.autocrlf: Prettier, the hooks and the
+# CI runners all expect it.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.ttf binary
+*.otf binary
+
+# Derived from openapi/openapi.json: collapsed in pull request diffs. The
+# contract itself is NOT marked, its diff is what reviewers must read. Nor is
+# pnpm-lock.yaml: a supply-chain change shows only there.
+src/api/schema.d.ts linguist-generated=true

@@ -1,0 +1,107 @@
+name: EAS update
+run-name: OTA update of ${{ inputs.ref }} to ${{ inputs.channel }} (${{ inputs.rollout }}%)
+
+# Publishes an over-the-air JavaScript update from a commit on main, after
+# every gate passed on that exact commit (docs/RELEASES.md#ota-updates). It
+# reaches only the channel's builds whose native fingerprint (runtime
+# version) matches, so it can never run on a binary without the native code
+# it needs. Manual only, like eas-build.yml: EXPO_TOKEN exists only in the
+# protected GitHub environments. Roll back with eas-rollback.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Channel (and EAS environment)
+        type: choice
+        options: [preview, production]
+        required: true
+      ref:
+        description: What to publish, on main (branch, release tag or commit SHA)
+        type: string
+        required: true
+        default: main
+      message:
+        description: What changed (shown in the update history)
+        type: string
+        required: true
+      rollout:
+        description: Percentage of users who get it now (raise later with eas update:edit)
+        type: choice
+        options: ['100', '50', '25', '10', '5', '1']
+        default: '100'
+
+concurrency:
+  group: eas-update-${{ inputs.channel }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # EAS CLI is not a project dependency (expo-doctor): this exact version runs
+  # here. Raise it by hand; keep it at or above eas.json cli.version.
+  EAS_CLI_VERSION: 24.8.0
+
+jobs:
+  resolve:
+    name: Resolve the commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: resolve
+        uses: ./.github/actions/resolve-main
+        with:
+          ref: ${{ inputs.ref }}
+
+  gates:
+    name: Gates
+    needs: resolve
+    uses: ./.github/workflows/quality-gates.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+
+  publish:
+    name: Publish to ${{ inputs.channel }}
+    needs: [resolve, gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.channel }}
+    env:
+      # The channel's build variant, as eas.json sets it for its builds: the
+      # same app config gives the same runtime version (fingerprint).
+      APP_VARIANT: ${{ inputs.channel }}
+      EXPO_PUBLIC_APP_ENV: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: node scripts/check-eas-project.mjs
+      # The EAS environment of the same name supplies the other public
+      # variables (API URL, Sentry DSN), as it does for builds.
+      - name: Publish the update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CHANNEL: ${{ inputs.channel }}
+          MESSAGE: ${{ inputs.message }}
+          ROLLOUT: ${{ inputs.rollout }}
+        run: |
+          args=(--channel "$CHANNEL" --environment "$CHANNEL" --message "$MESSAGE" --non-interactive)
+          if [[ "$ROLLOUT" != '100' ]]; then args+=(--rollout-percentage "$ROLLOUT"); fi
+          pnpm dlx "eas-cli@$EAS_CLI_VERSION" update "${args[@]}"
+      # Readable stack traces for errors raised by this update's code. Off
+      # until the repository variables SENTRY_ORG and SENTRY_PROJECT are set.
+      - name: Upload source maps to Sentry
+        if: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' }}
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: pnpm exec sentry-expo-upload-sourcemaps dist

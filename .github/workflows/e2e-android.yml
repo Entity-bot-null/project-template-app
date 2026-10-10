@@ -1,0 +1,236 @@
+name: E2E (Android)
+
+# The Maestro flows of .maestro/ on an Android emulator, against a release
+# build of the E2E variant (APP_VARIANT=e2e: its own package, plain HTTP to
+# the local mock API only) and scripts/mock-api.mjs (docs/TESTING.md#end-to-end).
+# Builds on the runner with Gradle: no EAS account, no secrets, nothing is
+# signed for a store. Runs when app code changes; a project can make it a
+# required check once its flows are stable (docs/CI_CD.md#required-check).
+on:
+  pull_request:
+    paths:
+      - src/**
+      - assets/**
+      - .maestro/**
+      - app.config.ts
+      - package.json
+      - pnpm-lock.yaml
+      - scripts/mock-api.mjs
+      - .github/workflows/e2e-android.yml
+  # Same list as above (no YAML anchor: workflow auditors cannot follow them).
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - assets/**
+      - .maestro/**
+      - app.config.ts
+      - package.json
+      - pnpm-lock.yaml
+      - scripts/mock-api.mjs
+      - .github/workflows/e2e-android.yml
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  APP_VARIANT: e2e
+  EXPO_PUBLIC_APP_ENV: development
+  EXPO_PUBLIC_API_URL: http://localhost:4010
+  # Maestro release, with the SHA-256 of maestro.zip from its release page.
+  # Updated by hand (Dependabot does not track it); keep the seven-day rule
+  # of pnpm-workspace.yaml: no release younger than a week.
+  MAESTRO_VERSION: cli-2.10.0
+  MAESTRO_SHA256: 29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991
+
+jobs:
+  e2e:
+    name: Maestro flows on an emulator
+    runs-on: ubuntu-latest
+    # A cold build (no cache yet) takes about 20 minutes, a warm one far less;
+    # the steps below have their own limits, so a hung one fails early.
+    timeout-minutes: 60
+    env:
+      # CMake (3.17 and later) takes its compiler launcher from these: every C
+      # and C++ compile of the native modules goes through ccache.
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
+      CCACHE_MAXSIZE: 1G
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The runner image leaves about 12 GB free, less than the build, its
+      # caches and the emulator's system image need together: a run ran out
+      # ("No space left on device") while installing the emulator. These
+      # toolchains are never used here.
+      - name: Free disk space
+        timeout-minutes: 5
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/share/swift /opt/ghc /usr/local/.ghcup \
+            /usr/local/share/boost /opt/hostedtoolcache/CodeQL
+          df -h /
+      - uses: ./.github/actions/setup
+      # The JDK React Native's Android build supports. Gradle's caches are
+      # setup-gradle's job, below.
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      # Caches Gradle's dependencies, wrapper and build cache. Unlike
+      # setup-java's cache, it saves even when the build fails, so one red run
+      # does not leave every next run downloading everything again. Saved from
+      # main only (pull requests read it), which keeps the cache storage small.
+      # 'basic' is the open-source provider on the GitHub Actions cache; the
+      # default 'enhanced' one is a commercial service with its own terms.
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-provider: basic
+
+      # Gradle's build cache does not cover CMake: the C++ of the native
+      # modules (Expo modules core, Reanimated, Worklets, Screens, the codegen)
+      # is cached by ccache instead, saved from main like Gradle's.
+      - name: Install ccache
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update -qq -o Acquire::Retries=3
+          sudo apt-get install -y -qq --no-install-recommends -o Acquire::Retries=3 ccache
+          echo "CCACHE_DIR=$HOME/.cache/ccache" >> "$GITHUB_ENV"
+      - name: Restore the C and C++ compiler cache
+        id: ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: ccache-android-x86_64-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: ccache-android-x86_64-
+
+      - name: Generate the Android project
+        timeout-minutes: 5
+        run: pnpm exec expo prebuild --no-install --platform android --clean
+      # The NDK React Native builds with (`ndkVersion` of its version catalog,
+      # which Expo's root project plugin reads) is not on the runner image.
+      # Left to Gradle, it is downloaded once while the project configures,
+      # and a corrupt download ("Error on ZipFile unknown archive") fails the
+      # build. sdkmanager installs it first, verified, with retries.
+      - name: Install the Android NDK
+        timeout-minutes: 10
+        run: |
+          ndk=$(sed -nE 's/^ndkVersion *= *"([0-9.]+)".*/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          if [ -z "$ndk" ]; then
+            echo "::error::No ndkVersion in node_modules/react-native/gradle/libs.versions.toml."
+            exit 1
+          fi
+          # The NDK is installed afresh on every run: ccache must recognise its
+          # compilers by version, not by their files' dates.
+          echo "CCACHE_COMPILERCHECK=string:$ndk" >> "$GITHUB_ENV"
+          # The image's other NDKs take gigabytes each and are never used.
+          find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 ! -name "$ndk" -exec rm -rf {} +
+          df -h /
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          for attempt in 1 2 3; do
+            if "$sdkmanager" --install "ndk;$ndk" > "$RUNNER_TEMP/sdkmanager.log" 2>&1 &&
+              grep -qF "Pkg.Revision = $ndk" "$ANDROID_HOME/ndk/$ndk/source.properties"; then
+              echo "NDK $ndk installed (attempt $attempt)."
+              df -h /
+              exit 0
+            fi
+            tail -n 20 "$RUNNER_TEMP/sdkmanager.log"
+            echo "::warning::Installing NDK $ndk failed (attempt $attempt)."
+            # A failed attempt can leave a broken archive or a half-extracted NDK.
+            rm -rf "$ANDROID_HOME/ndk/$ndk" "$ANDROID_HOME/.temp" "$ANDROID_HOME/.downloadIntermediates"
+            sleep $((attempt * 15))
+          done
+          echo "::error::NDK $ndk could not be installed."
+          exit 1
+      # One architecture, the emulator's (x86_64, like the runner): a quarter of
+      # the native code of a store build. No lint vital checks: they analyse
+      # every module (minutes) and the store builds on EAS still run them.
+      # --build-cache reuses the outputs of unchanged modules from setup-gradle's
+      # cache; the memory of Gradle's JVMs comes from app.config.ts.
+      - name: Build the release APK (emulator architecture only)
+        working-directory: android
+        timeout-minutes: 40
+        run: |
+          ccache --zero-stats > /dev/null
+          ./gradlew assembleRelease \
+            -PreactNativeArchitectures=x86_64 \
+            -x lintVitalRelease \
+            --build-cache \
+            --no-daemon \
+            --console=plain \
+            --stacktrace
+          ccache --show-stats
+          df -h /
+      - name: Save the C and C++ compiler cache
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.ccache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ccache
+          key: ccache-android-x86_64-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Install Maestro
+        timeout-minutes: 5
+        run: |
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/maestro.zip" \
+            "https://github.com/mobile-dev-inc/maestro/releases/download/$MAESTRO_VERSION/maestro.zip"
+          echo "$MAESTRO_SHA256  $RUNNER_TEMP/maestro.zip" | sha256sum --check --strict
+          unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Start the mock API
+        timeout-minutes: 2
+        run: |
+          node scripts/mock-api.mjs > "$RUNNER_TEMP/mock-api.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            curl --silent --output /dev/null http://127.0.0.1:4010/ && exit 0
+            sleep 1
+          done
+          echo "::error::The mock API did not start." && cat "$RUNNER_TEMP/mock-api.log" && exit 1
+
+      # Hardware acceleration for the emulator on GitHub's Linux runners.
+      - name: Enable KVM
+        timeout-minutes: 2
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      # Emulator boot, install and every flow.
+      - name: Run the flows
+        timeout-minutes: 25
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          # One command per line: the action runs each with sh. Stylus
+          # handwriting off: its first-use tutorial can cover the keyboard and
+          # swallow typed text on recent Android images.
+          script: |
+            adb reverse tcp:4010 tcp:4010
+            adb shell settings put secure stylus_handwriting_enabled 0
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            maestro test .maestro --format junit --output .maestro/results/report.xml --test-output-dir .maestro/results
+
+      - name: Upload the Maestro results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: maestro-results
+          path: .maestro/results/
+          retention-days: 14
+      - name: Upload the mock API log
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mock-api-log
+          path: ${{ runner.temp }}/mock-api.log
+          retention-days: 14

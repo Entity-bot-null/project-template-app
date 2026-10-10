@@ -1,0 +1,2 @@
+# Conventional Commits (commitlint.config.mjs, CONTRIBUTING.md#commits).
+pnpm exec commitlint --edit "$1"

@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+expo-env.d.ts
+
+# Generated native projects (Continuous Native Generation: `pnpm prebuild`).
+# Native configuration lives in app.config.ts and config plugins.
+/ios
+/android
+.kotlin/
+
+# Signing material and store credentials: never in git (EAS stores them).
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+*service-account*.json
+
+# Metro
+.metro-health-check*
+
+# Tests and reports
+coverage/
+.maestro/results/
+e2e-results/
+
+# Environment: only the examples are committed
+.env
+.env.*
+!.env.example
+*.env
+.envrc
+
+# Logs
+*.log
+npm-debug.*
+
+# OS and editors (the shared VS Code settings are committed)
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# TypeScript
+*.tsbuildinfo
