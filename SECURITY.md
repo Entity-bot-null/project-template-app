@@ -136,12 +136,13 @@ privacy policy. Identifiers are opaque ids, never emails or names.
 ## Logging and reports
 
 Nothing that identifies a user or grants access leaves the device in logs, breadcrumbs, error
-reports or analytics:
+reports, performance traces or analytics:
 
 - `src/lib/observability/redact.ts` replaces values under sensitive keys (`password`, `token`,
   `authorization`, `cookie`, `secret`, `apiKey`, …), masks emails and bearer tokens in text, and
   drops query strings from URLs; Sentry events and breadcrumbs pass through it (`scrubEvent`,
-  `scrubBreadcrumb`).
+  `scrubBreadcrumb`), and so do transactions when tracing is on (`scrubTransaction`: the request
+  spans' URLs lose the query strings, where a search carries what the user typed).
 - Sentry: `sendDefaultPii` off, no screenshots or view hierarchies attached, failed HTTP requests
   not captured with bodies; users identified by opaque id only.
 - Analytics: only after consent; events carry enums, counts and ids, never free text.

@@ -301,8 +301,10 @@ Screens show `ErrorState` with a retry, or field errors in forms.
   it.
 - `redact.ts`: what leaves the device is scrubbed: keys such as `password`, `token`,
   `authorization`, `cookie`, `secret` are replaced, emails and bearer tokens in text are masked, URLs
-  lose their query strings. `sendDefaultPii` is off, screenshots and view hierarchies are not
-  attached, and failed HTTP requests are not captured with their bodies.
+  lose their query strings. Error events, breadcrumbs and, with tracing on
+  (`EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` above 0), transactions and their spans pass through it.
+  `sendDefaultPii` is off, screenshots and view hierarchies are not attached, and failed HTTP
+  requests are not captured with their bodies.
 - `logger.ts`: `logger.info/warn/error`, printed in development and kept as breadcrumbs. There is no
   `console.log` in app code (lint rule).
 
