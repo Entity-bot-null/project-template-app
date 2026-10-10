@@ -175,7 +175,9 @@ Every workflow follows the same rules, checked by `pnpm lint:workflows` (actionl
 in CI):
 
 - `permissions` read-only at the top; a job asks for more only when it writes something (the
-  release job).
+  release jobs).
+- No dependency code runs next to a write token: the release's SBOM is generated in a read-only
+  job and attached by another that installs nothing.
 - `persist-credentials: false` on every checkout: no token left in `.git/config` for later steps.
 - User-controlled values (PR titles, branch names, inputs) reach scripts through `env`, never
   `${{ }}` inside `run:` (script injection).
