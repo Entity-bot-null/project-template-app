@@ -90,7 +90,9 @@ Nothing replaces the required reviewers of the `production` environment: that ne
 a public repository.
 
 `E2E (Android)` is not part of it: emulator runs take longer and depend on the runner. Once the
-project's flows are stable, add `Maestro flows on an emulator` to the ruleset's required checks.
+project's flows are stable it can be: first remove the `paths` filters of `e2e-android.yml` (a
+workflow its filters skip reports nothing, and a required check that never reports blocks the pull
+request for good), then add `Maestro flows on an emulator` to the ruleset's required checks.
 
 ## What protects production
 
