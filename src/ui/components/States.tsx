@@ -42,6 +42,11 @@ export interface EmptyStateProps {
   description?: string;
   icon?: IconName;
   action?: { label: string; onPress: () => void };
+  /**
+   * Announces the description (an AlertText): for an empty state that appears
+   * without navigating, such as a search without results.
+   */
+  announce?: boolean;
 }
 
 export function EmptyState({
@@ -49,8 +54,10 @@ export function EmptyState({
   description,
   icon = 'albums-outline',
   action,
+  announce = false,
 }: EmptyStateProps) {
   const styles = useStyles();
+  const Description = announce ? AlertText : Text;
   return (
     <View style={styles.centered}>
       <Icon name={icon} size="xl" color="textMuted" />
@@ -58,9 +65,9 @@ export function EmptyState({
         {title}
       </Text>
       {description !== undefined && (
-        <Text tone="muted" align="center">
+        <Description tone="muted" align="center">
           {description}
-        </Text>
+        </Description>
       )}
       {action !== undefined && <Button label={action.label} onPress={action.onPress} />}
     </View>

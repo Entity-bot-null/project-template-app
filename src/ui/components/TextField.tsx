@@ -7,7 +7,10 @@ import { Text } from './Text';
 
 export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable'> {
   label: string;
-  /** Shown under the field, announced by screen readers, and turns the border red. */
+  /**
+   * Shown under the field in place of the hint, announced when it appears,
+   * read with the field whenever it is focused, and turns the border red.
+   */
   error?: string | undefined;
   hint?: string;
   disabled?: boolean;
@@ -27,7 +30,12 @@ const useStyles = createStyles((theme) => ({
   },
 }));
 
-/** A labeled text input: the label is visible and is the accessible name. */
+/**
+ * A labeled text input: the label is visible and is the accessible name. The
+ * error, or else the hint, is the input's accessibility hint: React Native
+ * has no "invalid" state (no aria-invalid), so a field the user comes back to
+ * is read with what is wrong with it.
+ */
 export function TextField({
   label,
   error,
@@ -41,16 +49,20 @@ export function TextField({
   const theme = useTheme();
   const styles = useStyles();
   const [focused, setFocused] = useState(false);
+  const description = error ?? hint;
   const borderColor =
-    error !== undefined ? theme.colors.danger : focused ? theme.colors.focus : theme.colors.border;
+    error !== undefined
+      ? theme.colors.danger
+      : focused
+        ? theme.colors.focus
+        : theme.colors.inputBorder;
   return (
     <View style={styles.container}>
       <Text variant="label">{label}</Text>
       <TextInput
         ref={ref}
         accessibilityLabel={label}
-        {...(hint !== undefined && { accessibilityHint: hint })}
-        aria-invalid={error !== undefined}
+        {...(description !== undefined && { accessibilityHint: description })}
         accessibilityState={{ disabled }}
         editable={!disabled}
         placeholderTextColor={theme.colors.textMuted}

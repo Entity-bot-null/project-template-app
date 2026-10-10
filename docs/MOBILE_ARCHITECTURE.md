@@ -404,8 +404,9 @@ references:
 - `theme/tokens.ts`: the palette (placeholders, see [README.md](../README.md#branding)) and semantic
   colors for light and dark (`background`, `surface`, `text`, `textMuted`, `primary`, `onPrimary`,
   `danger`, `border`, …), spacing, radius, sizes (touch target 48), typography (with
-  `maxFontSizeMultiplier`, so the largest accessibility sizes stay usable), elevation. A test checks
-  that every text/background pair meets WCAG AA contrast in both themes.
+  `maxFontSizeMultiplier`, so the largest accessibility sizes stay usable), elevation. The tests
+  measure the contrast of every rendered component and screen against WCAG AA in both themes
+  ([ACCESSIBILITY.md](ACCESSIBILITY.md#automated-checks)).
 - `theme/ThemeProvider.tsx`: resolves the user's choice (system, light, dark), provides the theme,
   sets the status bar, system UI and navigation colors. `createStyles((theme) => StyleSheet)` builds
   themed styles once per theme.

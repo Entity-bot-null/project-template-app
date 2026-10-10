@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, Platform, View } from 'react-native';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { isEnabled } from '@/lib/flags';
 import {
+  AlertText,
   Button,
   Card,
   createStyles,
@@ -22,7 +23,13 @@ import { isOptimistic, type Item, useItems } from './api';
 // (FlatList renders what is on screen, plus a window), next page fetched as
 // the end nears, one request per pause in typing, pull to refresh, and the
 // loading, empty and error states. Switch to FlashList when rows get heavy
-// or lists reach thousands of rows.
+// or lists reach thousands of rows. A search changes the screen without
+// navigating, so its outcome is announced (docs/ACCESSIBILITY.md#announcements).
+
+/** How many items a settled search found, as said to the user. */
+function foundMessage(total: number): string {
+  return total === 1 ? '1 item found' : `${total} items found`;
+}
 
 const useStyles = createStyles((theme) => ({
   root: { flex: 1, backgroundColor: theme.colors.background },
@@ -38,8 +45,14 @@ const useStyles = createStyles((theme) => ({
 export function ItemsScreen() {
   const styles = useStyles();
   const [search, setSearch] = useState('');
-  const query = useItems(useDebouncedValue(search.trim()));
+  const term = useDebouncedValue(search.trim());
+  const query = useItems(term);
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
+  // The results of `term`, not the previous ones kept on screen while it loads.
+  const found =
+    term !== '' && query.isSuccess && !query.isPlaceholderData
+      ? query.data.pages[0]?.total
+      : undefined;
 
   const header = (
     <View style={styles.header}>
@@ -53,6 +66,11 @@ export function ItemsScreen() {
         autoCorrect={false}
         clearButtonMode="while-editing"
       />
+      {found !== undefined && found > 0 && (
+        <AlertText variant="caption" tone="muted">
+          {foundMessage(found)}
+        </AlertText>
+      )}
       {isEnabled('newItemForm') && (
         <Button
           label="New item"
@@ -81,6 +99,7 @@ export function ItemsScreen() {
         title="No results"
         description="Nothing matches your search."
         icon="search-outline"
+        announce
       />
     );
   }
@@ -115,31 +134,39 @@ function NextPageSpinner() {
   return (
     <View
       style={styles.footer}
+      accessible
       accessibilityRole="progressbar"
       accessibilityLabel="Loading more items"
+      accessibilityState={{ busy: true }}
     >
       <ActivityIndicator color={theme.colors.primary} />
     </View>
   );
 }
 
+// One accessible element per row, read whole (title, description, state):
+// the label replaces what its texts would say one by one. The title wraps at
+// any font size; the description is a preview, complete in the label and on
+// the item's screen.
 function ItemRow({ item }: { item: Item }) {
   const pending = isOptimistic(item);
+  const label = [item.title, item.description, pending && 'saving']
+    .filter((part) => typeof part === 'string' && part !== '')
+    .join(', ');
   return (
     <Card
       testID={`item-${item.id}`}
-      accessibilityLabel={pending ? `${item.title}, saving` : item.title}
+      accessible
+      accessibilityLabel={label}
       {...(!pending && {
         onPress: () => {
           router.push({ pathname: '/items/[id]', params: { id: item.id } });
         },
       })}
     >
-      <Text variant="heading" numberOfLines={1}>
-        {item.title}
-      </Text>
+      <Text variant="heading">{item.title}</Text>
       {item.description !== undefined && (
-        <Text tone="muted" numberOfLines={2}>
+        <Text tone="muted" numberOfLines={3}>
           {item.description}
         </Text>
       )}
