@@ -67,16 +67,20 @@ src/
 Imports go one way: `app → features → (api, auth, lib, store, ui, hooks) → config`. ESLint enforces
 the rules that matter (`eslint.config.mjs`); a violation fails `pnpm lint`:
 
-| Rule                                                                                        | Why                                                                            |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `src/app/**` may not import `@/api/*` or `@/lib/storage*`                                   | routes compose screens; data access belongs to the feature                     |
-| `fetch` only in `src/api/`                                                                  | every request gets the timeout, request id, token and error handling           |
-| `openapi-fetch` only in `src/api/`                                                          | one configured client                                                          |
-| `@sentry/react-native` only in `src/lib/observability/sentry.ts`                            | the provider can be replaced; the scrubbing cannot be bypassed                 |
-| `expo-secure-store` and `expo-sqlite/kv-store` only in `src/lib/storage/`                   | storage is chosen by what the data is, in one place                            |
-| React Native's `Text`, `TextInput`, `Button`, `Image`, `TouchableOpacity` only in `src/ui/` | accessibility, font scaling and theming come from the design system components |
-| Color literals only in `src/ui/theme/`                                                      | dark mode and contrast are guaranteed by the tokens                            |
-| `process.env` only in `src/config/env.ts`                                                   | configuration is validated once                                                |
+| Rule                                                                                                    | Why                                                                            |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `src/app/**` may not import `@/api/*` or `@/lib/storage*`                                               | routes compose screens; data access belongs to the feature                     |
+| `fetch` only in `src/api/`                                                                              | every request gets the timeout, request id, token and error handling           |
+| `openapi-fetch` only in `src/api/`                                                                      | one configured client                                                          |
+| `@sentry/react-native` only in `src/lib/observability/sentry.ts`                                        | the provider can be replaced; the scrubbing cannot be bypassed                 |
+| `expo-secure-store` and `expo-sqlite/kv-store` only in `src/lib/storage/`                               | storage is chosen by what the data is, in one place                            |
+| React Native's `Text`, `TextInput`, `Button`, `Image` and `Touchable*` only in `src/ui/`                | accessibility, font scaling and theming come from the design system components |
+| Color literals (hex, `rgb()`, `hsl()`, `hwb()`, named colors such as `'white'`) only in `src/ui/theme/` | dark mode and contrast are guaranteed by the tokens                            |
+| `process.env` only in `src/config/env.ts`                                                               | configuration is validated once                                                |
+
+Each layer named in the table lifts only the import it owns; every other rule still applies to it.
+`Pressable` is not restricted: a feature may build a control the design system lacks from it, with
+the role and name every control needs (`src/a11y.spec.tsx`).
 
 A feature never imports another feature's internals. What two features share moves down a layer
 (`ui/`, `lib/`, `hooks/`).
