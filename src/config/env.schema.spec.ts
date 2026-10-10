@@ -60,4 +60,27 @@ describe('parsePublicEnv', () => {
       parsePublicEnv({ EXPO_PUBLIC_APP_ENV: 'prod', EXPO_PUBLIC_API_URL: 'nope' }),
     ).toThrow(/EXPO_PUBLIC_APP_ENV[\s\S]*EXPO_PUBLIC_API_URL/);
   });
+
+  it('takes flag overrides in development and staging builds only', () => {
+    for (const environment of ['development', 'staging']) {
+      expect(
+        parsePublicEnv({
+          ...base,
+          EXPO_PUBLIC_APP_ENV: environment,
+          EXPO_PUBLIC_FLAGS: 'newItemForm=false',
+        }).EXPO_PUBLIC_FLAGS,
+      ).toBe('newItemForm=false');
+    }
+    expect(() =>
+      parsePublicEnv({
+        ...base,
+        EXPO_PUBLIC_APP_ENV: 'production',
+        EXPO_PUBLIC_FLAGS: 'newItemForm=false',
+      }),
+    ).toThrow(/EXPO_PUBLIC_FLAGS: development and staging builds only/);
+    // An empty value is unset (EAS and .env files), so production accepts it.
+    expect(() =>
+      parsePublicEnv({ ...base, EXPO_PUBLIC_APP_ENV: 'production', EXPO_PUBLIC_FLAGS: '' }),
+    ).not.toThrow();
+  });
 });
