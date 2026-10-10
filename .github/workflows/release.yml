@@ -1,0 +1,68 @@
+name: Release
+
+# Release management (docs/RELEASES.md#versioning). release-please reads the
+# Conventional Commits that reach main (the squashed pull request titles) and
+# keeps one release pull request open: the next semantic version in
+# package.json (the app's user-visible version, read by app.config.ts) and
+# the CHANGELOG.md entry. Merging it, after review and CI like any pull
+# request, tags vX.Y.Z (immutable, .github/rulesets/tags.json), publishes the
+# GitHub release with those notes and attaches the SBOM. Building and
+# submitting that version is a separate, manual step (eas-build.yml with the
+# tag): nothing here touches EAS or the stores.
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release pull request and tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # the release branch, tags and releases
+      pull-requests: write # the release pull request
+      issues: write # its labels
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          # Pull requests opened with the default GITHUB_TOKEN start no
+          # workflows, so CI would never report on the release pull request.
+          # REQUIERE CONFIGURACIÓN: a GitHub App token or a fine-grained token
+          # (contents, pull requests and issues: write) in this secret. Without
+          # it, close and reopen the release pull request to start CI.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  sbom:
+    name: Attach the SBOM
+    needs: release-please
+    if: ${{ needs.release-please.outputs.created == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # upload the release asset
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # CycloneDX, the production dependencies (what the app ships), from the
+      # locked versions (SECURITY.md#dependencies).
+      - run: pnpm sbom:generate
+      - name: Upload it to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.release-please.outputs.tag }}
+        run: gh release upload "$TAG" dist/sbom/sbom.cdx.json --clobber --repo "$GITHUB_REPOSITORY"

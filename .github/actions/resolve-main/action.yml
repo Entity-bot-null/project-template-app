@@ -1,0 +1,48 @@
+name: Resolve a commit on main
+description: >-
+  Refuses runs of a release workflow started from any branch but main, then
+  resolves the requested ref (branch, release tag or commit SHA) to a commit
+  that is on main: only reviewed, merged code is built or published. Needs a
+  checkout with the full history (fetch-depth 0).
+
+inputs:
+  ref:
+    description: The ref to resolve.
+    required: true
+outputs:
+  sha:
+    description: The commit.
+    value: ${{ steps.resolve.outputs.sha }}
+
+runs:
+  using: composite
+  steps:
+    # The checks live in the repository: a copy edited on another branch
+    # could drop them, which is why the GitHub environments must also allow
+    # main only (docs/CI_CD.md#environments).
+    - name: Refuse runs from another branch
+      if: ${{ github.ref != 'refs/heads/main' }}
+      shell: bash
+      run: |
+        echo "::error title=Wrong branch::Run this workflow from main; it ships any commit on main."
+        exit 1
+    - name: Resolve the ref to a commit on main
+      id: resolve
+      shell: bash
+      env:
+        REF: ${{ inputs.ref }}
+      run: |
+        if [[ ! "$REF" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]*$ ]]; then
+          echo "::error title=Invalid ref::Not a branch, tag or commit name: $REF"
+          exit 1
+        fi
+        sha=$(git rev-parse --verify --quiet "$REF^{commit}" || git rev-parse --verify --quiet "origin/$REF^{commit}") || {
+          echo "::error title=Unknown ref::$REF does not exist."
+          exit 1
+        }
+        if ! git merge-base --is-ancestor "$sha" origin/main; then
+          echo "::error title=Not on main::$REF ($sha) is not on main."
+          exit 1
+        fi
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+        echo "Shipping $REF = $sha" >> "$GITHUB_STEP_SUMMARY"

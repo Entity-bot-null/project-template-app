@@ -1,0 +1,28 @@
+# Sign-out ends the session on this device, and it stays ended after a restart.
+appId: ${APP_ID}
+name: Sign out
+env:
+  APP_ID: com.example.templateapp.e2e
+---
+- tapOn: Settings
+- assertVisible:
+    id: settings-screen
+- assertVisible: member@example.com
+- scrollUntilVisible:
+    element:
+      id: settings-sign-out
+- tapOn:
+    id: settings-sign-out
+# The confirmation dialog (Android capitalizes its buttons on some themes).
+- tapOn: (?i)sign out
+- extendedWaitUntil:
+    visible:
+      id: sign-in-screen
+    timeout: 10000
+
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: sign-in-screen
+    timeout: 15000

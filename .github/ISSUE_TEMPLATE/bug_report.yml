@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in the app does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security vulnerabilities must NOT be reported here: follow SECURITY.md.
+        Never paste passwords, tokens, push tokens or personal data, and crop
+        them out of screenshots and recordings.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The behavior you saw, with exact error messages. Screenshots or a screen recording help.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as a member
+        2. Open ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version and build
+      description: Settings → About shows the version, build and update (for example 1.4.0 (52), update 3f2a…).
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and operating system
+      placeholder: Pixel 8, Android 16 / iPhone 15, iOS 26.1
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Build
+      options:
+        - Production (store)
+        - Preview (internal distribution)
+        - Development build
+    validations:
+      required: true
+  - type: input
+    id: request-id
+    attributes:
+      label: Request id or Sentry event
+      description: The X-Request-Id of a failing API call or the Sentry event link, if any.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - Blocker (crash or no workaround, many users affected)
+        - Major (important feature broken, workaround exists)
+        - Minor (cosmetic or rare)
+    validations:
+      required: true

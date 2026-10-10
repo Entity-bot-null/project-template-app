@@ -1,0 +1,101 @@
+name: EAS build
+run-name: EAS ${{ inputs.profile }} build of ${{ inputs.ref }} (${{ inputs.platform }})
+
+# Builds the app on EAS from a commit on main, after every gate passed on that
+# exact commit (docs/CI_CD.md#eas-builds). Manual only: no pull request, push
+# or tag starts it, and the EXPO_TOKEN it needs exists only as a secret of the
+# protected GitHub environments "preview" and "production" (main only;
+# production with required reviewers). A production build can be submitted
+# to the stores' internal testing (Play internal track as a draft,
+# TestFlight); releasing it to the public stays a human decision in Play
+# Console and App Store Connect (docs/RELEASES.md#store-release).
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Build profile (eas.json)
+        type: choice
+        options: [preview, production]
+        required: true
+      platform:
+        description: Platform
+        type: choice
+        options: [all, android, ios]
+        default: all
+      ref:
+        description: What to build, on main (branch, release tag or commit SHA)
+        type: string
+        required: true
+        default: main
+      submit:
+        description: Production only, submit to internal testing (Play internal track draft, TestFlight)
+        type: boolean
+        default: false
+
+concurrency:
+  group: eas-build-${{ inputs.profile }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # EAS CLI is not a project dependency (expo-doctor): this exact version runs
+  # here. Raise it by hand; keep it at or above eas.json cli.version.
+  EAS_CLI_VERSION: 24.8.0
+
+jobs:
+  resolve:
+    name: Resolve the commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Only production builds are submitted
+        if: ${{ inputs.submit && inputs.profile != 'production' }}
+        run: |
+          echo "::error title=Invalid input::Submission is for production builds only."
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: resolve
+        uses: ./.github/actions/resolve-main
+        with:
+          ref: ${{ inputs.ref }}
+
+  gates:
+    name: Gates
+    needs: resolve
+    uses: ./.github/workflows/quality-gates.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+
+  build:
+    name: Build on EAS
+    needs: [resolve, gates]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.profile }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: node scripts/check-eas-project.mjs
+      # Queues the build and returns: it runs on EAS (logs, artifacts and the
+      # submission on expo.dev). Signing credentials are the ones stored on
+      # EAS (eas credentials); none exist in this repository.
+      - name: Start the build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          PROFILE: ${{ inputs.profile }}
+          PLATFORM: ${{ inputs.platform }}
+          SUBMIT: ${{ inputs.submit }}
+        run: |
+          args=(--profile "$PROFILE" --platform "$PLATFORM" --non-interactive --no-wait)
+          if [[ "$SUBMIT" == 'true' ]]; then args+=(--auto-submit); fi
+          pnpm dlx "eas-cli@$EAS_CLI_VERSION" build "${args[@]}"

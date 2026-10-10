@@ -1,0 +1,47 @@
+# The critical flow of the example feature: list, search, detail, create.
+appId: ${APP_ID}
+name: Items
+env:
+  APP_ID: com.example.templateapp.e2e
+---
+- assertVisible:
+    id: items-list
+- assertVisible: Item 45
+
+- tapOn:
+    id: items-search
+- inputText: Item 7
+- hideKeyboard
+- extendedWaitUntil:
+    notVisible: Item 45
+    timeout: 5000
+- tapOn:
+    id: item-item-7
+- assertVisible:
+    id: item-detail-screen
+- assertVisible: Example item number 7.
+- back
+- tapOn:
+    id: items-search
+- eraseText
+- hideKeyboard
+
+- tapOn:
+    id: items-new
+- assertVisible:
+    id: new-item-screen
+- tapOn:
+    id: new-item-submit
+- assertVisible:
+    id: new-item-screen
+- tapOn:
+    id: new-item-title
+- inputText: Created by Maestro
+- hideKeyboard
+- tapOn:
+    id: new-item-submit
+- extendedWaitUntil:
+    visible: Created by Maestro
+    timeout: 10000
+- assertNotVisible:
+    id: new-item-screen

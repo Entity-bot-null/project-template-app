@@ -1,0 +1,121 @@
+{
+  "description": "Dependency policy enforced by scripts/check-dependencies.mjs (pnpm deps:check, part of pnpm security, pnpm verify and CI). See SECURITY.md#dependency-policy. Changing this file is a reviewed decision (CODEOWNERS).",
+  "installSettings": {
+    "description": "What pnpm-workspace.yaml must keep, so weakening the supply-chain settings fails the gate instead of passing unnoticed: the release delay (minutes, at least), the trust policy and the refusal of transitive dependencies from outside the registry.",
+    "minimumReleaseAgeAtLeast": 10080,
+    "required": {
+      "trustPolicy": "no-downgrade",
+      "blockExoticSubdeps": "true"
+    }
+  },
+  "licenses": {
+    "allowed": [
+      "MIT",
+      "MIT-0",
+      "ISC",
+      "0BSD",
+      "BSD-2-Clause",
+      "BSD-3-Clause",
+      "Apache-2.0",
+      "BlueOak-1.0.0",
+      "CC0-1.0",
+      "Unlicense",
+      "Python-2.0"
+    ],
+    "allowedInDevelopment": ["MPL-2.0", "Artistic-2.0", "CC-BY-3.0", "CC-BY-4.0", "WTFPL"],
+    "exceptions": {
+      "@sentry/cli": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-darwin": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-linux-arm": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-linux-arm64": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-linux-i686": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-linux-x64": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-win32-arm64": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-win32-i686": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "@sentry/cli-win32-x64": {
+        "license": "FSL-1.1-MIT",
+        "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
+      },
+      "lightningcss": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-android-arm64": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-darwin-arm64": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-darwin-x64": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-freebsd-x64": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-linux-arm-gnueabihf": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-linux-arm64-gnu": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-linux-arm64-musl": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-linux-x64-gnu": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-linux-x64-musl": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-win32-arm64-msvc": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "lightningcss-win32-x64-msvc": {
+        "license": "MPL-2.0",
+        "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
+      },
+      "caniuse-lite": {
+        "license": "CC-BY-4.0",
+        "reason": "Browser support data read by Babel (browserslist) at build time; attribution license for data. Not part of the app binary."
+      }
+    }
+  },
+  "sources": {
+    "description": "Every package must come from the registry with a sha512 integrity hash. List here, with a reason, a package that must come from a git repository or a tarball URL.",
+    "exceptions": {}
+  }
+}

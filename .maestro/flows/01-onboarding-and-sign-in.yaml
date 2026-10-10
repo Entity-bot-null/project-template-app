@@ -1,0 +1,54 @@
+# First launch on a clean install: onboarding, then sign-in with validation
+# and a wrong password before the right one.
+appId: ${APP_ID}
+name: Onboarding and sign-in
+env:
+  APP_ID: com.example.templateapp.e2e
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- assertVisible:
+    id: onboarding-screen
+- assertVisible: Welcome
+- tapOn:
+    id: onboarding-continue
+
+- assertVisible:
+    id: sign-in-screen
+# Validation runs on the device, before anything is sent.
+- tapOn:
+    id: sign-in-submit
+- assertVisible: Enter your email address
+- assertVisible: Enter your password
+- tapOn:
+    id: sign-in-email
+- inputText: not-an-email
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+- assertVisible: Enter a valid email address
+
+- tapOn:
+    id: sign-in-email
+- eraseText
+- inputText: member@example.com
+- tapOn:
+    id: sign-in-password
+- inputText: wrong-password
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+- assertVisible: Wrong email or password.
+
+- tapOn:
+    id: sign-in-password
+- eraseText
+- inputText: member-password
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 15000
