@@ -1,7 +1,8 @@
 import * as Sentry from '@sentry/react-native';
+import type { TransactionEvent } from '@sentry/react-native';
 
 import { REDACTED, REDACTED_EMAIL } from './redact';
-import { scrubBreadcrumb, scrubEvent, startSentry } from './sentry';
+import { scrubBreadcrumb, scrubEvent, scrubTransaction, startSentry } from './sentry';
 
 const sdk = jest.mocked(Sentry);
 const DSN = 'https://key@o1.ingest.example.com/1';
@@ -18,6 +19,7 @@ describe('startSentry', () => {
         attachViewHierarchy: false,
         enableCaptureFailedRequests: false,
         beforeSend: scrubEvent,
+        beforeSendTransaction: scrubTransaction,
         beforeBreadcrumb: scrubBreadcrumb,
       }),
     );
@@ -89,6 +91,106 @@ describe('scrubEvent', () => {
   it('drops a user without an id', () => {
     const event = scrubEvent({ type: undefined, user: { email: 'a@example.com' } });
     expect(event.user).toEqual({});
+  });
+});
+
+describe('transactions (performance tracing on)', () => {
+  const TRACE = { trace_id: 'a'.repeat(32), span_id: 'b'.repeat(16) };
+  const SEARCH = 'https://api.example.com/api/items?limit=20&offset=0&q=groceries';
+
+  /** A span of a request, as the SDK records it (see the first test below). */
+  function requestSpan(type: 'fetch' | 'xhr') {
+    return {
+      ...TRACE,
+      span_id: type === 'fetch' ? 'c'.repeat(16) : 'd'.repeat(16),
+      parent_span_id: TRACE.span_id,
+      start_timestamp: 1,
+      timestamp: 2,
+      op: 'http.client',
+      origin: 'auto.http.browser' as const,
+      description: 'GET https://api.example.com/api/items',
+      data: {
+        url: SEARCH,
+        type,
+        'http.method': 'GET',
+        'http.url': SEARCH,
+        'server.address': 'api.example.com',
+        'http.query': '?limit=20&offset=0&q=groceries',
+        'sentry.op': 'http.client',
+        'sentry.origin': 'auto.http.browser',
+      },
+    };
+  }
+
+  /** What the SDK sends for a transaction: what the hook given to Sentry.init returns. */
+  async function sent(event: TransactionEvent): Promise<TransactionEvent | null> {
+    const hook = sdk.init.mock.lastCall?.[0].beforeSendTransaction;
+    return hook ? await hook(event, {}) : event;
+  }
+
+  it('keeps what the user searched for out of the request spans', async () => {
+    // With tracing on, the SDK (10.x) strips the query from a request span's
+    // name only: its data keeps the full URL (`url`, `http.url`) and the
+    // query apart (`http.query`), for fetch (@sentry/core, fetch.js
+    // getFetchSpanAttributes) and XHR (@sentry/browser, tracing/request.js).
+    // beforeSend never sees transactions.
+    startSentry({ dsn: DSN, environment: 'production', tracesSampleRate: 0.2 });
+    const event = await sent({
+      type: 'transaction',
+      transaction: 'ItemsScreen',
+      contexts: { trace: { ...TRACE, op: 'ui.action' } },
+      spans: [requestSpan('fetch'), requestSpan('xhr')],
+    });
+
+    expect(JSON.stringify(event)).not.toContain('groceries');
+    expect(event?.spans?.map((span) => span.data)).toEqual(
+      (['fetch', 'xhr'] as const).map((type) => ({
+        url: 'https://api.example.com/api/items',
+        type,
+        'http.method': 'GET',
+        'http.url': 'https://api.example.com/api/items',
+        'server.address': 'api.example.com',
+        'sentry.op': 'http.client',
+        'sentry.origin': 'auto.http.browser',
+      })),
+    );
+    expect(event?.spans?.[0]?.description).toBe('GET https://api.example.com/api/items');
+  });
+
+  it('scrubs the rest of a transaction as it scrubs an error report', async () => {
+    startSentry({ dsn: DSN, environment: 'production', tracesSampleRate: 1 });
+    const event = await sent({
+      type: 'transaction',
+      transaction: 'GET /api/items?q=groceries',
+      request: {
+        url: 'https://api.example.com/api/items?q=groceries',
+        headers: { Authorization: 'Bearer abc' },
+      },
+      user: { id: 'user-1', email: 'a@example.com' },
+      extra: { refreshToken: 'refresh-secret-1' },
+      contexts: {
+        trace: { ...TRACE, data: { url: '/api/items?q=groceries', 'http.fragment': '#top' } },
+      },
+      spans: [
+        {
+          ...requestSpan('fetch'),
+          description: 'search https://api.example.com/api/items?q=groceries for a@example.com',
+          data: {},
+        },
+      ],
+      breadcrumbs: [{ category: 'console', message: 'debug password=hunter2' }],
+    });
+
+    expect(event?.transaction).toBe('GET /api/items');
+    expect(event?.request).toEqual({ url: 'https://api.example.com/api/items' });
+    expect(event?.user).toEqual({ id: 'user-1' });
+    expect(event?.extra).toEqual({ refreshToken: REDACTED });
+    expect(event?.contexts?.trace?.data).toEqual({ url: '/api/items' });
+    expect(event?.spans?.[0]?.description).toBe(
+      `search https://api.example.com/api/items for ${REDACTED_EMAIL}`,
+    );
+    expect(event?.breadcrumbs).toEqual([]);
+    expect(JSON.stringify(event)).not.toMatch(/groceries|refresh-secret-1|a@example\.com|hunter2/);
   });
 });
 

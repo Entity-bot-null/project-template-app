@@ -200,6 +200,14 @@ in CI):
 | ccache (E2E build)                                  | Ubuntu's package (`apt-get`, signed archive)           | the runner image's Ubuntu release                     |
 | Gradle's JVM memory (Android builds)                | `GRADLE_JVM_PROPERTIES` in `app.config.ts`             | by hand, when a build runs out of memory              |
 
+**EAS CLI's dependencies.** The EAS workflows run `pnpm dlx "eas-cli@$EAS_CLI_VERSION"` from the
+repository's root. The CLI's version is exact; its dependencies have no lockfile and resolve on
+each run. The release delay and the trust policy of `pnpm-workspace.yaml` still apply to them:
+since pnpm 11, `pnpm dlx` honors the project's `minimumReleaseAge*` and `trustPolicy*` settings
+([pnpm dlx](https://pnpm.io/cli/dlx)). A dependency version younger than seven days, or published
+with weaker evidence than the versions before it, is refused, and the dependencies' install
+scripts do not run (pnpm lists them as ignored).
+
 **Registries.** Docker Hub limits anonymous pulls per address, and CI runners share theirs, so a
 busy day of pull requests fails jobs with `toomanyrequests`. Where an image is published elsewhere
 with the same digest, the pin points there (GHCR, or Docker's mirror of its official images on
