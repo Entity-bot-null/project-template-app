@@ -5,20 +5,20 @@ checked in review. The reasons and details live in [docs/](docs/).
 
 ## Language and code
 
-| Rule                                                                                                                                                           | Enforced by                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| TypeScript everywhere, `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noUnusedLocals`/`Parameters`, no JavaScript in `src/` | `tsconfig.json`, `pnpm typecheck`          |
-| No `any`, no unsafe member access or calls, no floating promises, no unnecessary conditions or assertions                                                      | ESLint `strictTypeChecked`                 |
-| Type assertions (`as`) only where TypeScript cannot know (a narrowed native value), with a comment                                                             | review                                     |
-| Type-only imports marked (`import { type X }`)                                                                                                                 | ESLint `consistent-type-imports`           |
-| `===` only                                                                                                                                                     | ESLint `eqeqeq`                            |
-| No `// eslint-disable` without a reason; unused disables are errors                                                                                            | ESLint `reportUnusedDisableDirectives`     |
-| One formatting style (Prettier: single quotes, 100 columns)                                                                                                    | `pnpm format:check`, pre-commit            |
-| No `console.log` (use `logger`; `console.warn`/`console.error` only where the logger cannot be used)                                                           | ESLint `no-console`                        |
-| The Rules of React and of hooks, so the React Compiler can optimize                                                                                            | ESLint (`eslint-config-expo`, React hooks) |
-| Code, comments, commits and docs in English (the exceptions: `docs/MANUAL.es.md` and `docs/STEP_BY_STEP.es.md`, the Spanish manual and guide)                  | review                                     |
-| Comments explain why, not what                                                                                                                                 | review                                     |
-| Names say what things are: `useItems`, `ItemsScreen`, `itemKeys`, `toInternalPath`; files named after their main export                                        | review                                     |
+| Rule                                                                                                                                                           | Enforced by                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| TypeScript everywhere, `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noUnusedLocals`/`Parameters`, no JavaScript in `src/` | `tsconfig.json`, `pnpm typecheck`                                                                         |
+| No `any`, no unsafe member access or calls, no floating promises, no unnecessary conditions or assertions                                                      | ESLint `strictTypeChecked`                                                                                |
+| Type assertions (`as`) only where TypeScript cannot know (a narrowed native value), with a comment                                                             | review                                                                                                    |
+| Type-only imports marked (`import { type X }`)                                                                                                                 | ESLint `consistent-type-imports`                                                                          |
+| `===` only                                                                                                                                                     | ESLint `eqeqeq`                                                                                           |
+| No `// eslint-disable` without the rules it disables and its reason (`-- why`, same line); unused disables are errors                                          | ESLint `eslint-comments` (`require-description`, `no-unlimited-disable`), `reportUnusedDisableDirectives` |
+| One formatting style (Prettier: single quotes, 100 columns)                                                                                                    | `pnpm format:check`, pre-commit                                                                           |
+| No `console.log` (use `logger`; `console.warn`/`console.error` only where the logger cannot be used)                                                           | ESLint `no-console`                                                                                       |
+| The Rules of React and of hooks, so the React Compiler can optimize                                                                                            | ESLint (`eslint-config-expo`, React hooks)                                                                |
+| Code, comments, commits and docs in English (the exceptions: `docs/MANUAL.es.md` and `docs/STEP_BY_STEP.es.md`, the Spanish manual and guide)                  | review                                                                                                    |
+| Comments explain why, not what                                                                                                                                 | review                                                                                                    |
+| Names say what things are: `useItems`, `ItemsScreen`, `itemKeys`, `toInternalPath`; files named after their main export                                        | review                                                                                                    |
 
 ## Architecture
 
@@ -31,7 +31,7 @@ The layers and their import rules are in
 | `fetch` and `openapi-fetch` only in `src/api`                                                           | ESLint                            |
 | Storage modules only through `src/lib/storage`                                                          | ESLint                            |
 | Sentry only through `src/lib/observability`                                                             | ESLint                            |
-| Text, inputs, buttons, images only from `src/ui`; colors only from the theme                            | ESLint                            |
+| Text, inputs, buttons, touchables, images only from `src/ui`; colors only from the theme                | ESLint                            |
 | `process.env` only in `src/config/env.ts`                                                               | ESLint `no-restricted-properties` |
 | Server data in TanStack Query, client state in Zustand, never copied between them                       | review                            |
 | A feature does not import another feature's internals                                                   | review                            |
@@ -70,15 +70,15 @@ The layers and their import rules are in
 
 ## Supply chain
 
-| Rule                                                                                   | Enforced by                                          |
-| -------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Dependencies from the registry, locked with integrity hashes                           | frozen installs, `pnpm deps:check`                   |
-| A release must be seven days old; a version with weaker publishing evidence is refused | `minimumReleaseAge`, `trustPolicy`, Dependabot       |
-| No install script runs unless reviewed                                                 | `allowBuilds`                                        |
-| SDK-managed packages at the versions the Expo SDK expects                              | `pnpm expo:doctor`                                   |
-| Allowed licenses; exceptions recorded with a reason                                    | `pnpm deps:check` (`scripts/dependency-policy.json`) |
-| No high or critical advisory                                                           | `pnpm audit`                                         |
-| Actions pinned by SHA, tool images by digest; workflows least-privilege                | zizmor, actionlint                                   |
+| Rule                                                                                   | Enforced by                                                       |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Dependencies from the registry, locked with integrity hashes                           | frozen installs, `pnpm deps:check`                                |
+| A release must be seven days old; a version with weaker publishing evidence is refused | `minimumReleaseAge`, `trustPolicy`, Dependabot, `pnpm deps:check` |
+| No install script runs unless reviewed                                                 | `allowBuilds`, `pnpm deps:check`                                  |
+| SDK-managed packages at the versions the Expo SDK expects                              | `pnpm expo:doctor`                                                |
+| Allowed licenses; exceptions recorded with a reason                                    | `pnpm deps:check` (`scripts/dependency-policy.json`)              |
+| No high or critical advisory                                                           | `pnpm audit`                                                      |
+| Actions pinned by SHA, tool images by digest; workflows least-privilege                | zizmor, actionlint                                                |
 
 ## Performance
 

@@ -17,18 +17,18 @@ releasable, and both stores' review and several markets' laws expect it.
 Use the components of `src/ui` (ESLint keeps React Native's raw `Text`, `TextInput`, `Button`,
 `Image` and touchables out of features) and most of this comes for free:
 
-| Component                                  | What it guarantees                                                                                                                                                                              | Tested in             |
-| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| `Text`                                     | display, title and heading variants are **headers** for screen readers; font size follows the user's setting, capped per variant (`maxFontSizeMultiplier`) so layouts survive the largest sizes | `components.spec.tsx` |
-| `Button`                                   | role **button**, the label as its name, **busy** and **disabled** states announced, a **48 dp** minimum touch target in every variant                                                           | `components.spec.tsx` |
-| `TextField`                                | the visible label is the input's name; a hint; `aria-invalid` with an error that is announced (`AlertText`)                                                                                     | `components.spec.tsx` |
-| `AlertText`                                | a message that appears on screen is **announced**: Android live region, iOS announcement                                                                                                        | `components.spec.tsx` |
-| `Icon`                                     | decorative (hidden from screen readers) unless given a label                                                                                                                                    | `components.spec.tsx` |
-| `Image`                                    | needs `accessibilityLabel` or `decorative`: forgetting both does not compile                                                                                                                    | `components.spec.tsx` |
-| `LoadingState`, `EmptyState`, `ErrorState` | loading is a **progress bar** with a name and busy state; errors are announced, with a retry button                                                                                             | `components.spec.tsx` |
-| `OfflineBanner`                            | announced when the connection drops                                                                                                                                                             | `components.spec.tsx` |
-| `PermissionPrompt`                         | explains before asking; the actions are buttons                                                                                                                                                 | `components.spec.tsx` |
-| Theme tokens                               | every text/background pair meets **WCAG AA contrast** (4.5:1) in light and dark                                                                                                                 | `tokens.spec.ts`      |
+| Component                                  | What it guarantees                                                                                                                                                                                                                              | Tested in                                                |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `Text`                                     | display, title and heading variants are **headers** for screen readers; font size follows the user's setting, capped per variant (`maxFontSizeMultiplier`) so layouts survive the largest sizes                                                 | `components.spec.tsx`                                    |
+| `Button`                                   | role **button**, the label as its name, **busy** and **disabled** states announced, a **48 dp** minimum touch target in every variant                                                                                                           | `components.spec.tsx`                                    |
+| `TextField`                                | the visible label is the input's name; the error, or else the hint, is the input's accessibility hint, so a focused field is read with what is wrong (React Native has no `aria-invalid`); the error is announced when it appears (`AlertText`) | `components.spec.tsx`                                    |
+| `AlertText`                                | a message that appears on screen is **announced**: Android live region, iOS announcement                                                                                                                                                        | `components.spec.tsx`                                    |
+| `Icon`                                     | decorative (hidden from screen readers) unless given a label                                                                                                                                                                                    | `components.spec.tsx`                                    |
+| `Image`                                    | needs `accessibilityLabel` or `decorative`: forgetting both does not compile                                                                                                                                                                    | `components.spec.tsx`                                    |
+| `LoadingState`, `EmptyState`, `ErrorState` | loading is a **progress bar** with a name and busy state; errors are announced, with a retry button; an empty state that appears without navigating (`announce`) is announced                                                                   | `components.spec.tsx`                                    |
+| `OfflineBanner`                            | announced when the connection drops                                                                                                                                                                                                             | `components.spec.tsx`                                    |
+| `PermissionPrompt`                         | explains before asking; the actions are buttons                                                                                                                                                                                                 | `components.spec.tsx`                                    |
+| Theme tokens                               | every text, meaningful icon and text field edge, **as rendered**, meets **WCAG AA contrast** (4.5:1 text, 3:1 large text and non-text) in light and dark                                                                                        | `components.spec.tsx`, `a11y.spec.tsx`, `tokens.spec.ts` |
 
 ## Topics
 
@@ -39,9 +39,9 @@ Use the components of `src/ui` (ESLint keeps React Native's raw `Text`, `TextInp
 | **Roles**                                | `button`, `link`, `header`, `radio` within a `radiogroup`, `switch`, `progressbar`, `alert`, `image`: React Native's roles, set by the components                                                                                                                      |
 | **States**                               | `disabled`, `busy`, `checked`, `selected`, `expanded` through `accessibilityState`, never only through color                                                                                                                                                           |
 | **Focus**                                | native screens and Expo Router's sheets move screen reader focus into the new screen; after an action that changes the screen without navigating, announce the result (an `AlertText`) or move focus with `AccessibilityInfo.setAccessibilityFocus`                    |
-| **Font scaling and Dynamic Type**        | text scales with the system setting up to the cap of its variant; layouts wrap instead of truncating; tested at the largest size                                                                                                                                       |
+| **Font scaling and Dynamic Type**        | text scales with the system setting up to the cap of its variant; layouts wrap instead of truncating (a list row may shorten a long description to a preview when the row's label and the detail screen have it whole); tested at the largest size                     |
 | **Touch targets**                        | 48 × 48 dp at least (`theme.sizes.touchTarget`), larger than the 44 pt iOS minimum                                                                                                                                                                                     |
-| **Contrast**                             | colors only from the theme tokens (lint rule); the contrast test fails a token pair below AA                                                                                                                                                                           |
+| **Contrast**                             | colors only from the theme tokens (lint rule); contrast is measured on the rendered components and screens, in both schemes: a text below 4.5:1 (3:1 when large), or a meaningful icon or text field edge below 3:1, fails the tests                                   |
 | **Color-independent information**        | errors have text, not only a red border; selected options have a checked state; status uses words or icons with labels                                                                                                                                                 |
 | **Reduced motion**                       | the template has no custom animations; native screen transitions follow the system setting. A custom animation checks `AccessibilityInfo.isReduceMotionEnabled()` and replaces movement with a fade or nothing                                                         |
 | **Keyboard and switch access**           | hardware keyboards, Full Keyboard Access (iOS) and Switch Access (Android) move through controls in layout order; forms go to the next field and submit from the keyboard (`returnKeyType`, `onSubmitEditing`)                                                         |
@@ -57,21 +57,40 @@ on Android only, so a message that appears while the user is on a screen would b
 platform and not the other. `AlertText` (`src/ui/components/AlertText.tsx`) closes the gap: on
 Android it is a polite live region, on iOS it calls `AccessibilityInfo.announceForAccessibility`
 when the text appears or changes. Use it for every message the user did not navigate to: form and
-field errors, failed requests, connection changes, "Saved".
+field errors, failed requests, connection changes, "Saved", and the outcome of a search ("3 items
+found"; an empty result is an `EmptyState` with `announce`).
+
+A field error is announced once, when it appears. A user who moves back to the field later hears it
+again because `TextField` makes the error the input's accessibility hint.
+
+**Not verified on devices** (the automated tests run without a screen reader; check both during the
+manual testing below before relying on them):
+
+- **VoiceOver, two messages at once.** `AlertText` uses `announceForAccessibility`, whose default
+  priority interrupts ongoing speech (React Native's `AccessibilityInfo` documentation). Submitting
+  the empty sign-in form shows two field errors in the same render, so VoiceOver may read only the
+  second. If it does, announce with `announceForAccessibilityWithOptions(message, { queue: true })`
+  (iOS only).
+- **TalkBack, a live region that appears with its text.** On Android, `AlertText` relies on
+  `accessibilityLiveRegion="polite"`. Whether TalkBack announces a live region that is mounted with
+  its text already set, rather than one whose text changes, depends on the Android version. Check a
+  field error, the offline banner and a search result. If one is silent, keep the live region
+  mounted and change its text, or call `announceForAccessibility` on Android too.
 
 ## Automated checks
 
-| Check                                               | Where                                                                      | Catches                                                                |
-| --------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Every control on every screen has a role and a name | `src/a11y.spec.tsx`, with `inaccessibleControls()` from `src/test/a11y.ts` | an unlabeled pressable, switch or input; a touchable without a role    |
-| Components: roles, names, states, announcements     | `src/ui/components/components.spec.tsx`                                    | regressions in the design system                                       |
-| Contrast of every token pair, both themes           | `src/ui/theme/tokens.spec.ts`                                              | a color change below AA                                                |
-| Touch target size                                   | `components.spec.tsx`                                                      | a control below 48 dp                                                  |
-| Font scaling caps                                   | `components.spec.tsx`                                                      | text that stops scaling, or scales without a cap                       |
-| Tests query by role and label                       | every screen and integration test                                          | a control a screen reader cannot find (the test cannot find it either) |
+| Check                                               | Where                                                                                                                                                | Catches                                                                |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Every control on every screen has a role and a name | `src/a11y.spec.tsx`, with `inaccessibleControls()` from `src/test/a11y.ts`                                                                           | an unlabeled pressable, switch or input; a touchable without a role    |
+| Components: roles, names, states, announcements     | `src/ui/components/components.spec.tsx`                                                                                                              | regressions in the design system                                       |
+| Contrast of what is rendered, both schemes          | `components.spec.tsx` (every variant and state), `src/a11y.spec.tsx` (every screen and state), with `contrastProblems()` from `src/test/contrast.ts` | a color, a variant or a pressed state below AA                         |
+| Contrast floor of the palette                       | `src/ui/theme/tokens.spec.ts`                                                                                                                        | a token change below AA                                                |
+| Touch target size                                   | `components.spec.tsx`                                                                                                                                | a control below 48 dp                                                  |
+| Font scaling caps                                   | `components.spec.tsx`                                                                                                                                | text that stops scaling, or scales without a cap                       |
+| Tests query by role and label                       | every screen and integration test                                                                                                                    | a control a screen reader cannot find (the test cannot find it either) |
 
-Add each new screen to `src/a11y.spec.tsx` (in each of its states: loaded, empty, error, with
-validation errors). What tests cannot judge (whether a label makes sense, the reading order, how an
+Add each new screen to `src/a11y.spec.tsx`, in each of its states (loaded, empty, error, with
+validation errors): it is checked in light and dark mode. What tests cannot judge (whether a label makes sense, the reading order, how an
 announcement sounds) is the manual checklist below.
 
 ## Manual testing

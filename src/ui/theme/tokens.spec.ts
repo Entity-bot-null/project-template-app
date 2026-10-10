@@ -1,21 +1,11 @@
+import { contrast } from '@/test/contrast';
+
 import { darkColors, elevation, lightColors } from './tokens';
 
-// Accessibility gate for the palette: replacing the placeholder colors with
-// a brand must keep text readable (WCAG 2.2 AA: 4.5:1 for text, 3:1 for
-// large text and essential non-text elements).
-
-function luminance(hex: string): number {
-  const channels = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16) / 255);
-  const [r = 0, g = 0, b = 0] = channels.map((value) =>
-    value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4,
-  );
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function contrast(foreground: string, background: string): number {
-  const [light, dark] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
-  return ((light ?? 0) + 0.05) / ((dark ?? 0) + 0.05);
-}
+// The palette's own floor (WCAG 2.2 AA: 4.5:1 for text, 3:1 for essential
+// non-text elements), checked before any component uses it. What components
+// actually draw, pressed states and variants included, is measured on the
+// rendered tree (src/test/contrast.ts, in components.spec.tsx and a11y.spec.tsx).
 
 describe.each([
   ['light', lightColors],
@@ -28,6 +18,7 @@ describe.each([
     ['textMuted', 'background'],
     ['textMuted', 'surface'],
     ['onPrimary', 'primary'],
+    ['onPrimary', 'primaryPressed'],
     ['onDanger', 'danger'],
     ['primary', 'background'],
     ['danger', 'background'],
@@ -38,8 +29,9 @@ describe.each([
     expect(contrast(colors[foreground], colors[background])).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('keeps borders and focus rings visible (3:1 for focus)', () => {
+  it('keeps focus rings and text field edges visible (3:1)', () => {
     expect(contrast(colors.focus, colors.background)).toBeGreaterThanOrEqual(3);
+    expect(contrast(colors.inputBorder, colors.background)).toBeGreaterThanOrEqual(3);
   });
 });
 

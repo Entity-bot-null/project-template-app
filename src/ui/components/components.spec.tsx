@@ -1,10 +1,11 @@
 import { onlineManager } from '@tanstack/react-query';
-import { act, screen, userEvent } from '@testing-library/react-native';
+import { act, fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { createRef } from 'react';
 import { AccessibilityInfo, Platform, type TextInput } from 'react-native';
 
 import { AppError } from '@/lib/errors';
 import { DEFAULT_PREFERENCES, usePreferences } from '@/store/preferences';
+import { contrastProblems } from '@/test/contrast';
 import { renderWithProviders } from '@/test/render';
 
 import { resolveScheme, useTheme } from '../theme/ThemeProvider';
@@ -59,9 +60,29 @@ describe('TextField', () => {
     expect(input).toHaveProp('accessibilityHint', 'Your work address');
     expect(screen.getByText('Your work address')).toBeOnTheScreen();
 
-    await view.rerender(<TextField label="Email" error="Enter a valid email address" />);
+    await view.rerender(
+      <TextField label="Email" hint="Your work address" error="Enter a valid email address" />,
+    );
     expect(screen.getByRole('alert')).toHaveTextContent('Enter a valid email address');
-    expect(screen.getByLabelText('Email')).toHaveProp('aria-invalid', true);
+    expect(screen.queryByText('Your work address')).toBeNull();
+  });
+
+  // React Native has no aria-invalid (nor an "invalid" state): the error must
+  // be part of what the field itself reads, or a user who comes back to it
+  // after the announcement hears a field with nothing wrong.
+  it('reads its error, in place of its hint, whenever the field is focused', async () => {
+    const view = await renderWithProviders(
+      <TextField label="Email" hint="Your work address" error="Enter a valid email address" />,
+    );
+    expect(screen.getByLabelText('Email')).toHaveProp(
+      'accessibilityHint',
+      'Enter a valid email address',
+    );
+    await view.rerender(<TextField label="Email" error="Enter a valid email address" />);
+    expect(screen.getByLabelText('Email')).toHaveProp(
+      'accessibilityHint',
+      'Enter a valid email address',
+    );
   });
 
   it('accepts typing, forwards focus events and its ref, and can be disabled', async () => {
@@ -279,5 +300,90 @@ describe('theme', () => {
       </Screen>,
     );
     expect(screen.getByText('Fixed')).toBeOnTheScreen();
+  });
+});
+
+// Contrast measured on the rendered components (src/test/contrast.ts): every
+// variant and state, in both schemes, on the screen background.
+describe.each(['light', 'dark'] as const)('contrast in %s mode', (scheme) => {
+  const background = themes[scheme].colors.background;
+
+  beforeEach(() => {
+    usePreferences.setState({ ...DEFAULT_PREFERENCES, theme: scheme });
+  });
+
+  afterEach(async () => {
+    await act(() => {
+      usePreferences.setState(DEFAULT_PREFERENCES);
+      onlineManager.setOnline(true);
+    });
+  });
+
+  it.each(['primary', 'secondary', 'ghost', 'danger'] as const)(
+    'keeps a %s button readable, at rest and pressed',
+    async (variant) => {
+      await renderWithProviders(<Button label="Save" variant={variant} />);
+      expect(contrastProblems(background)).toEqual([]);
+      await renderWithProviders(<Button label="Save" variant={variant} testOnly_pressed />);
+      expect(contrastProblems(background)).toEqual([]);
+    },
+  );
+
+  it('keeps a text field visible and readable in every state', async () => {
+    const view = await renderWithProviders(
+      <TextField label="Email" hint="Your work address" placeholder="name@example.com" />,
+    );
+    expect(contrastProblems(background)).toEqual([]);
+    await fireEvent(screen.getByLabelText('Email'), 'focus');
+    expect(contrastProblems(background)).toEqual([]);
+    await view.rerender(<TextField label="Email" value="a@" error="Enter a valid email" />);
+    expect(contrastProblems(background)).toEqual([]);
+  });
+
+  it('keeps cards, states, banners and prompts readable', async () => {
+    await renderWithProviders(
+      <>
+        <Card>
+          <Text variant="heading">Title</Text>
+          <Text tone="muted">Muted</Text>
+          <Text tone="primary">Primary</Text>
+          <Text tone="danger">Danger</Text>
+          <Text tone="success">Success</Text>
+        </Card>
+        <EmptyState title="Nothing" description="Nothing here yet." />
+        <ErrorState error={new AppError('server', 'boom')} onRetry={jest.fn()} />
+        <PermissionPrompt
+          icon="notifications-outline"
+          title="Notifications"
+          rationale="Know when something changes."
+          state="granted"
+          onRequest={jest.fn()}
+          onOpenSettings={jest.fn()}
+        />
+        <AlertText tone="danger">Could not save</AlertText>
+        <OfflineBanner />
+      </>,
+    );
+    await act(() => {
+      onlineManager.setOnline(false);
+    });
+    expect(screen.getByText(/You are offline/)).toBeOnTheScreen();
+    expect(contrastProblems(background)).toEqual([]);
+  });
+
+  it('keeps a pressed card readable', async () => {
+    await renderWithProviders(
+      <Card onPress={jest.fn()} accessibilityLabel="Item">
+        <Text variant="heading">Title</Text>
+        <Text tone="muted">Muted</Text>
+      </Card>,
+    );
+    const card = screen.getByRole('button', { name: 'Item' });
+    const holding = userEvent.longPress(card, { duration: 300 });
+    await waitFor(() => {
+      expect(card).toHaveStyle({ backgroundColor: themes[scheme].colors.surfaceMuted });
+    });
+    expect(contrastProblems(background)).toEqual([]);
+    await holding;
   });
 });

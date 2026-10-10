@@ -75,6 +75,7 @@
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.3",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
     "@react-native/jest-preset": "^0.86.3",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.6",
     "@testing-library/react-native": "^14.0.1",

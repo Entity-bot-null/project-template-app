@@ -78,12 +78,13 @@ build) and again at startup.
 
 **Build-time** variables exist only on the build machine; they never reach the bundle.
 
-| Variable            | Kind             | Used by                                                                   |
-| ------------------- | ---------------- | ------------------------------------------------------------------------- |
-| `APP_VARIANT`       | plain (eas.json) | `app.config.ts`: name, id, scheme, cleartext, updates                     |
-| `SENTRY_ORG`        | plain            | Sentry config plugin: uploads source maps and debug symbols during builds |
-| `SENTRY_PROJECT`    | plain            | idem                                                                      |
-| `SENTRY_AUTH_TOKEN` | **secret**       | idem; a Sentry token limited to releases and uploads                      |
+| Variable               | Kind             | Used by                                                                                                                                                                          |
+| ---------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_VARIANT`          | plain (eas.json) | `app.config.ts`: name, id, scheme, cleartext, updates                                                                                                                            |
+| `SENTRY_ORG`           | plain            | Sentry config plugin: uploads source maps and debug symbols during builds                                                                                                        |
+| `SENTRY_PROJECT`       | plain            | idem                                                                                                                                                                             |
+| `SENTRY_AUTH_TOKEN`    | **secret**       | idem; a Sentry token limited to releases and uploads                                                                                                                             |
+| `GOOGLE_SERVICES_JSON` | file, **secret** | `app.config.ts`: Android's `googleServicesFile`, the Firebase project's `google-services.json` (push notifications); unset: none ([credentials](#store-and-service-credentials)) |
 
 Where values live:
 
@@ -228,8 +229,10 @@ How the template configures it (`app.config.ts`):
   embedded bundle).
 
 Publishing goes through the **EAS update** workflow: a ref on `main`, the channel, a message and
-the rollout percentage. Every gate runs on that commit first; source maps go to Sentry when
-configured. Policy:
+the rollout percentage. Every gate runs on that commit first; source maps go to Sentry when the
+channel's environment has `SENTRY_AUTH_TOKEN` and the repository `SENTRY_ORG` and `SENTRY_PROJECT`
+(otherwise the run skips the upload with a notice, [CI_CD.md](CI_CD.md#secrets-and-variables)).
+Policy:
 
 - preview first, verified, then production;
 - production starts with a partial rollout for anything non-trivial (10 %), raised with

@@ -133,21 +133,21 @@ For a **private** repository they need GitHub **Team** (organization) or **Pro**
 rulesets (Team) and branch protection; on the Free plan they exist only for public repositories,
 and without them the protections below do not hold.
 
-| Environment  | Deployment branches | Required reviewers                                            | Secrets                           |
-| ------------ | ------------------- | ------------------------------------------------------------- | --------------------------------- |
-| `preview`    | `main` only         | optional                                                      | `EXPO_TOKEN`                      |
-| `production` | `main` only         | yes (not the person who started the run; prevent self-review) | `EXPO_TOKEN`, `SENTRY_AUTH_TOKEN` |
+| Environment  | Deployment branches | Required reviewers                                            | Secrets                                    |
+| ------------ | ------------------- | ------------------------------------------------------------- | ------------------------------------------ |
+| `preview`    | `main` only         | optional                                                      | `EXPO_TOKEN`; `SENTRY_AUTH_TOKEN` optional |
+| `production` | `main` only         | yes (not the person who started the run; prevent self-review) | `EXPO_TOKEN`, `SENTRY_AUTH_TOKEN`          |
 
 ## Secrets and variables
 
-| Name                           | Kind                        | Where                                | For                                                                                  |
-| ------------------------------ | --------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
-| `EXPO_TOKEN`                   | secret                      | `preview`, `production` environments | EAS CLI: an Expo **robot user** token with the least role that can build and publish |
-| `SENTRY_AUTH_TOKEN`            | secret                      | environments                         | source map upload of OTA updates                                                     |
-| `RELEASE_PLEASE_TOKEN`         | secret (optional)           | repository                           | release pull requests that trigger CI (GitHub App or fine-grained token)             |
-| `SENTRY_ORG`, `SENTRY_PROJECT` | variable (optional)         | repository                           | enable the source map upload step                                                    |
-| `ENABLE_CODEQL`                | variable (optional, `true`) | repository                           | turn on CodeQL                                                                       |
-| `ENABLE_DEPENDENCY_REVIEW`     | variable (optional, `true`) | repository                           | turn on dependency review                                                            |
+| Name                           | Kind                        | Where                                | For                                                                                                   |
+| ------------------------------ | --------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `EXPO_TOKEN`                   | secret                      | `preview`, `production` environments | EAS CLI: an Expo **robot user** token with the least role that can build and publish                  |
+| `SENTRY_AUTH_TOKEN`            | secret                      | environments                         | source map upload of OTA updates; skipped, with a notice, where it or the variables below are missing |
+| `RELEASE_PLEASE_TOKEN`         | secret (optional)           | repository                           | release pull requests that trigger CI (GitHub App or fine-grained token)                              |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | variable (optional)         | repository                           | with `SENTRY_AUTH_TOKEN`, enable the source map upload step                                           |
+| `ENABLE_CODEQL`                | variable (optional, `true`) | repository                           | turn on CodeQL                                                                                        |
+| `ENABLE_DEPENDENCY_REVIEW`     | variable (optional, `true`) | repository                           | turn on dependency review                                                                             |
 
 Build-time values of the app itself (API URL, Sentry DSN) are EAS environment variables, not GitHub
 ones ([RELEASES.md](RELEASES.md#environment-variables)).
@@ -192,7 +192,7 @@ in CI):
 | Tool images (actionlint, zizmor, Semgrep, gitleaks) | tag and digest in `.github/tool-images/Dockerfile`     | Dependabot (`docker`)                                 |
 | npm dependencies                                    | `pnpm-lock.yaml`; seven-day release age                | Dependabot (`npm`), SDK packages through SDK upgrades |
 | pnpm                                                | `packageManager` in `package.json`; `eas.json` `pnpm`  | by hand, both together                                |
-| Node.js                                             | `.nvmrc` (CI), `eas.json` `node` (EAS builders)        | by hand, both together                                |
+| Node.js                                             | one exact version: `.nvmrc` (CI), `eas.json` `node`    | by hand, both together                                |
 | EAS CLI                                             | exact version (`EAS_CLI_VERSION`) in the EAS workflows | by hand, at or above `eas.json` `cli.version`         |
 | Maestro                                             | version and SHA-256 in `e2e-android.yml`               | by hand (release page), keeping the seven-day rule    |
 | JDK (E2E build)                                     | `java-version: '17'` (React Native's supported JDK)    | by hand, with React Native's requirements             |

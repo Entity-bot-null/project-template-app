@@ -79,6 +79,47 @@ describe('ItemsScreen', () => {
     ]);
   });
 
+  // A search changes the screen without navigating: a screen reader user
+  // hears what it found (docs/ACCESSIBILITY.md#announcements).
+  it('announces what a search found, and nothing for the unfiltered list', async () => {
+    fetchStub.on('GET /api/items', (request) => {
+      const q = new URL(request.url).searchParams.get('q');
+      if (q === null) return ok(page(0, 3, 3));
+      return q === 'Item 1' ? ok({ items: [item(1)], total: 1 }) : ok(page(0, 0, 0));
+    });
+    await renderWithProviders(<ItemsScreen />);
+    await screen.findByText('Item 0');
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    await userEvent.type(screen.getByLabelText('Search'), 'Item 1');
+    expect(await screen.findByRole('alert', { name: '1 item found' })).toBeOnTheScreen();
+    await userEvent.type(screen.getByLabelText('Search'), 'zzz');
+    expect(
+      await screen.findByRole('alert', { name: 'Nothing matches your search.' }),
+    ).toBeOnTheScreen();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    await userEvent.clear(screen.getByLabelText('Search'));
+    await screen.findByText('Item 2');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('names the spinner of the next page', async () => {
+    const nextPage = deferred();
+    fetchStub.on('GET /api/items', (request) =>
+      new URL(request.url).searchParams.get('offset') === '0'
+        ? ok(page(0, 20, 25))
+        : nextPage.promise,
+    );
+    await renderWithProviders(<ItemsScreen />);
+    await screen.findByText('Item 0');
+    await fireEvent(screen.getByTestId('items-list'), 'onEndReached');
+    expect(await screen.findByRole('progressbar', { name: 'Loading more items' })).toBeBusy();
+    nextPage.resolve(ok(page(20, 5, 25)));
+    await waitFor(() => {
+      expect(screen.queryByRole('progressbar', { name: 'Loading more items' })).toBeNull();
+    });
+  });
+
   // Found on a device by the Maestro flow: the screen used to swap the list
   // for a spinner while a search loaded, remounting the search field and
   // dropping the keyboard mid-typing.
@@ -134,13 +175,14 @@ describe('ItemsScreen', () => {
     await renderWithProviders(<ItemsScreen />, { queryClient });
     expect(screen.getByText('Saving…')).toBeOnTheScreen();
     expect(screen.queryByRole('button', { name: /Pending/ })).toBeNull();
-    expect(screen.getByLabelText('Pending, saving')).toBeOnTheScreen();
+    // One element for the screen reader, read whole: title, description, state.
+    expect(screen.getByLabelText('Pending, Description 1, saving')).toHaveProp('accessible', true);
   });
 
-  it('opens an item', async () => {
+  it('opens an item, a row read as its title and description', async () => {
     fetchStub.on('GET /api/items', () => ok(page(0, 1, 1)));
     await renderWithProviders(<ItemsScreen />);
-    await userEvent.press(await screen.findByRole('button', { name: 'Item 0' }));
+    await userEvent.press(await screen.findByRole('button', { name: 'Item 0, Description 0' }));
     expect(router.push).toHaveBeenCalledWith({ pathname: '/items/[id]', params: { id: 'item-0' } });
   });
 });

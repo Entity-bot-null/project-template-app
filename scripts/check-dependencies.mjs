@@ -12,9 +12,19 @@
 //    Unknown licenses fail, and so does an exception for a package that left
 //    the lockfile: it would approve that license unseen if it came back.
 // 3. Install settings: pnpm-workspace.yaml keeps the release delay, the trust
-//    policy and the block on transitive sources outside the registry.
+//    policy, the block on transitive sources outside the registry and on
+//    install scripts; every entry that weakens one (a build allowed, a
+//    package the trust policy skips, a version exempt from the delay) is a
+//    reviewed exception with its reason, and a delay exemption also expires
+//    (scripts/install-settings.mjs).
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+
+import {
+  checkInstallSettings,
+  parseWorkspaceYaml,
+  WorkspaceYamlError,
+} from './install-settings.mjs';
 
 const policy = JSON.parse(readFileSync(new URL('dependency-policy.json', import.meta.url), 'utf8'));
 /** @type {string[]} */
@@ -118,53 +128,18 @@ for (const name of Object.keys(policy.licenses.exceptions)) {
 
 // The settings in pnpm-workspace.yaml that keep the supply chain policy: an
 // edit that weakens one fails here, in review's sight, not silently.
-const workspace = readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8');
-// Top-level scalar settings ("key: value", no indentation), by name.
-/** @type {Map<string, string>} */
-const settings = new Map();
-for (const line of workspace.split(/\r?\n/)) {
-  const [, key, value] = /^([A-Za-z]\w*):[ \t]*([^\s#]+)/.exec(line) ?? [];
-  if (key && value) settings.set(key, value);
-}
-/** @param {string} key */
-const setting = (key) => settings.get(key);
-const { minimumReleaseAgeAtLeast, required } = policy.installSettings;
-const releaseAge = Number(setting('minimumReleaseAge'));
-if (!(releaseAge >= minimumReleaseAgeAtLeast)) {
+try {
+  const workspace = parseWorkspaceYaml(
+    readFileSync(new URL('../pnpm-workspace.yaml', import.meta.url), 'utf8'),
+  );
+  const today = new Date().toISOString().slice(0, 10);
+  const settings = checkInstallSettings(workspace, policy.installSettings, today);
+  problems.push(...settings.problems);
+  for (const advisory of settings.advisories) console.warn(advisory);
+} catch (error) {
+  if (!(error instanceof WorkspaceYamlError)) throw error;
   problems.push(
-    `pnpm-workspace.yaml: minimumReleaseAge is ${setting('minimumReleaseAge') ?? 'not set'}, the policy requires at least ${minimumReleaseAgeAtLeast} minutes. For an urgent fix, exempt the one package with minimumReleaseAgeExclude instead.`,
-  );
-}
-for (const [key, value] of Object.entries(/** @type {Record<string, string>} */ (required))) {
-  if (setting(key) !== value) {
-    problems.push(
-      `pnpm-workspace.yaml: ${key} is ${setting(key) ?? 'not set'}, the policy requires ${value}.`,
-    );
-  }
-}
-
-// --- Release-delay exemptions (advisory) -----------------------------------
-
-const exempted = /^minimumReleaseAgeExclude:\r?\n((?:(?: {2}#.*| {2}- .*)\r?\n)+)/m
-  .exec(workspace)?.[1]
-  ?.split(/\r?\n/)
-  .filter((line) => line.trim().startsWith('- '));
-if (exempted?.length) {
-  console.warn(
-    `Advisory: ${exempted.length} packages skip the minimumReleaseAge delay (minimumReleaseAgeExclude in pnpm-workspace.yaml). Remove each one once the version it covers is old enough.`,
-  );
-}
-
-// --- Ignored advisories (advisory) -------------------------------------------
-
-const ignoredAdvisories = /^audit:\r?\n {2}ignore:\r?\n((?:(?: {4}#.*| {4}- .*)\r?\n)+)/m
-  .exec(workspace)?.[1]
-  ?.split(/\r?\n/)
-  .filter((line) => line.trim().startsWith('- '))
-  .map((line) => line.trim().slice(2));
-if (ignoredAdvisories?.length) {
-  console.warn(
-    `Advisory: pnpm audit skips ${ignoredAdvisories.join(', ')} (audit.ignore in pnpm-workspace.yaml). Remove each one as soon as a fixed version exists (SECURITY.md#known-advisories).`,
+    `pnpm-workspace.yaml, ${error.message}. Write the settings in the plain style the file uses (scripts/install-settings.mjs).`,
   );
 }
 

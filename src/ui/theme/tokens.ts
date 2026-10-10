@@ -6,8 +6,8 @@ import { Platform, type ViewStyle } from 'react-native';
 //
 // The palette is a neutral PLACEHOLDER, not a brand: replace `palette` and
 // the semantic colors below with the product's (REQUIERE CONFIGURACIÓN),
-// then run the tests: tokens.spec.ts checks that every text color keeps a
-// WCAG AA contrast on its background, in light and dark mode.
+// then run the tests: they measure the contrast of every rendered component
+// and screen against WCAG AA, in light and dark mode (src/test/contrast.ts).
 
 const palette = {
   white: '#FFFFFF',
@@ -22,6 +22,7 @@ const palette = {
   gray800: '#26262C',
   gray900: '#17171B',
   blue400: '#7AA2F7',
+  blue500: '#5C8AF0',
   blue600: '#2F5BD3',
   blue700: '#2449AE',
   red400: '#F28B82',
@@ -38,7 +39,10 @@ export interface ColorTokens {
   background: string;
   surface: string;
   surfaceMuted: string;
+  /** Separators and decorative outlines. */
   border: string;
+  /** The edge of a text field, its only outline: 3:1 on the background (WCAG 1.4.11). */
+  inputBorder: string;
   text: string;
   textMuted: string;
   primary: string;
@@ -58,6 +62,7 @@ export const lightColors: ColorTokens = {
   surface: palette.gray50,
   surfaceMuted: palette.gray100,
   border: palette.gray300,
+  inputBorder: palette.gray500,
   text: palette.gray900,
   textMuted: palette.gray600,
   primary: palette.blue600,
@@ -77,10 +82,11 @@ export const darkColors: ColorTokens = {
   surface: palette.gray900,
   surfaceMuted: palette.gray800,
   border: palette.gray700,
+  inputBorder: palette.gray500,
   text: palette.gray50,
   textMuted: palette.gray300,
   primary: palette.blue400,
-  primaryPressed: palette.blue600,
+  primaryPressed: palette.blue500,
   onPrimary: palette.black,
   danger: palette.red400,
   dangerSurface: palette.red950,
