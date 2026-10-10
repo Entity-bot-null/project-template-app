@@ -54,15 +54,21 @@ every condition itself, so it works without branch protection:
   digest of the same image tag;
 - it changes no workflow or action (`.github/workflows/`, `.github/actions/`): the workflow token
   may not merge those;
-- the approval comes from a user with write access. Dependabot's own later commits (a rebase)
-  keep it; a commit anyone else pushes needs an approval of the latest commit;
+- the approval comes from a user with write access. A rebase by Dependabot keeps it (the same
+  updates); a commit anyone else pushes, or Dependabot recreating the update with other versions,
+  needs an approval of the latest commit. With `main.json` imported, GitHub itself dismisses an
+  approval on any new commit, a rebase included: approve again after one;
 - **CI passed** succeeded on the latest commit. When the approval comes first, the job waits for
-  CI, up to 50 minutes; past that, re-run the job.
+  CI, up to 50 minutes; past that, re-run the job. A newer approval or a request for changes
+  replaces the waiting job; a comment on the pull request does not.
 
 It then starts CI on `main`, since a merge made with the workflow token triggers no workflow. A
 major update, an update to the workflows, or a pull request the workflow declined (its run says
-why) is merged by hand, after reading its release notes. Expo SDK packages move together through
-SDK upgrades, never through these pull requests.
+why) is merged by hand, after reading its release notes. On an update to the workflows, the job
+stops before running any action: the workflow comes from the pull request, with its new pins. Expo
+SDK packages move together through SDK upgrades; only their patch releases within the SDK's ranges
+come through these pull requests, and `expo-doctor` in CI refuses anything the SDK does not
+support.
 
 ## Required check
 
