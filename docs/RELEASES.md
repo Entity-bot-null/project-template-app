@@ -378,8 +378,10 @@ supply-chain delay):
 2. `pnpm exec expo install expo@^<next>.0.0 --fix`: the SDK and every SDK-managed package.
 3. `pnpm expo:doctor`, `pnpm typecheck`, `pnpm lint`, `pnpm test`; fix what changed.
 4. `pnpm prebuild` and a local Android/iOS build; run the Maestro flows.
-5. Update `eas.json` (`node`, `pnpm`) if the SDK requires newer ones, and Jest/TypeScript versions
-   `expo install --check` asks for.
+5. Update `eas.json` (`node`, `pnpm`) if the SDK requires newer ones. `--fix` leaves Jest and
+   TypeScript alone: move Jest (and `@types/jest`) to the major the new `jest-expo` depends on
+   (`pnpm view jest-expo@<next> dependencies`, `babel-jest`), and TypeScript as
+   [CI_CD.md](CI_CD.md#typescript) says.
 6. Measure the bundle (`pnpm build:check`) and raise the budget if the SDK itself grew.
    Raise `expo-doctor` too (`pnpm add -D expo-doctor@latest`): Dependabot proposes only its
    patches, since its name matches the `expo-*` rule that holds the SDK's packages back.

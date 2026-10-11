@@ -26,6 +26,10 @@ updates:
         update-types: [version-update:semver-major, version-update:semver-minor]
       - dependency-name: jest-expo
         update-types: [version-update:semver-major, version-update:semver-minor]
+      # Versioned with the SDK too (expo/bundledNativeModules.json), and checked
+      # by expo-doctor although it is a development tool.
+      - dependency-name: eslint-config-expo
+        update-types: [version-update:semver-major, version-update:semver-minor]
       # The SDK pins these two to one exact version (not a range): even a patch
       # fails expo-doctor, so they move only with an SDK upgrade.
       - dependency-name: react
@@ -38,6 +42,9 @@ updates:
         update-types: [version-update:semver-major, version-update:semver-minor]
       - dependency-name: '@sentry/react-native'
         update-types: [version-update:semver-major, version-update:semver-minor]
+      # Jest moves to the major jest-expo depends on (babel-jest), in an SDK
+      # upgrade; TypeScript once typescript-eslint supports the new version.
+      # By hand: docs/CI_CD.md#keeping-the-stack-current.
       - dependency-name: jest
         update-types: [version-update:semver-major, version-update:semver-minor]
       - dependency-name: '@types/jest'
@@ -58,6 +65,7 @@ updates:
           - expo-*
           - '@expo/*'
           - jest-expo
+          - eslint-config-expo
           - react
           - '@types/react'
           - react-native
