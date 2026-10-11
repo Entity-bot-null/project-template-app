@@ -258,4 +258,6 @@ with the same digest, the pin points there (GHCR, or Docker's mirror of its offi
 Amazon ECR Public). The images only Docker Hub hosts are pulled in CI through `mirror.gcr.io` by
 their digest (`TOOL_IMAGE_MIRROR` in `quality-gates.yml`, read by `scripts/tool-image.mjs`):
 the digest makes the content identical whatever the source, Docker Hub stays the fallback, and
-Dependabot keeps updating the pins from their source.
+Dependabot keeps updating the pins from their source. GHCR and ECR Public limit anonymous pulls
+too, so before a script runs a tool image it pulls it and, when a registry answers with its rate
+limit, retries after 5, 10 and 20 seconds (`ensureImage`).
