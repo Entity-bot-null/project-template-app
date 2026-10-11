@@ -23,8 +23,9 @@ end-to-end on a device included.
 | Navigation  | RNTL + the real routes (`renderApp`)   | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                              | `src/navigation.int.spec.tsx`, `src/routes.spec.tsx` |
 | End-to-end  | Maestro on an emulator / simulator     | the release build works for a user: launch, onboarding, sign-in, session restore, list, create, deep links, sign-out | `.maestro/flows/`                                    |
 
-The bulk is unit and integration tests: fast, deterministic, run on every commit. End-to-end flows
-cover the critical journeys only; each one is minutes of CI time and a source of flakiness.
+The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
+End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
+flakiness.
 
 ## Commands
 
@@ -81,9 +82,9 @@ shows the field error the server sent'`), with the arrange/act/assert visible.
 Example, from `src/features/items/items.int.spec.tsx`:
 
 ```tsx
-fetchStub.on('GET /api/items', () => ok(page(0, 20, 45)));
+fetchStub.on('GET /api/items', () => ok(page(0, 20, 25)));
 await renderWithProviders(<ItemsScreen />);
-expect(await screen.findByText('Item 1')).toBeOnTheScreen();
+expect(await screen.findByText('Item 0')).toBeOnTheScreen();
 ```
 
 `renderApp` exists because expo-router's own `renderRouter` targets RNTL 13 (synchronous render,
@@ -174,8 +175,8 @@ The build is the slow part, and is kept short:
 ```sh
 pnpm mock:api                                   # terminal 1: the mock API on :4010
 # terminal 2, with the emulator running:
-APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010 \
-  pnpm exec expo prebuild --platform android --clean --no-install
+export APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010
+pnpm exec expo prebuild --platform android --clean --no-install
 cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 && cd ..
 adb reverse tcp:4010 tcp:4010                   # the emulator's localhost:4010 → this machine
 adb shell settings put secure stylus_handwriting_enabled 0   # see below
@@ -183,8 +184,10 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 pnpm test:e2e
 ```
 
-The same variables must be set for `./gradlew` (it bundles the JavaScript); in PowerShell use
-`$env:APP_VARIANT='e2e'` and so on. Local requirements that CI (Linux) already meets:
+The variables are exported for both commands: `./gradlew` bundles the JavaScript, with the same
+configuration as the prebuild. In PowerShell use `$env:APP_VARIANT='e2e'` and so on. Afterwards
+`android/` holds the `e2e` variant: `pnpm prebuild` before going back to `pnpm android`. Local
+requirements that CI (Linux) already meets:
 
 - **JDK 17**, the version React Native supports: with JDK 24 or newer, the native modules' CMake
   configuration fails on a "restricted method" warning.

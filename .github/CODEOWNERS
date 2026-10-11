@@ -1,6 +1,6 @@
 # Code owners are requested for review automatically and, with the ruleset in
 # .github/rulesets/main.json, must approve changes to the paths they own.
-# Replace the placeholders with real GitHub users or teams
+# REQUIERE CONFIGURACIÓN: replace the placeholders with real GitHub users or teams
 # (@org/team, which needs write access), then uncomment. Later lines win.
 # Docs: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 

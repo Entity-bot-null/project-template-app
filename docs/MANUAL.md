@@ -98,7 +98,7 @@ The app runs as a **development build** (your own app binary with developer tool
 | First time on Android                               | `pnpm install`, `cp .env.example .env`, `pnpm mock:api` (terminal 1), `adb reverse tcp:4010 tcp:4010`, `pnpm android` (terminal 2)   |
 | First time on iOS (macOS)                           | the same with `pnpm ios` (the simulator reaches `localhost` directly)                                                                |
 | Every other day                                     | `pnpm mock:api` and `pnpm start`, then open the installed app                                                                        |
-| After a native change                               | `pnpm android` / `pnpm ios` again (it rebuilds the binary)                                                                           |
+| After a native change                               | `pnpm prebuild`, then `pnpm android` / `pnpm ios` (they regenerate nothing while `android/` and `ios/` exist)                        |
 | A development build without Android Studio or Xcode | `eas build --profile development --platform android` (or `development-simulator` for the iOS simulator) and install it from the link |
 
 The mock API (`scripts/mock-api.mjs`) implements the contract in memory: accounts

@@ -72,8 +72,9 @@ Add when a measurement shows the need:
 - Keep state as local as possible: a text field's value lives in the screen, not in a store, so
   typing re-renders one screen and not the app.
 - Select from stores (`usePreferences((state) => state.theme)`), never the whole store.
-- Animations: `react-native-reanimated` (installed with Expo Router) runs them on the UI thread;
-  never animate with `setState` in a loop or JavaScript timers.
+- Animations: `react-native-reanimated` runs them on the UI thread (it ships with Expo Router;
+  declare it with `pnpm exec expo install react-native-reanimated` before importing it); never
+  animate with `setState` in a loop or JavaScript timers.
 - Heavy work (parsing a large payload, sorting thousands of rows) does not run during a render or
   a gesture: do it in the query function (once per fetch), or defer it with
   `InteractionManager.runAfterInteractions` / `requestIdleCallback`.
