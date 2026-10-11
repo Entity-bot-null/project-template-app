@@ -105,14 +105,14 @@ least requested.
 
 ### 1.1 The basics
 
-| Tool                | Install                                                                       | Check                                    | Expected                                                         |
-| ------------------- | ----------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
-| Git                 | Windows: Git for Windows (includes Git Bash); macOS: `xcode-select --install` | `git --version`                          | any current                                                      |
-| Node.js 24          | nvm/fnm or the official installer (24 LTS)                                    | `node --version`                         | `v24.15.0` or later                                              |
-| pnpm                | `corepack enable`                                                             | `pnpm --version` (inside the project)    | `12.5.1`                                                         |
-| GitHub CLI          | cli.github.com                                                                | `gh auth status` (after `gh auth login`) | `Logged in to github.com`                                        |
-| EAS CLI             | `npm install -g eas-cli`                                                      | `eas --version`                          | `eas-cli/…` (24 or later)                                        |
-| VS Code (suggested) | code.visualstudio.com                                                         |                                          | offers the recommended extensions (Expo Tools, ESLint, Prettier) |
+| Tool                | Install                                                                                         | Check                                    | Expected                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
+| Git                 | Windows: Git for Windows (includes Git Bash); macOS: `xcode-select --install`                   | `git --version`                          | any current                                                      |
+| Node.js 24          | nvm/fnm or the official installer (24 LTS)                                                      | `node --version`                         | `v24.15.0` or later                                              |
+| pnpm                | `corepack enable` (Node.js 25 and later ship without Corepack: `npm install -g corepack` first) | `pnpm --version` (inside the project)    | `12.5.1`                                                         |
+| GitHub CLI          | cli.github.com                                                                                  | `gh auth status` (after `gh auth login`) | `Logged in to github.com`                                        |
+| EAS CLI             | `npm install -g eas-cli`                                                                        | `eas --version`                          | `eas-cli/…` (24 or later)                                        |
+| VS Code (suggested) | code.visualstudio.com                                                                           |                                          | offers the recommended extensions (Expo Tools, ESLint, Prettier) |
 
 ### 1.2 Android Studio, the SDK and an emulator
 
@@ -207,7 +207,7 @@ phases. (`templateapp` alone still appears in code comments and test fixtures: t
 ### 3.1 Install
 
 ```
-corepack enable
+corepack enable        # Node.js 25 or later: npm install -g corepack first
 pnpm install
 ```
 
@@ -529,7 +529,8 @@ It prints a link or QR code: open it on the iPhone and install the profile it of
 ### 7.5 The token for GitHub
 
 expo.dev → your account or organization → **Settings → Access tokens**: create a token (for an
-organization, a **robot user** with the Developer role is better than a personal token). Then:
+organization, a **robot user** with the Developer role is better than a personal token; once the
+production channel is protected, 10.4, the `production` one needs the Release Manager role). Then:
 
 ```
 gh secret set EXPO_TOKEN --env preview
@@ -678,14 +679,18 @@ it and it works against the production API.
 
 ### 10.4 Protect the production update channel
 
-The first production build created the `production` channel. Allow only account admins to publish
-to it:
+The first production build created the `production` channel. Allow only a Release Manager or
+above to publish to it, where the account has protected channels (a private beta of Expo's
+Enterprise plan; without them, skip this step: the `production` environment's reviewer stays the
+gate):
 
 ```
 eas channel:protect
 ```
 
-(choose `production`). **Check:** `eas channel:view production` shows it protected.
+(choose `production`). **Check:** `eas channel:view production` shows it protected. From now on
+the `production` environment's `EXPO_TOKEN` must belong to a Release Manager (7.5): with the
+Developer role, the EAS update and EAS rollback workflows can no longer publish to production.
 
 ### 10.5 Go public
 
@@ -766,7 +771,7 @@ gh workflow run eas-rollback.yml --ref main -f channel=preview -f target=earlier
 - [ ] The reviewers' test account works in production.
 - [ ] Backend changes the app needs are live and compatible with every version still installed.
 - [ ] Production builds and updates require a reviewer (GitHub environment) and the production
-      channel is protected (10.4).
+      channel is protected where the account allows it (10.4).
 - [ ] The crash-free target agreed (for example 99.5 % of sessions) and watched.
 - [ ] [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) signed off, with
       [STORE_COMPLIANCE.md](STORE_COMPLIANCE.md) for both stores and the manual pass of
@@ -792,14 +797,14 @@ gh workflow run eas-rollback.yml --ref main -f channel=preview -f target=earlier
 
 ## Phase 15. The maintenance calendar
 
-| When                                | Do                                                                                                                                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every week                          | Approve Dependabot's pull requests: patch and minor ones merge themselves once CI is green; majors and workflow updates you merge by hand.                                                  |
-| Every release                       | Preview build, test on devices, production build, internal testing, staged rollout.                                                                                                         |
-| Every Expo SDK (about three a year) | Upgrade, one SDK at a time ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                  |
-| Every quarter                       | Review `audit.ignore` and the security `overrides` in `pnpm-workspace.yaml`; the pinned EAS CLI, Maestro and Node versions; `EXPO_TOKEN`'s expiration, and `RELEASE_PLEASE_TOKEN`'s if set. |
-| Every year                          | Renew the Apple Developer membership and the distribution certificate (`eas credentials -p ios`) before they expire.                                                                        |
-| Every August                        | Google Play's target API level deadline: ship a build of a current Expo SDK before it.                                                                                                      |
+| When                                | Do                                                                                                                                                                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every week                          | Approve Dependabot's pull requests: patch and minor ones merge themselves once CI is green; majors and workflow updates you merge by hand.                                                                                                                            |
+| Every release                       | Preview build, test on devices, production build, internal testing, staged rollout.                                                                                                                                                                                   |
+| Every Expo SDK (about three a year) | Upgrade, one SDK at a time ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                                                                                            |
+| Every quarter                       | Review `audit.ignore` and the security `overrides` in `pnpm-workspace.yaml`; the pinned EAS CLI, Maestro, Node.js and pnpm versions, and TypeScript ([CI_CD.md](CI_CD.md#keeping-the-stack-current)); `EXPO_TOKEN`'s expiration, and `RELEASE_PLEASE_TOKEN`'s if set. |
+| Every year                          | Renew the Apple Developer membership and the distribution certificate (`eas credentials -p ios`) before they expire.                                                                                                                                                  |
+| Every August                        | Google Play's target API level deadline: ship a build of a current Expo SDK before it.                                                                                                                                                                                |
 
 ---
 

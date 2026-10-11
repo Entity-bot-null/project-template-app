@@ -109,14 +109,14 @@ Apple y de Google están, como mínimo, solicitadas.
 
 ### 1.1 Lo básico
 
-| Herramienta        | Instalación                                                                  | Comprobar                                     | Resultado esperado                                                 |
-| ------------------ | ---------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| Git                | Windows: Git for Windows (incluye Git Bash); macOS: `xcode-select --install` | `git --version`                               | cualquier versión actual                                           |
-| Node.js 24         | nvm/fnm o el instalador oficial (24 LTS)                                     | `node --version`                              | `v24.15.0` o posterior                                             |
-| pnpm               | `corepack enable`                                                            | `pnpm --version` (dentro del proyecto)        | `12.5.1`                                                           |
-| GitHub CLI         | cli.github.com                                                               | `gh auth status` (después de `gh auth login`) | `Logged in to github.com`                                          |
-| EAS CLI            | `npm install -g eas-cli`                                                     | `eas --version`                               | `eas-cli/…` (24 o posterior)                                       |
-| VS Code (sugerido) | code.visualstudio.com                                                        |                                               | ofrece las extensiones recomendadas (Expo Tools, ESLint, Prettier) |
+| Herramienta        | Instalación                                                                                     | Comprobar                                     | Resultado esperado                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| Git                | Windows: Git for Windows (incluye Git Bash); macOS: `xcode-select --install`                    | `git --version`                               | cualquier versión actual                                           |
+| Node.js 24         | nvm/fnm o el instalador oficial (24 LTS)                                                        | `node --version`                              | `v24.15.0` o posterior                                             |
+| pnpm               | `corepack enable` (Node.js 25 y posteriores no traen Corepack: antes `npm install -g corepack`) | `pnpm --version` (dentro del proyecto)        | `12.5.1`                                                           |
+| GitHub CLI         | cli.github.com                                                                                  | `gh auth status` (después de `gh auth login`) | `Logged in to github.com`                                          |
+| EAS CLI            | `npm install -g eas-cli`                                                                        | `eas --version`                               | `eas-cli/…` (24 o posterior)                                       |
+| VS Code (sugerido) | code.visualstudio.com                                                                           |                                               | ofrece las extensiones recomendadas (Expo Tools, ESLint, Prettier) |
 
 ### 1.2 Android Studio, el SDK y un emulador
 
@@ -217,7 +217,7 @@ los tests: es normal.)
 ### 3.1 Instala
 
 ```
-corepack enable
+corepack enable        # Node.js 25 o posterior: antes npm install -g corepack
 pnpm install
 ```
 
@@ -556,7 +556,8 @@ Imprime un enlace o un código QR: ábrelo en el iPhone e instala el perfil que 
 ### 7.5 El token para GitHub
 
 expo.dev → tu cuenta u organización → **Settings → Access tokens**: crea un token (para una
-organización, mejor un **robot user** con el rol Developer que un token personal). Después:
+organización, mejor un **robot user** con el rol Developer que un token personal; cuando el canal
+de producción esté protegido, 10.4, el de `production` necesita el rol Release Manager). Después:
 
 ```
 gh secret set EXPO_TOKEN --env preview
@@ -708,14 +709,18 @@ lo instalan y funciona contra la API de producción.
 
 ### 10.4 Protege el canal de actualizaciones de producción
 
-El primer build de producción creó el canal `production`. Permite publicar en él solo a los
-administradores de la cuenta:
+El primer build de producción creó el canal `production`. Permite publicar en él solo a un
+Release Manager o superior, si la cuenta tiene canales protegidos (una beta privada del plan
+Enterprise de Expo; sin ellos, sáltate este paso: el revisor del entorno `production` sigue siendo
+el control):
 
 ```
 eas channel:protect
 ```
 
-(elige `production`). **Comprobación:** `eas channel:view production` lo muestra protegido.
+(elige `production`). **Comprobación:** `eas channel:view production` lo muestra protegido. Desde
+ahora el `EXPO_TOKEN` del entorno `production` debe ser de un Release Manager (7.5): con el rol
+Developer, los workflows EAS update y EAS rollback ya no pueden publicar en producción.
 
 ### 10.5 Hazla pública
 
@@ -802,7 +807,7 @@ anterior en Settings → About.
 - [ ] Los cambios de backend que necesita la app están en producción y son compatibles con todas las
       versiones que siguen instaladas.
 - [ ] Los builds y las actualizaciones de producción requieren un revisor (entorno de GitHub) y el
-      canal de producción está protegido (10.4).
+      canal de producción está protegido donde la cuenta lo permite (10.4).
 - [ ] El objetivo de sesiones sin crashes, acordado (por ejemplo, el 99.5 % de las sesiones) y
       vigilado.
 - [ ] [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) firmado, con
@@ -829,14 +834,14 @@ anterior en Settings → About.
 
 ## Fase 15. El calendario de mantenimiento
 
-| Cuándo                              | Qué hacer                                                                                                                                                                                                         |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cada semana                         | Aprueba los pull requests de Dependabot: los patch y minor se mergean solos cuando el CI está en verde; las majors y las de workflows las mergeas a mano.                                                         |
-| Cada release                        | Build de preview, prueba en dispositivos, build de producción, pruebas internas, despliegue gradual.                                                                                                              |
-| Cada SDK de Expo (unos tres al año) | Actualiza, un SDK cada vez ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                                        |
-| Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro y Node; la caducidad de `EXPO_TOKEN`, y la de `RELEASE_PLEASE_TOKEN` si lo configuraste. |
-| Cada año                            | Renueva la membresía de Apple Developer y el certificado de distribución (`eas credentials -p ios`) antes de que caduquen.                                                                                        |
-| Cada agosto                         | La fecha límite de Google Play para el target API level: publica antes un build con un SDK de Expo actual.                                                                                                        |
+| Cuándo                              | Qué hacer                                                                                                                                                                                                                                                                                 |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cada semana                         | Aprueba los pull requests de Dependabot: los patch y minor se mergean solos cuando el CI está en verde; las majors y las de workflows las mergeas a mano.                                                                                                                                 |
+| Cada release                        | Build de preview, prueba en dispositivos, build de producción, pruebas internas, despliegue gradual.                                                                                                                                                                                      |
+| Cada SDK de Expo (unos tres al año) | Actualiza, un SDK cada vez ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                                                                                                                |
+| Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro, Node.js y pnpm, y TypeScript ([CI_CD.md](CI_CD.md#keeping-the-stack-current)); la caducidad de `EXPO_TOKEN`, y la de `RELEASE_PLEASE_TOKEN` si lo configuraste. |
+| Cada año                            | Renueva la membresía de Apple Developer y el certificado de distribución (`eas credentials -p ios`) antes de que caduquen.                                                                                                                                                                |
+| Cada agosto                         | La fecha límite de Google Play para el target API level: publica antes un build con un SDK de Expo actual.                                                                                                                                                                                |
 
 ---
 

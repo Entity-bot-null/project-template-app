@@ -48,7 +48,8 @@ Why each one, and what was ruled out: [docs/adr/0001-stack.md](docs/adr/0001-sta
 
 ## Requirements
 
-- Node.js 24 (`.nvmrc`) and pnpm (`corepack enable`; the version is pinned in `package.json`).
+- Node.js 24 (`.nvmrc`) and pnpm (`corepack enable`; the version is pinned in `package.json`; from
+  Node.js 25, which ships no Corepack, `npm install -g corepack` first).
 - Android: Android Studio with the SDK, an emulator and **JDK 17**. Native builds on Windows have
   extra requirements (a short path, long paths enabled, a hoisted `node_modules`:
   [docs/TESTING.md](docs/TESTING.md#end-to-end)); WSL 2 or EAS builds avoid them.
