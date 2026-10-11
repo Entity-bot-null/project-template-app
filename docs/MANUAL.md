@@ -145,7 +145,8 @@ How to write them and the helpers: [TESTING.md](TESTING.md).
   `pnpm test`).
 - Pull requests use the template: what and why, how it was tested on devices, screenshots, the
   release impact (OTA update or new store build) and the Definition of Done.
-- Merge with **Squash and merge** once **CI passed** is green and a reviewer approved.
+- Merge with **Squash and merge** once **CI passed** and **Conventions** are green and a reviewer
+  approved.
 
 ## 8. Configuration
 
@@ -195,15 +196,16 @@ EAS (global CLI, `eas <command>`): `login`, `init`, `build`, `build:list`, `subm
 
 ## 10. CI/CD
 
-| Workflow      | When                                        | Does                                                                                                                              |
-| ------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| CI            | every pull request and push to `main`       | conventions, every gate (format, lint, types, doctor, SAST, tests, security, bundle, prebuild); one required check: **CI passed** |
-| E2E (Android) | pull requests and pushes that touch the app | release APK of the `e2e` variant, mock API, emulator, Maestro                                                                     |
-| Release       | push to `main`                              | the release pull request and CI on it; on merge, the tag and the GitHub release with the SBOM                                     |
-| EAS build     | by hand, from `main`                        | gates, then an EAS build of `preview` or `production` (optional submission to internal testing)                                   |
-| EAS update    | by hand, from `main`                        | gates, then an OTA update to `preview` or `production`, optionally staged                                                         |
-| EAS rollback  | by hand, from `main`                        | republish an earlier update or go back to the embedded bundle                                                                     |
-| CodeQL        | opt-in                                      | security analysis                                                                                                                 |
+| Workflow      | When                                               | Does                                                                                                             |
+| ------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| CI            | every pull request and push to `main`              | every gate (format, lint, types, doctor, SAST, tests, security, bundle, prebuild); required check: **CI passed** |
+| Conventions   | every pull request, again when its title is edited | branch name and title (Conventional Commits); required check: **Conventions**                                    |
+| E2E (Android) | pull requests and pushes that touch the app        | release APK of the `e2e` variant, mock API, emulator, Maestro                                                    |
+| Release       | push to `main`                                     | the release pull request and CI on it; on merge, the tag and the GitHub release with the SBOM                    |
+| EAS build     | by hand, from `main`                               | gates, then an EAS build of `preview` or `production` (optional submission to internal testing)                  |
+| EAS update    | by hand, from `main`                               | gates, then an OTA update to `preview` or `production`, optionally staged                                        |
+| EAS rollback  | by hand, from `main`                               | republish an earlier update or go back to the embedded bundle                                                    |
+| CodeQL        | opt-in                                             | security analysis                                                                                                |
 
 No pull request can build, sign, submit or publish: [CI_CD.md](CI_CD.md#what-protects-production).
 

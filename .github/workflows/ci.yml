@@ -2,9 +2,9 @@ name: CI
 
 # Every pull request and every push to main runs all quality gates. Branch
 # protection (or the ruleset in .github/rulesets/main.json) requires the
-# single "CI passed" check: it fails when any gate fails
-# (docs/CI_CD.md#required-check). Nothing here holds a secret or can build,
-# sign, submit or publish the app.
+# "CI passed" check, which fails when any gate fails, and "Conventions" from
+# conventions.yml (docs/CI_CD.md#required-check). Nothing here holds a secret
+# or can build, sign, submit or publish the app.
 on:
   pull_request:
   push:
@@ -19,26 +19,6 @@ permissions:
   contents: read
 
 jobs:
-  conventions:
-    name: Conventions
-    # Dependency bots name their branches and titles their own way.
-    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/setup
-      - name: Branch name
-        env:
-          BRANCH: ${{ github.head_ref }}
-        run: node scripts/check-branch-name.mjs "$BRANCH"
-      - name: Pull request title follows Conventional Commits
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$TITLE" | pnpm exec commitlint --verbose
-
   dependency-review:
     name: Dependency review
     # Opt-in: needs a public repository or GitHub Advanced Security. Enable
@@ -61,7 +41,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [conventions, dependency-review, gates]
+    needs: [dependency-review, gates]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
