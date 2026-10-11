@@ -105,14 +105,14 @@ least requested.
 
 ### 1.1 The basics
 
-| Tool                | Install                                                                       | Check                                    | Expected                                                         |
-| ------------------- | ----------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
-| Git                 | Windows: Git for Windows (includes Git Bash); macOS: `xcode-select --install` | `git --version`                          | any current                                                      |
-| Node.js 24          | nvm/fnm or the official installer (24 LTS)                                    | `node --version`                         | `v24.15.0` or later                                              |
-| pnpm                | `corepack enable`                                                             | `pnpm --version` (inside the project)    | `12.5.1`                                                         |
-| GitHub CLI          | cli.github.com                                                                | `gh auth status` (after `gh auth login`) | `Logged in to github.com`                                        |
-| EAS CLI             | `npm install -g eas-cli`                                                      | `eas --version`                          | `eas-cli/…` (24 or later)                                        |
-| VS Code (suggested) | code.visualstudio.com                                                         |                                          | offers the recommended extensions (Expo Tools, ESLint, Prettier) |
+| Tool                | Install                                                                                         | Check                                    | Expected                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
+| Git                 | Windows: Git for Windows (includes Git Bash); macOS: `xcode-select --install`                   | `git --version`                          | any current                                                      |
+| Node.js 24          | nvm/fnm or the official installer (24 LTS)                                                      | `node --version`                         | `v24.15.0` or later                                              |
+| pnpm                | `corepack enable` (Node.js 25 and later ship without Corepack: `npm install -g corepack` first) | `pnpm --version` (inside the project)    | `12.5.1`                                                         |
+| GitHub CLI          | cli.github.com                                                                                  | `gh auth status` (after `gh auth login`) | `Logged in to github.com`                                        |
+| EAS CLI             | `npm install -g eas-cli`                                                                        | `eas --version`                          | `eas-cli/…` (24 or later)                                        |
+| VS Code (suggested) | code.visualstudio.com                                                                           |                                          | offers the recommended extensions (Expo Tools, ESLint, Prettier) |
 
 ### 1.2 Android Studio, the SDK and an emulator
 
@@ -207,7 +207,7 @@ phases. (`templateapp` alone still appears in code comments and test fixtures: t
 ### 3.1 Install
 
 ```
-corepack enable
+corepack enable        # Node.js 25 or later: npm install -g corepack first
 pnpm install
 ```
 
@@ -792,14 +792,14 @@ gh workflow run eas-rollback.yml --ref main -f channel=preview -f target=earlier
 
 ## Phase 15. The maintenance calendar
 
-| When                                | Do                                                                                                                                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every week                          | Approve Dependabot's pull requests: patch and minor ones merge themselves once CI is green; majors and workflow updates you merge by hand.                                                  |
-| Every release                       | Preview build, test on devices, production build, internal testing, staged rollout.                                                                                                         |
-| Every Expo SDK (about three a year) | Upgrade, one SDK at a time ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                  |
-| Every quarter                       | Review `audit.ignore` and the security `overrides` in `pnpm-workspace.yaml`; the pinned EAS CLI, Maestro and Node versions; `EXPO_TOKEN`'s expiration, and `RELEASE_PLEASE_TOKEN`'s if set. |
-| Every year                          | Renew the Apple Developer membership and the distribution certificate (`eas credentials -p ios`) before they expire.                                                                        |
-| Every August                        | Google Play's target API level deadline: ship a build of a current Expo SDK before it.                                                                                                      |
+| When                                | Do                                                                                                                                                                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every week                          | Approve Dependabot's pull requests: patch and minor ones merge themselves once CI is green; majors and workflow updates you merge by hand.                                                                                                                            |
+| Every release                       | Preview build, test on devices, production build, internal testing, staged rollout.                                                                                                                                                                                   |
+| Every Expo SDK (about three a year) | Upgrade, one SDK at a time ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                                                                                            |
+| Every quarter                       | Review `audit.ignore` and the security `overrides` in `pnpm-workspace.yaml`; the pinned EAS CLI, Maestro, Node.js and pnpm versions, and TypeScript ([CI_CD.md](CI_CD.md#keeping-the-stack-current)); `EXPO_TOKEN`'s expiration, and `RELEASE_PLEASE_TOKEN`'s if set. |
+| Every year                          | Renew the Apple Developer membership and the distribution certificate (`eas credentials -p ios`) before they expire.                                                                                                                                                  |
+| Every August                        | Google Play's target API level deadline: ship a build of a current Expo SDK before it.                                                                                                                                                                                |
 
 ---
 

@@ -11,9 +11,10 @@
 
 ## Setup
 
-Node.js 24 (`.nvmrc`), pnpm (`corepack enable`; the version is in `package.json`), and for native
-builds Android Studio (SDK, emulator, JDK 17) and, on macOS, Xcode. Then follow the quick start in
-the [README](README.md#quick-start). `pnpm install` also installs the Git hooks.
+Node.js 24 (`.nvmrc`), pnpm (`corepack enable`, after `npm install -g corepack` from Node.js 25; the
+version is in `package.json`), and for native builds Android Studio (SDK, emulator, JDK 17) and, on
+macOS, Xcode. Then follow the quick start in the [README](README.md#quick-start). `pnpm install`
+also installs the Git hooks.
 
 ## From issue to main
 
