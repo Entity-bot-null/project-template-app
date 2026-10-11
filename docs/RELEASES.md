@@ -300,9 +300,13 @@ From a merged commit to every user, the same order every time; each stage has it
   republishes it as the newest update;
 - `embedded` with the runtime version tells builds to go back to the bundle they shipped with.
 
-Users get the rollback at their next launch. If the update was still in a partial rollout,
-`eas update:revert-update-rollout` is faster. expo-updates also falls back on its own
-when a new update crashes before the app finishes launching, but that is a safety net, not a plan.
+Users get the rollback at their next launch. A rollback can wait behind an update that is being
+published to the same channel, but no longer behind that update's gates. The workflow republishes
+whatever group it is given, including one published from a laptop to another channel: the reviewer
+of a production rollback checks the group id against `eas update:list --branch production` before
+approving. If the update was still in a partial rollout, `eas update:revert-update-rollout` is
+faster. expo-updates also falls back on its own when a new update crashes before the app finishes
+launching, but that is a safety net, not a plan.
 
 **A bad store release** — stores have no rollback:
 

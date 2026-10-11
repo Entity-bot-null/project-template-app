@@ -56,15 +56,21 @@ every condition itself, so it works without branch protection:
   digest of the same image tag;
 - it changes no workflow or action (`.github/workflows/`, `.github/actions/`): the workflow token
   may not merge those;
-- the approval comes from a user with write access. Dependabot's own later commits (a rebase)
-  keep it; a commit anyone else pushes needs an approval of the latest commit;
+- the approval comes from a user with write access. A rebase by Dependabot keeps it (the same
+  updates); a commit anyone else pushes, or Dependabot recreating the update with other versions,
+  needs an approval of the latest commit. With `main.json` imported, GitHub itself dismisses an
+  approval on any new commit, a rebase included: approve again after one;
 - **CI passed** succeeded on the latest commit. When the approval comes first, the job waits for
-  CI, up to 50 minutes; past that, re-run the job.
+  CI, up to 50 minutes; past that, re-run the job. A newer approval or a request for changes
+  replaces the waiting job; a comment on the pull request does not.
 
 It then starts CI on `main`, since a merge made with the workflow token triggers no workflow. A
 major update, an update to the workflows, or a pull request the workflow declined (its run says
-why) is merged by hand, after reading its release notes. Expo SDK packages move together through
-SDK upgrades, never through these pull requests.
+why) is merged by hand, after reading its release notes. On an update to the workflows, the job
+stops before running any action: the workflow comes from the pull request, with its new pins. Expo
+SDK packages move together through SDK upgrades; only their patch releases within the SDK's ranges
+come through these pull requests, and `expo-doctor` in CI refuses anything the SDK does not
+support.
 
 ## Required check
 
@@ -86,7 +92,9 @@ Nothing replaces the required reviewers of the `production` environment: that ne
 a public repository.
 
 `E2E (Android)` is not part of it: emulator runs take longer and depend on the runner. Once the
-project's flows are stable, add `Maestro flows on an emulator` to the ruleset's required checks.
+project's flows are stable it can be: first remove the `paths` filters of `e2e-android.yml` (a
+workflow its filters skip reports nothing, and a required check that never reports blocks the pull
+request for good), then add `Maestro flows on an emulator` to the ruleset's required checks.
 
 ## Release pull requests
 
@@ -139,6 +147,10 @@ No pull request can build, sign, submit or publish the app:
 The job queues the build on EAS and ends (`--no-wait`): progress, logs and artifacts are on
 expo.dev. Development and E2E builds are not built here: developers build `development` profiles
 themselves, and the E2E workflow compiles its APK on the runner.
+
+The gates are those of `main` when the workflow runs, checking the chosen commit: a release tag
+older than a gate added since can fail it (a script the tag does not have). Ship the fix from
+`main` with a new version rather than rebuilding such a tag.
 
 **EAS update** (`eas-update.yml`) and **EAS rollback** (`eas-rollback.yml`): see
 [RELEASES.md](RELEASES.md#ota-updates) and [RELEASES.md](RELEASES.md#rollback).

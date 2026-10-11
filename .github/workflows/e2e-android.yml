@@ -5,7 +5,8 @@ name: E2E (Android)
 # the local mock API only) and scripts/mock-api.mjs (docs/TESTING.md#end-to-end).
 # Builds on the runner with Gradle: no EAS account, no secrets, nothing is
 # signed for a store. Runs when app code changes; a project can make it a
-# required check once its flows are stable (docs/CI_CD.md#required-check).
+# required check once its flows are stable, without the path filters below
+# (docs/CI_CD.md#required-check).
 on:
   pull_request:
     paths:
@@ -13,9 +14,13 @@ on:
       - assets/**
       - .maestro/**
       - app.config.ts
+      - metro.config.js
+      - tsconfig.json
       - package.json
       - pnpm-lock.yaml
+      - .nvmrc
       - scripts/mock-api.mjs
+      - .github/actions/setup/**
       - .github/workflows/e2e-android.yml
   # Same list as above (no YAML anchor: workflow auditors cannot follow them).
   push:
@@ -25,9 +30,13 @@ on:
       - assets/**
       - .maestro/**
       - app.config.ts
+      - metro.config.js
+      - tsconfig.json
       - package.json
       - pnpm-lock.yaml
+      - .nvmrc
       - scripts/mock-api.mjs
+      - .github/actions/setup/**
       - .github/workflows/e2e-android.yml
   workflow_dispatch:
 
