@@ -214,12 +214,15 @@ jobs:
       # Google APIs: no flow needs Google Play services, and on a fresh Google
       # image they spend the first minutes syncing and restarting processes,
       # which twice cut Maestro's connection to the device mid-flow
-      # ("DeviceServerDiedException ... during 'viewHierarchy'").
+      # ("DeviceServerDiedException ... during 'viewHierarchy'"). The API level
+      # is the one the app targets: targetSdk in React Native's version catalog
+      # (node_modules/react-native/gradle/libs.versions.toml), so the flows see
+      # the behavior changes of that Android release.
       - name: Run the flows
         timeout-minutes: 25
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
-          api-level: 35
+          api-level: 36
           arch: x86_64
           target: default
           disable-animations: true

@@ -172,9 +172,10 @@ an Android emulator, and runs the flows on every pull request that touches the a
 logs and a JUnit report are uploaded. The NDK React Native builds with (`ndkVersion` in
 `node_modules/react-native/gradle/libs.versions.toml`) is not on the runner image: the workflow
 installs it with `sdkmanager` before the build, verified and with retries, instead of leaving it to
-Gradle's single download attempt. The emulator runs the AOSP system image (`target: default`),
-without Google Play services: no flow needs them, and on a fresh Google image they spend the first
-minutes syncing and restarting processes, which cut Maestro's connection to the device mid-flow
+Gradle's single download attempt. The emulator runs the Android version the app targets (API 36,
+React Native's `targetSdk`) with the AOSP system image (`target: default`), without Google Play
+services: no flow needs them, and on a fresh Google image they spend the first minutes syncing and
+restarting processes, which cut Maestro's connection to the device mid-flow
 (`DeviceServerDiedException`). A flow that needs them (push notifications, for example) needs the
 `google_apis` image and a wait for the device to settle.
 
