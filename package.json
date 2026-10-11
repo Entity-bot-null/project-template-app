@@ -1,6 +1,6 @@
 {
   "name": "project-template-app",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Mobile app template: Expo, React Native and TypeScript with architecture, quality, security, testing and delivery wired in from day 0.",
   "main": "expo-router/entry",
