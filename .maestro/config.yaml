@@ -14,5 +14,8 @@ executionOrder:
     - Onboarding and sign-in
     - Session survives a restart
     - Items
+    - Server errors
+    - Offline and back online
+    - Session ends while in use
     - Deep links
     - Sign out

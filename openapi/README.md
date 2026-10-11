@@ -68,3 +68,8 @@ and the end-to-end flows: accounts `member@example.com` / `member-password` and
 its session; `MOCK_LATENCY_MS=1500` slows every answer, to see loading states; `MOCK_API_PORT`
 moves it from 4010 (then change `EXPO_PUBLIC_API_URL` and the `adb reverse` port to match). It is
 not a backend: no persistence, public passwords, local HTTP only.
+
+It also fails on demand, through control endpoints under `/__mock/` that are not part of this
+contract: a status for one route (429, a 5xx, or no answer at all), and expiring or revoking every
+session. The end-to-end flows use them, and they show an error state by hand
+([docs/TESTING.md](../docs/TESTING.md#end-to-end)).

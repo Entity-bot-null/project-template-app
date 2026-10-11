@@ -1,0 +1,88 @@
+# The server ends the session while the app is in use:
+#   - the access token stops working early: the app renews it and sends the
+#     refused request again, body included, without the user noticing;
+#   - the whole session is revoked (signed out everywhere, password changed):
+#     the next request ends it on the device, and the sign-in screen says why;
+#   - revoked while the app was closed: the next launch says the same.
+appId: ${APP_ID}
+name: Session ends while in use
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+---
+- assertVisible:
+    id: items-list
+- tapOn:
+    id: items-new
+- assertVisible:
+    id: new-item-screen
+- tapOn:
+    id: new-item-title
+- inputText: Saved after a renewal
+- hideKeyboard
+- runScript:
+    file: ../scripts/mock-api.js
+    env:
+      CONTROL: sessions/expire
+- tapOn:
+    id: new-item-submit
+# The sheet closes only once the server created the item.
+- extendedWaitUntil:
+    notVisible:
+      id: new-item-screen
+    timeout: 15000
+- assertVisible: Saved after a renewal
+- assertNotVisible: Saving…
+
+- runScript:
+    file: ../scripts/mock-api.js
+    env:
+      CONTROL: sessions/revoke
+# Any request now: a search.
+- tapOn:
+    id: items-search
+- inputText: Item 4
+- extendedWaitUntil:
+    visible:
+      id: sign-in-screen
+    timeout: 15000
+- assertVisible: Your session has ended. Sign in again to continue.
+- tapOn:
+    id: sign-in-email
+- inputText: member@example.com
+- tapOn:
+    id: sign-in-password
+- inputText: member-password
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 15000
+- assertVisible: Saved after a renewal
+
+- runScript:
+    file: ../scripts/mock-api.js
+    env:
+      CONTROL: sessions/revoke
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: sign-in-screen
+    timeout: 15000
+- assertVisible: Your session has ended. Sign in again to continue.
+- tapOn:
+    id: sign-in-email
+- inputText: member@example.com
+- tapOn:
+    id: sign-in-password
+- inputText: member-password
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 15000

@@ -104,7 +104,9 @@ The app runs as a **development build** (your own app binary with developer tool
 The mock API (`scripts/mock-api.mjs`) implements the contract in memory: accounts
 `member@example.com` / `member-password` and `admin@example.com` / `admin-password`, 45 example
 items. `MOCK_ACCESS_TTL_SEC=20 pnpm mock:api` makes tokens expire quickly (watch the session renew);
-`MOCK_LATENCY_MS=1500` slows every answer (see the loading states).
+`MOCK_LATENCY_MS=1500` slows every answer (see the loading states). It also fails on demand, to see
+an error state: `curl -X POST localhost:4010/__mock/sessions/revoke` ends the session at the app's
+next request ([TESTING.md](TESTING.md#end-to-end) lists the others).
 
 In the running app: `r` in the `pnpm start` terminal reloads, `j` opens React Native DevTools, `m`
 opens the developer menu on the device.

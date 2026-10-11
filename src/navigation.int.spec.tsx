@@ -81,6 +81,21 @@ describe('navigation', () => {
     expect(screen.getByRole('header', { name: 'Item 1' })).toBeOnTheScreen();
   });
 
+  // A link that starts the app (a notification, a link in another app) builds
+  // the navigation from its URL alone: without an anchor the item would be the
+  // only screen, with no way back, and Android's back button would close the app.
+  it('puts the list below an item opened by a link, to go back to', async () => {
+    usePreferences.setState({ ...DEFAULT_PREFERENCES, onboardingCompleted: true });
+    await storedSession();
+    await renderApp('/items/item-1');
+    expect(await screen.findByTestId('item-detail-screen')).toBeOnTheScreen();
+    expect(router.canGoBack()).toBe(true);
+    await act(() => {
+      router.back();
+    });
+    expect(await screen.findByTestId('items-list')).toBeOnTheScreen();
+  });
+
   it('keeps a signed-out user out of protected screens', async () => {
     usePreferences.setState({ ...DEFAULT_PREFERENCES, onboardingCompleted: true });
     await renderApp('/items/item-1');

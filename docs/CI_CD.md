@@ -242,6 +242,7 @@ in CI):
 | Maestro                                             | version and SHA-256 in `e2e-android.yml`               | by hand (release page), keeping the seven-day rule    |
 | JDK (E2E build)                                     | `java-version: '17'` (React Native's supported JDK)    | by hand, with React Native's requirements             |
 | Android NDK (E2E build)                             | `ndkVersion` of React Native's version catalog         | with React Native (read by `e2e-android.yml`)         |
+| Android emulator (E2E)                              | `api-level` in `e2e-android.yml`                       | by hand, to the `targetSdk` of React Native's catalog |
 | ccache (E2E build)                                  | Ubuntu's package (`apt-get`, signed archive)           | the runner image's Ubuntu release                     |
 | Gradle's JVM memory (Android builds)                | `GRADLE_JVM_PROPERTIES` in `app.config.ts`             | by hand, when a build runs out of memory              |
 

@@ -109,7 +109,9 @@ La API mock (`scripts/mock-api.mjs`) implementa el contrato en memoria: las cuen
 `member@example.com` / `member-password` y `admin@example.com` / `admin-password`, 45 elementos de
 ejemplo. `MOCK_ACCESS_TTL_SEC=20 pnpm mock:api` hace que los tokens caduquen enseguida (verás cómo
 se renueva la sesión); `MOCK_LATENCY_MS=1500` ralentiza todas las respuestas (verás los estados de
-carga).
+carga). También falla a demanda, para ver un estado de error:
+`curl -X POST localhost:4010/__mock/sessions/revoke` termina la sesión en la siguiente petición de
+la app ([TESTING.md](TESTING.md#end-to-end) lista las demás).
 
 Con la app en marcha: `r` en la terminal de `pnpm start` recarga, `j` abre React Native DevTools, `m`
 abre el menú de desarrollador en el dispositivo.
