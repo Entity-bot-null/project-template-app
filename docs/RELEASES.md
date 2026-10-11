@@ -144,8 +144,8 @@ Once per project (REQUIERE CONFIGURACIÓN), after the identity in `app.config.ts
 2. EAS environment variables for `development`, `preview` and `production`
    ([above](#environment-variables)).
 3. Signing and store credentials ([below](#store-and-service-credentials)).
-4. Protect the production channel, so only account admins can publish to it:
-   `eas channel:protect` (choose `production`).
+4. Once the first production build has created the `production` channel, protect it, so only
+   account admins can publish to it: `eas channel:protect` (choose `production`).
 5. GitHub: the `preview` and `production` environments with the `EXPO_TOKEN` secret, the rulesets
    and the repository variables ([CI_CD.md](CI_CD.md#setting-up-the-repository)).
 6. A first `development` build for each platform:
@@ -301,9 +301,13 @@ From a merged commit to every user, the same order every time; each stage has it
   republishes it as the newest update;
 - `embedded` with the runtime version tells builds to go back to the bundle they shipped with.
 
-Users get the rollback at their next launch. If the update was still in a partial rollout,
-`eas update:revert-update-rollout` is faster. expo-updates also falls back on its own
-when a new update crashes before the app finishes launching, but that is a safety net, not a plan.
+Users get the rollback at their next launch. A rollback can wait behind an update that is being
+published to the same channel, but no longer behind that update's gates. The workflow republishes
+whatever group it is given, including one published from a laptop to another channel: the reviewer
+of a production rollback checks the group id against `eas update:list --branch production` before
+approving. If the update was still in a partial rollout, `eas update:revert-update-rollout` is
+faster. expo-updates also falls back on its own when a new update crashes before the app finishes
+launching, but that is a safety net, not a plan.
 
 **A bad store release** — stores have no rollback:
 
@@ -377,6 +381,8 @@ supply-chain delay):
 5. Update `eas.json` (`node`, `pnpm`) if the SDK requires newer ones, and Jest/TypeScript versions
    `expo install --check` asks for.
 6. Measure the bundle (`pnpm build:check`) and raise the budget if the SDK itself grew.
+   Raise `expo-doctor` too (`pnpm add -D expo-doctor@latest`): Dependabot proposes only its
+   patches, since its name matches the `expo-*` rule that holds the SDK's packages back.
 7. It is a native change: new store builds, new runtime version; builds still on the previous SDK
    keep receiving updates published for their runtime version only.
 

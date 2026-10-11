@@ -45,13 +45,14 @@ pnpm exec expo install <package>   # ALWAYS to add a dependency: SDK-compatible 
 EXPO_OFFLINE=1 pnpm exec expo install --check   # versions that do not match the installed SDK
 pnpm start                         # dev server (needs a development build, not Expo Go)
 pnpm android | pnpm ios            # compile and run a development build locally
+pnpm prebuild                      # regenerate android/ and ios/: after a native change
 pnpm mock:api                      # local implementation of openapi/openapi.json on :4010
 pnpm lint                          # ESLint, zero warnings
 pnpm typecheck                     # contract drift + typed routes + tsc
 pnpm test                          # Jest (unit, component, integration)
 pnpm expo:doctor                        # expo-doctor
 pnpm contract                      # regenerate src/api/schema.d.ts from openapi/openapi.json
-pnpm verify                        # every gate: run before declaring a task done
+pnpm verify                        # the local gates: run before declaring a task done
 ```
 
 Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before declaring any task done; `pnpm verify`

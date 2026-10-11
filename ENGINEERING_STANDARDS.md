@@ -78,7 +78,7 @@ The layers and their import rules are in
 | SDK-managed packages at the versions the Expo SDK expects                              | `pnpm expo:doctor`                                                |
 | Allowed licenses; exceptions recorded with a reason                                    | `pnpm deps:check` (`scripts/dependency-policy.json`)              |
 | No high or critical advisory                                                           | `pnpm audit`                                                      |
-| Actions pinned by SHA, tool images by digest; workflows least-privilege                | zizmor, actionlint                                                |
+| Actions pinned by SHA, tool images by digest; workflows least-privilege                | zizmor, actionlint; `scripts/tool-image.mjs` for the images       |
 
 ## Performance
 

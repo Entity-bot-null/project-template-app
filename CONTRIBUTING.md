@@ -59,8 +59,8 @@ BREAKING CHANGE: items without a title are rejected.
 ```
 
 - The type decides the next version (release-please): `feat` → minor, `fix`/`perf` → patch, `!` or
-  a `BREAKING CHANGE:` footer → major. Others (`docs`, `refactor`, `test`, `ci`, `build`, `chore`,
-  `style`) do not release by themselves.
+  a `BREAKING CHANGE:` footer → major (minor while the version is 0.x). Others (`docs`,
+  `refactor`, `test`, `ci`, `build`, `chore`, `style`) do not release by themselves.
 - The summary is imperative, lowercase, without a final period; the body explains why.
 - Pull requests are squash-merged: the title is what lands on `main`, so it must follow the rule;
   individual commits on a branch can be informal.

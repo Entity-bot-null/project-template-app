@@ -102,7 +102,7 @@ desarrolladores), no en Expo Go.
 | La primera vez en Android                        | `pnpm install`, `cp .env.example .env`, `pnpm mock:api` (terminal 1), `adb reverse tcp:4010 tcp:4010`, `pnpm android` (terminal 2)    |
 | La primera vez en iOS (macOS)                    | lo mismo con `pnpm ios` (el simulador llega a `localhost` directamente)                                                               |
 | Los demás días                                   | `pnpm mock:api` y `pnpm start`, y después abre la app instalada                                                                       |
-| Después de un cambio nativo                      | `pnpm android` / `pnpm ios` otra vez (vuelve a compilar el binario)                                                                   |
+| Después de un cambio nativo                      | `pnpm prebuild`, y después `pnpm android` / `pnpm ios` (no regeneran nada mientras existan `android/` e `ios/`)                       |
 | Un development build sin Android Studio ni Xcode | `eas build --profile development --platform android` (o `development-simulator` para el simulador de iOS) e instálalo desde el enlace |
 
 La API mock (`scripts/mock-api.mjs`) implementa el contrato en memoria: las cuentas
@@ -207,7 +207,7 @@ EAS (CLI global, `eas <comando>`): `login`, `init`, `build`, `build:list`, `subm
 | ------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | CI            | en cada pull request y en cada push a `main` | convenciones, todos los gates (formato, lint, tipos, doctor, SAST, tests, seguridad, bundle, prebuild); un solo check obligatorio: **CI passed** |
 | E2E (Android) | pull requests y pushes que tocan la app      | APK de release de la variante `e2e`, API mock, emulador, Maestro                                                                                 |
-| Release       | push a `main`                                | el pull request de release; al mergearlo, el tag y la GitHub release con el SBOM                                                                 |
+| Release       | push a `main`                                | el pull request de release y el CI en él; al mergearlo, el tag y la GitHub release con el SBOM                                                   |
 | EAS build     | a mano, desde `main`                         | los gates, y después un build de EAS de `preview` o `production` (envío opcional a pruebas internas)                                             |
 | EAS update    | a mano, desde `main`                         | los gates, y después una actualización OTA a `preview` o `production`, opcionalmente escalonada                                                  |
 | EAS rollback  | a mano, desde `main`                         | vuelve a publicar una actualización anterior o vuelve al bundle embebido                                                                         |

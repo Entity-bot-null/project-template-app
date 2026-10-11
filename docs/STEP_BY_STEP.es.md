@@ -201,7 +201,8 @@ Abre `app.config.ts` y cambia el bloque `APP`:
 | `colors`                | déjalo para la fase 6 (marca)             |
 
 Después: `package.json` → `"name"`; `README.md` → el título y el primer párrafo; `SECURITY.md` → el
-contacto de seguridad; `.github/CODEOWNERS` → usuarios o equipos reales, sin comentar;
+contacto de seguridad y los plazos de respuesta; `.github/CODEOWNERS` → usuarios o equipos reales,
+sin comentar;
 `.maestro/flows/*.yaml` → `APP_ID: <identificador>.e2e` y `SCHEME: <esquema>-e2e`.
 
 **Comprobación:** `git grep -n "com.example.templateapp"` solo lista documentación (`docs/`,
@@ -279,8 +280,9 @@ directamente; sin `adb reverse`).
 | "A restricted method in java.lang.System has been called"   | `JAVA_HOME` tiene que ser el JDK 17                                                                    |
 | Windows: `CMAKE_OBJECT_PATH_MAX`, "build.ninja still dirty" | 1.2 paso 6 (ruta corta, rutas largas, hoisted), después `rm -rf node_modules android` y `pnpm install` |
 
-A partir de ahora: `pnpm mock:api` y `pnpm start`, y después abre la app instalada; vuelve a
-compilar con `pnpm android` solo después de un cambio nativo.
+A partir de ahora: `pnpm mock:api` y `pnpm start`, y después abre la app instalada. Después de un
+cambio nativo, `pnpm prebuild` y luego `pnpm android`: `pnpm android` solo genera `android/` cuando
+no existe.
 
 ---
 
@@ -322,6 +324,9 @@ pnpm test:e2e
 
 **Comprobación:** `5/5 Flows Passed`. CI ejecuta lo mismo en cada pull request.
 
+`android/` contiene ahora la variante `e2e`: ejecuta `pnpm prebuild` antes de volver a
+`pnpm android`.
+
 ---
 
 ## Fase 5. Súbela a GitHub
@@ -346,7 +351,8 @@ GitHub → **Settings**:
 1. **General → Pull Requests**: solo **squash merging**, mensaje por defecto **Pull request
    title**, **Automatically delete head branches**.
 2. **Actions → General → Workflow permissions**: **Read repository contents and packages
-   permissions**.
+   permissions**, y marca **Allow GitHub Actions to create and approve pull requests** (el
+   workflow **Release** abre el pull request de release con el token del workflow).
 3. **Environments → New environment** `preview`: en deployment branches, **Selected branches** →
    `main`.
 4. **Environments → New environment** `production`: lo mismo, más **Required reviewers** (marca
@@ -366,27 +372,39 @@ GitHub → **Settings**:
    no es un pull request mergeado, y `dependabot-auto-merge.yml` comprueba él mismo la aprobación y
    el CI, pero nada reemplaza a los revisores ([CI_CD.md](CI_CD.md#required-check)).
 
-7. El token de release (para que CI se ejecute en los pull requests de release): un
-   **fine-grained personal access token** (tu avatar → Settings → Developer settings) limitado a
-   `REPO`, con lectura y escritura en **Contents**, **Pull requests** e **Issues**; después
-   `gh secret set RELEASE_PLEASE_TOKEN`.
+   El ruleset pide una aprobación de alguien distinto de la última persona que hizo push: un pull
+   request necesita a un segundo miembro del equipo. Si trabajas solo, pon
+   `required_approving_review_count` a `0` y `require_code_owner_review` y
+   `require_last_push_approval` a `false` en `main.json` antes de importarlo; los pull requests,
+   **CI passed**, el historial lineal y los squash merges siguen siendo obligatorios.
+
+7. Opcional, el token de release: sin él, el workflow **Release** lanza él mismo el CI en el pull
+   request de release. Con un token de una GitHub App o un **fine-grained personal access token**
+   (tu avatar → Settings → Developer settings) limitado a `REPO`, con lectura y escritura en
+   **Contents**, **Pull requests** e **Issues**, guardado con `gh secret set RELEASE_PLEASE_TOKEN`,
+   el pull request de release ejecuta todos los workflows de pull request, como el de una persona
+   ([CI_CD.md](CI_CD.md#release-pull-requests)).
 
 **Comprobación:** Settings → Environments lista `preview` y `production` limitados a `main`; la
-regla de `main` existe; `gh secret list` muestra `RELEASE_PLEASE_TOKEN`.
+regla de `main` existe; si configuraste el token de release, `gh secret list` muestra
+`RELEASE_PLEASE_TOKEN`.
 
 ### 5.3 Comprueba el flujo de pull request
 
 ```
 git switch -c chore/check-pipeline
-echo "" >> README.md
+printf '\nBuilt from the mobile template.\n' >> README.md
 git commit -am "docs: check the pipeline"
 git push -u origin HEAD
 gh pr create --fill
 gh pr checks --watch
 ```
 
-**Comprobación:** **CI passed** en verde; mergea con **Squash and merge**. El workflow **Release**
-abre entonces "chore(main): release 0.1.0": déjalo abierto hasta la fase 10.
+**Comprobación:** **CI passed** en verde; una segunda persona lo aprueba; mergea con **Squash and
+merge**. Un cambio `docs` o `chore` no publica nada, así que aún no aparece ningún pull request de
+release: el workflow **Release** abre uno cuando el primer `feat` o `fix` llega a `main`, y lanza el
+CI en él (**CI passed** en verde en ese pull request unos minutos después). Déjalo abierto hasta la
+fase 10.
 
 ---
 
@@ -419,7 +437,8 @@ Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diari
 2. Colores: `src/ui/theme/tokens.ts` (la paleta y los colores claros/oscuros) y `APP.colors` en
    `app.config.ts`. `pnpm test` comprueba el contraste del texto en los dos temas.
 3. Los textos de las pantallas (`src/features/*`), los puntos del onboarding, el nombre de la app.
-4. Los iconos y el splash son nativos: vuelve a ejecutar `pnpm android` / `pnpm ios` para verlos.
+4. Los iconos y el splash son nativos: `pnpm prebuild` y después `pnpm android` / `pnpm ios` para
+   verlos.
 
 **Comprobación:** el icono, el splash y los colores en el emulador son los tuyos; `pnpm test` pasa
 (contraste).
@@ -429,9 +448,12 @@ Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diari
 Añade cada una junto a `src/features/items`, siguiendo
 [MOBILE_ARCHITECTURE.md](MOBILE_ARCHITECTURE.md#adding-a-feature): contrato → hooks de datos →
 pantalla → ruta → tests → un flujo de Maestro para un recorrido crítico. Cuando las tuyas cubran la
-app, borra el ejemplo: `src/features/items`, sus rutas en `src/app/(app)`, el flag `newItemForm`,
-sus tests, las rutas de items del contrato y de la API mock, y `.maestro/flows/03-items.yaml`
-(adapta `04-deep-links.yaml`).
+app, borra el ejemplo: `src/features/items`, sus rutas en `src/app/(app)` (incluida la pestaña de
+inicio, `(tabs)/index.tsx`), los enlaces `/items` de `src/lib/links.ts` y sus tests, el flag
+`newItemForm`, el evento de analítica `item_created`, sus tests, las rutas de items del contrato y
+de la API mock, y `.maestro/flows/03-items.yaml`. Los flujos `01` y `02` esperan `items-list`
+después del inicio de sesión, y `04` abre un enlace de un item: apúntalos a tu pantalla de inicio y
+a tus propios enlaces.
 
 ### 6.4 Piezas opcionales
 
@@ -647,16 +669,18 @@ la clave de API; `eas.json` tiene el `ascAppId`.
 
 ### 10.1 Crea la versión
 
-Mergea el pull request de release "chore(main): release 0.1.0" (o, para empezar en 1.0.0, mergea
-antes un commit cuyo mensaje tenga el pie `Release-As: 1.0.0`). El workflow **Release** crea el tag
-(`v0.1.0`).
+Mergea el pull request de release, "chore(main): release <versión>". La versión sale de los commits
+desde el `0.1.0` de la plantilla: el primer `fix` la convierte en 0.1.1, el primer `feat` en 0.2.0.
+Para empezar en 1.0.0, mergea antes un pull request añadiendo el pie `Release-As: 1.0.0` a su
+mensaje de commit en el diálogo de **Squash and merge**. El workflow **Release** crea el tag de la
+versión (`v<versión>`).
 
 ### 10.2 La primera subida de Android es manual (regla de Google)
 
 Compila sin enviar:
 
 ```
-gh workflow run eas-build.yml --ref main -f profile=production -f platform=android -f ref=v0.1.0
+gh workflow run eas-build.yml --ref main -f profile=production -f platform=android -f ref=v<versión>
 ```
 
 Un revisor aprueba la ejecución (**Review deployments**). Cuando el build termine en expo.dev,
@@ -803,14 +827,14 @@ anterior en Settings → About.
 
 ## Fase 15. El calendario de mantenimiento
 
-| Cuándo                              | Qué hacer                                                                                                                                                                                  |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Cada semana                         | Aprueba los pull requests de Dependabot: los patch y minor se mergean solos cuando el CI está en verde; las majors y las de workflows las mergeas a mano.                                  |
-| Cada release                        | Build de preview, prueba en dispositivos, build de producción, pruebas internas, despliegue gradual.                                                                                       |
-| Cada SDK de Expo (unos tres al año) | Actualiza, un SDK cada vez ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                 |
-| Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro y Node; la caducidad de `RELEASE_PLEASE_TOKEN` y de `EXPO_TOKEN`. |
-| Cada año                            | Renueva la membresía de Apple Developer y el certificado de distribución (`eas credentials -p ios`) antes de que caduquen.                                                                 |
-| Cada agosto                         | La fecha límite de Google Play para el target API level: publica antes un build con un SDK de Expo actual.                                                                                 |
+| Cuándo                              | Qué hacer                                                                                                                                                                                                         |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cada semana                         | Aprueba los pull requests de Dependabot: los patch y minor se mergean solos cuando el CI está en verde; las majors y las de workflows las mergeas a mano.                                                         |
+| Cada release                        | Build de preview, prueba en dispositivos, build de producción, pruebas internas, despliegue gradual.                                                                                                              |
+| Cada SDK de Expo (unos tres al año) | Actualiza, un SDK cada vez ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                                        |
+| Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro y Node; la caducidad de `EXPO_TOKEN`, y la de `RELEASE_PLEASE_TOKEN` si lo configuraste. |
+| Cada año                            | Renueva la membresía de Apple Developer y el certificado de distribución (`eas credentials -p ios`) antes de que caduquen.                                                                                        |
+| Cada agosto                         | La fecha límite de Google Play para el target API level: publica antes un build con un SDK de Expo actual.                                                                                                        |
 
 ---
 
