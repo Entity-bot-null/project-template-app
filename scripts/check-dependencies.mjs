@@ -25,6 +25,7 @@ import {
   parseWorkspaceYaml,
   WorkspaceYamlError,
 } from './install-settings.mjs';
+import { isAllowed } from './licenses.mjs';
 
 const policy = JSON.parse(readFileSync(new URL('dependency-policy.json', import.meta.url), 'utf8'));
 /** @type {string[]} */
@@ -35,6 +36,8 @@ const problems = [];
 const lockfile = readFileSync(new URL('../pnpm-lock.yaml', import.meta.url), 'utf8');
 /** @type {string | undefined} */
 let current;
+/** @type {string | undefined} */
+let dependency;
 let checked = 0;
 /** Every package name in the lockfile, optional platform builds included. */
 const locked = new Set();
@@ -44,6 +47,20 @@ for (const line of lockfile.split('\n')) {
   if (key) {
     current = key[1];
     locked.add(current.replace(/@[^@]+$/, ''));
+  }
+  // A local directory linked as a direct dependency ("link:../dir") has no
+  // package entry, only its importer's "name:" key and "version: link:...".
+  const importerKey = /^ {6}'?([^\s'][^']*?)'?:\s*$/.exec(line);
+  if (importerKey) dependency = importerKey[1];
+  if (/^ {8}version: link:/.test(line)) {
+    checked += 1;
+    const name = dependency ?? '(unknown)';
+    if (!Object.hasOwn(policy.sources.exceptions, name)) {
+      problems.push(
+        `${name}: linked from a local directory (${line.trim()}), not resolved from the registry. Use a registry release, or add a reviewed exception to scripts/dependency-policy.json.`,
+      );
+    }
+    continue;
   }
   if (!line.trimStart().startsWith('resolution:')) continue;
   checked += 1;
@@ -71,35 +88,24 @@ function licenses(...flags) {
 }
 
 /**
- * SPDX expressions as pnpm reports them: "MIT", "(MIT OR CC0-1.0)", "MIT and ISC".
- * @param {string} expression
- * @param {Set<string>} allowed
- */
-function isAllowed(expression, allowed) {
-  return expression
-    .replace(/[()]/g, '')
-    .split(/\s+or\s+/i)
-    .some((alternative) =>
-      alternative
-        .split(/\s+and\s+/i)
-        .every((id) => allowed.has(id.replace(/\s+with\s+.*$/i, '').trim())),
-    );
-}
-
-/**
  * @param {Record<string, { name: string; versions: string[] }[]>} byLicense
  * @param {Set<string>} allowed
  * @param {string} scope
- * @param {Set<string>} [skip] packages already judged
- * @returns {Set<string>} the packages checked
+ * @param {Set<string>} [skip] package versions (name@version) already judged
+ * @returns {Set<string>} the package versions checked
  */
 function checkLicenses(byLicense, allowed, scope, skip = new Set()) {
   /** @type {Set<string>} */
   const seen = new Set();
   for (const [expression, packages] of Object.entries(byLicense)) {
     for (const pkg of packages) {
-      seen.add(pkg.name);
-      if (skip.has(pkg.name) || isAllowed(expression, allowed)) continue;
+      // By version: a development-only version may carry another license
+      // than the production one of the same package.
+      const versions = pkg.versions.map((version) => `${pkg.name}@${version}`);
+      for (const version of versions) seen.add(version);
+      if (versions.every((version) => skip.has(version)) || isAllowed(expression, allowed)) {
+        continue;
+      }
       const exception = policy.licenses.exceptions[pkg.name];
       if (exception?.license === expression) continue;
       problems.push(
@@ -153,5 +159,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `Dependency policy OK: ${checked} lockfile sources, licenses of ${prodPackages.size} production and ${allPackages.size} total packages.`,
+  `Dependency policy OK: ${checked} lockfile sources, licenses of ${prodPackages.size} production and ${allPackages.size} total package versions.`,
 );

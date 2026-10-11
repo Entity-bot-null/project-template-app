@@ -101,9 +101,9 @@ auth event.
 
 **Configuration and native** (`app.config.ts`, `eas.json`, `src/config/**`)
 
-- Configuration read only through `src/config/env.ts`; a new variable in `env.schema.ts`,
-  `.env.example` and docs/RELEASES.md#environment-variables. `EXPO_PUBLIC_*` is public: never a
-  secret.
+- Configuration read only through `src/config/env.ts`; a new variable in `env.schema.ts`, its line
+  in `env.ts`, `.env.example` and docs/RELEASES.md#environment-variables. `EXPO_PUBLIC_*` is
+  public: never a secret.
 - New permissions declared with their usage text, asked in context, reflected in the store privacy
   declarations (docs/STORE_COMPLIANCE.md).
 - `android/` and `ios/` are generated (`expo prebuild`) and never committed.

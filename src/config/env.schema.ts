@@ -37,8 +37,9 @@ export const PublicEnvSchema = z
     ),
     // Share of sessions with performance tracing (0 = off, the default).
     EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: ratio.default(0),
-    // Feature flag overrides for development and preview builds:
-    // "newItemForm=false,otherFlag=true" (src/lib/flags).
+    // Feature flag overrides for development and preview (staging) builds:
+    // "newItemForm=false,otherFlag=true" (src/lib/flags). Refused below in
+    // production, where every flag has its reviewed default.
     EXPO_PUBLIC_FLAGS: optional(
       z
         .string()
@@ -62,6 +63,13 @@ export const PublicEnvSchema = z
         code: 'custom',
         path: ['EXPO_PUBLIC_API_URL'],
         message: 'must use https in production',
+      });
+    }
+    if (values.EXPO_PUBLIC_APP_ENV === 'production' && values.EXPO_PUBLIC_FLAGS !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EXPO_PUBLIC_FLAGS'],
+        message: "development and staging builds only (production uses each flag's default)",
       });
     }
   });

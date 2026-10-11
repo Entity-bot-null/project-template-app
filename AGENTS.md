@@ -82,7 +82,8 @@ before a pull request.
   (announced on both platforms); every new screen goes into `src/a11y.spec.tsx`. Lint enforces the
   imports; [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) has the checklist.
 - **Configuration**: read it from `src/config/env.ts` only; a new variable goes in
-  `src/config/env.schema.ts`, `.env.example` and docs/RELEASES.md#environment-variables.
+  `src/config/env.schema.ts`, its line in `src/config/env.ts`, `.env.example` and
+  docs/RELEASES.md#environment-variables.
   `EXPO_PUBLIC_*` values are public: never a secret.
 - **Storage**: through `src/lib/storage` only; credentials in `secureStorage`, nothing sensitive in
   `persistentStorage`, no AsyncStorage. New data the app keeps or sends gets its row in the data
