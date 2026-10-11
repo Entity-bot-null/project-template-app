@@ -7,6 +7,11 @@ import { useNotificationNavigation } from '@/lib/notifications';
 import { errorReporter } from '@/lib/observability';
 import { OfflineBanner } from '@/ui';
 
+// A link that starts the app (src/lib/links.ts) builds the stack from its URL
+// alone: the anchor puts the tabs below the screen it opens, so there is a
+// way back instead of a lone screen that Android's back button closes.
+export const unstable_settings = { anchor: '(tabs)' };
+
 /** Signed in: the tabs, and the screens pushed or presented over them. */
 export default function AppLayout() {
   useNotificationNavigation();

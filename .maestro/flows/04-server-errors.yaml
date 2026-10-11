@@ -1,0 +1,46 @@
+# The API fails (5xx) while the user searches: after the automatic retries,
+# the list says what happened and offers a retry, which recovers once the
+# server does.
+appId: ${APP_ID}
+name: Server errors
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+# Pass or fail, the mock API answers normally for the next flow.
+onFlowComplete:
+  - runScript:
+      file: ../scripts/mock-api.js
+      env:
+        CONTROL: faults/clear
+---
+- assertVisible:
+    id: items-list
+- runScript:
+    file: ../scripts/mock-api.js
+    env:
+      CONTROL: faults
+      ROUTE: GET /api/items
+      STATUS: '500'
+- tapOn:
+    id: items-search
+- inputText: Item 8
+- hideKeyboard
+# Two retries with backoff come first (src/lib/query/queryClient.ts).
+- extendedWaitUntil:
+    visible: Something went wrong on our side. Try again later.
+    timeout: 20000
+
+- runScript:
+    file: ../scripts/mock-api.js
+    env:
+      CONTROL: faults/clear
+- tapOn: Try again
+- extendedWaitUntil:
+    visible: 1 item found
+    timeout: 10000
+- assertVisible:
+    id: item-item-8
+- tapOn:
+    id: items-search
+- eraseText
+- hideKeyboard

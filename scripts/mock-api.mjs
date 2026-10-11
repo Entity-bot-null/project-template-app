@@ -9,9 +9,23 @@
 //   MOCK_LATENCY_MS=0           delay added to every answer (loading states)
 //
 // Accounts: member@example.com / member-password, admin@example.com / admin-password.
+//
+// Failures on demand, for the end-to-end flows (.maestro/scripts/mock-api.js)
+// and for trying an error state by hand (curl -X POST …). Not in the contract:
+//
+//   POST /__mock/faults {"route":"POST /api/auth/sign-in","status":429}
+//        every request to that route (method and path, no query string) gets
+//        that status and an error envelope, until the faults are cleared;
+//        status 0 closes the connection without an answer (a dropped network)
+//   POST /__mock/faults/clear       every route answers normally again
+//   POST /__mock/sessions/expire    every access token stops working, as if it
+//                                   expired early: the app renews its session
+//   POST /__mock/sessions/revoke    every access and refresh token stops
+//                                   working (signed out everywhere, password
+//                                   changed): the app's session ends
 import { Buffer } from 'node:buffer';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { createServer } from 'node:http';
+import { createServer, STATUS_CODES } from 'node:http';
 
 const PORT = Number(process.env.MOCK_API_PORT ?? 4010);
 const ACCESS_TTL_SEC = Number(process.env.MOCK_ACCESS_TTL_SEC ?? 900);
@@ -38,6 +52,8 @@ const users = [
 const accessTokens = new Map();
 /** refresh token → { userId, used } (rotated: each one works once) */
 const refreshTokens = new Map();
+/** "METHOD /path" → the status it answers with instead (0: no answer) */
+const faults = new Map();
 
 const items = Array.from({ length: 45 }, (_, index) => ({
   id: `item-${index + 1}`,
@@ -82,9 +98,55 @@ function authenticatedUser(request) {
   return users.find((user) => user.id === session.userId);
 }
 
+/** The control endpoints (see the top of this file); false for any other route. */
+async function control(route, request, response) {
+  if (route === 'POST /__mock/faults') {
+    const body = await readJson(request);
+    const status = body?.status;
+    if (
+      typeof body?.route !== 'string' ||
+      !/^[A-Z]+ \/\S*$/.test(body.route) ||
+      !Number.isInteger(status) ||
+      (status !== 0 && (status < 400 || status > 599))
+    ) {
+      fail(response, 400, 'Expected {"route":"METHOD /path","status":0 or 400-599}');
+      return true;
+    }
+    faults.set(body.route, status);
+    send(response, 200, { route: body.route, status }, 'Fault set');
+    return true;
+  }
+  if (route === 'POST /__mock/faults/clear') {
+    faults.clear();
+    send(response, 200, null, 'Faults cleared');
+    return true;
+  }
+  if (route === 'POST /__mock/sessions/expire') {
+    accessTokens.clear();
+    send(response, 200, null, 'Access tokens expired');
+    return true;
+  }
+  if (route === 'POST /__mock/sessions/revoke') {
+    accessTokens.clear();
+    refreshTokens.clear();
+    send(response, 200, null, 'Sessions revoked');
+    return true;
+  }
+  return false;
+}
+
 async function handle(request, response) {
   const url = new URL(request.url ?? '/', `http://127.0.0.1:${PORT}`);
   const route = `${request.method} ${url.pathname}`;
+
+  if (await control(route, request, response)) return;
+
+  const fault = faults.get(route);
+  if (fault === 0) {
+    response.destroy();
+    return;
+  }
+  if (fault !== undefined) return fail(response, fault, STATUS_CODES[fault] ?? 'Fault');
 
   if (route === 'POST /api/auth/sign-in') {
     const body = await readJson(request);
@@ -170,8 +232,9 @@ createServer((request, response) => {
         fail(response, 500, 'Mock API error');
       })
       .finally(() => {
+        const outcome = response.headersSent ? response.statusCode : 'no answer';
         console.log(
-          `${request.method} ${new URL(request.url ?? '/', 'http://x').pathname} ${response.statusCode}`,
+          `${request.method} ${new URL(request.url ?? '/', 'http://x').pathname} ${outcome}`,
         );
       });
   }, LATENCY_MS);

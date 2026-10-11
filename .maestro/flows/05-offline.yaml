@@ -1,0 +1,43 @@
+# The device loses its connection (airplane mode; Android only): the app says
+# so and keeps showing the data it has; a search typed meanwhile runs once the
+# connection is back.
+#
+# The mock API stays reachable in airplane mode: `adb reverse` goes over the
+# debugging connection, not the device's network. This flow proves that the
+# app follows the device's connection state; a request that gets no answer is
+# in 01-onboarding-and-sign-in.
+appId: ${APP_ID}
+name: Offline and back online
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+# Pass or fail, the device is back online for the next flow.
+onFlowComplete:
+  - setAirplaneMode: disabled
+---
+- assertVisible:
+    id: items-list
+- setAirplaneMode: enabled
+- extendedWaitUntil:
+    visible: You are offline. Showing saved data.
+    timeout: 15000
+- assertVisible: Item 45
+
+- tapOn:
+    id: items-search
+- inputText: Item 9
+- hideKeyboard
+- setAirplaneMode: disabled
+# The device reconnects and Android validates the connection: seconds.
+- extendedWaitUntil:
+    notVisible: You are offline. Showing saved data.
+    timeout: 60000
+- extendedWaitUntil:
+    visible: 1 item found
+    timeout: 15000
+- assertVisible:
+    id: item-item-9
+- tapOn:
+    id: items-search
+- eraseText
+- hideKeyboard

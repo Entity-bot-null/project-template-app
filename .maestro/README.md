@@ -11,8 +11,13 @@ build of the `e2e` variant (application id `com.example.templateapp.e2e`) and th
     01-onboarding-and-sign-in.yaml
     02-session-survives-restart.yaml
     03-items.yaml
-    04-deep-links.yaml
-    05-sign-out.yaml
+    04-server-errors.yaml
+    05-offline.yaml
+    06-session-ends.yaml
+    07-deep-links.yaml
+    08-sign-out.yaml
+  scripts/
+    mock-api.js      makes the mock API fail on demand (runScript)
   results/           reports, screenshots and logs of the last run (git-ignored)
 ```
 
@@ -30,4 +35,7 @@ unordered set that ignores `continueOnFailure`.
 - Elements are found by `testID` (`id:`) or visible text. Wait with `extendedWaitUntil`, never with
   fixed sleeps.
 - The data comes from the mock API: its accounts and items are the fixtures.
+- Failures come from the mock API too: `scripts/mock-api.js` sets a status (429, 5xx, or no answer
+  at all) for a route, or expires or revokes every session. A flow that sets a fault clears it in
+  `onFlowComplete`, so the next flow starts against a working API even when this one fails.
 - `maestro studio` shows the screen's elements and records commands.
