@@ -201,7 +201,8 @@ Abre `app.config.ts` y cambia el bloque `APP`:
 | `colors`                | déjalo para la fase 6 (marca)             |
 
 Después: `package.json` → `"name"`; `README.md` → el título y el primer párrafo; `SECURITY.md` → el
-contacto de seguridad; `.github/CODEOWNERS` → usuarios o equipos reales, sin comentar;
+contacto de seguridad y los plazos de respuesta; `.github/CODEOWNERS` → usuarios o equipos reales,
+sin comentar;
 `.maestro/flows/*.yaml` → `APP_ID: <identificador>.e2e` y `SCHEME: <esquema>-e2e`.
 
 **Comprobación:** `git grep -n "com.example.templateapp"` solo lista documentación (`docs/`,
@@ -279,8 +280,9 @@ directamente; sin `adb reverse`).
 | "A restricted method in java.lang.System has been called"   | `JAVA_HOME` tiene que ser el JDK 17                                                                    |
 | Windows: `CMAKE_OBJECT_PATH_MAX`, "build.ninja still dirty" | 1.2 paso 6 (ruta corta, rutas largas, hoisted), después `rm -rf node_modules android` y `pnpm install` |
 
-A partir de ahora: `pnpm mock:api` y `pnpm start`, y después abre la app instalada; vuelve a
-compilar con `pnpm android` solo después de un cambio nativo.
+A partir de ahora: `pnpm mock:api` y `pnpm start`, y después abre la app instalada. Después de un
+cambio nativo, `pnpm prebuild` y luego `pnpm android`: `pnpm android` solo genera `android/` cuando
+no existe.
 
 ---
 
@@ -321,6 +323,9 @@ pnpm test:e2e
 ```
 
 **Comprobación:** `5/5 Flows Passed`. CI ejecuta lo mismo en cada pull request.
+
+`android/` contiene ahora la variante `e2e`: ejecuta `pnpm prebuild` antes de volver a
+`pnpm android`.
 
 ---
 
@@ -432,7 +437,8 @@ Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diari
 2. Colores: `src/ui/theme/tokens.ts` (la paleta y los colores claros/oscuros) y `APP.colors` en
    `app.config.ts`. `pnpm test` comprueba el contraste del texto en los dos temas.
 3. Los textos de las pantallas (`src/features/*`), los puntos del onboarding, el nombre de la app.
-4. Los iconos y el splash son nativos: vuelve a ejecutar `pnpm android` / `pnpm ios` para verlos.
+4. Los iconos y el splash son nativos: `pnpm prebuild` y después `pnpm android` / `pnpm ios` para
+   verlos.
 
 **Comprobación:** el icono, el splash y los colores en el emulador son los tuyos; `pnpm test` pasa
 (contraste).
@@ -442,9 +448,12 @@ Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diari
 Añade cada una junto a `src/features/items`, siguiendo
 [MOBILE_ARCHITECTURE.md](MOBILE_ARCHITECTURE.md#adding-a-feature): contrato → hooks de datos →
 pantalla → ruta → tests → un flujo de Maestro para un recorrido crítico. Cuando las tuyas cubran la
-app, borra el ejemplo: `src/features/items`, sus rutas en `src/app/(app)`, el flag `newItemForm`,
-sus tests, las rutas de items del contrato y de la API mock, y `.maestro/flows/03-items.yaml`
-(adapta `04-deep-links.yaml`).
+app, borra el ejemplo: `src/features/items`, sus rutas en `src/app/(app)` (incluida la pestaña de
+inicio, `(tabs)/index.tsx`), los enlaces `/items` de `src/lib/links.ts` y sus tests, el flag
+`newItemForm`, el evento de analítica `item_created`, sus tests, las rutas de items del contrato y
+de la API mock, y `.maestro/flows/03-items.yaml`. Los flujos `01` y `02` esperan `items-list`
+después del inicio de sesión, y `04` abre un enlace de un item: apúntalos a tu pantalla de inicio y
+a tus propios enlaces.
 
 ### 6.4 Piezas opcionales
 

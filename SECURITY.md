@@ -258,13 +258,13 @@ Changing the policy is a reviewed decision (CODEOWNERS).
 
 ## Static analysis
 
-| Tool                      | Runs                                   | Scope                                                                       |
-| ------------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
-| TypeScript strict, ESLint | every commit (staged files), CI        | type safety, architecture rules, React and hooks rules                      |
-| Semgrep (`pnpm sast`)     | CI, on demand (Docker)                 | curated rulesets: OWASP Top 10, TypeScript, React, Node.js scripts, secrets |
-| CodeQL                    | CI, opt-in (`ENABLE_CODEQL`)           | `security-extended` queries                                                 |
-| zizmor, actionlint        | CI, `pnpm lint:workflows` (Docker)     | the workflows themselves                                                    |
-| secretlint, gitleaks      | pre-commit and CI; gitleaks on history | secrets                                                                     |
+| Tool                      | Runs                                                    | Scope                                                                       |
+| ------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| TypeScript strict, ESLint | pre-commit (ESLint, staged files), pre-push (types), CI | type safety, architecture rules, React and hooks rules                      |
+| Semgrep (`pnpm sast`)     | CI, on demand (Docker)                                  | curated rulesets: OWASP Top 10, TypeScript, React, Node.js scripts, secrets |
+| CodeQL                    | CI, opt-in (`ENABLE_CODEQL`)                            | `security-extended` queries                                                 |
+| zizmor, actionlint        | CI, `pnpm lint:workflows` (Docker)                      | the workflows themselves                                                    |
+| secretlint, gitleaks      | pre-commit and CI; gitleaks on history                  | secrets                                                                     |
 
 Any finding fails. A false positive is suppressed where it occurs with the reason on the same line
 (`// nosemgrep: <rule> -- why`), so review sees it.
