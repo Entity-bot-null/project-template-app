@@ -88,12 +88,12 @@ build) and again at startup.
 
 Where values live:
 
-| Context                | Source                                                                                  |
-| ---------------------- | --------------------------------------------------------------------------------------- |
-| Local development      | `.env` (copied from `.env.example`, git-ignored; `pnpm start` loads it)                 |
-| EAS builds             | `eas.json` `env` for the variant's fixed values; EAS environment variables for the rest |
-| EAS updates (workflow) | the workflow sets the variant; `--environment` loads the same EAS environment variables |
-| CI gates               | placeholders in `.github/workflows/quality-gates.yml` (`https://api.example.com`)       |
+| Context                | Source                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Local development      | `.env` (copied from `.env.example`, git-ignored; `pnpm start` loads it)                                                              |
+| EAS builds             | `eas.json` `env` for the variant's fixed values; EAS environment variables for the rest                                              |
+| EAS updates (workflow) | the workflow sets the variant; `--environment` loads the EAS environment's plain text and sensitive variables, never the secret ones |
+| CI gates               | placeholders in `.github/workflows/quality-gates.yml` (`https://api.example.com`)                                                    |
 
 Create the EAS environment variables once per environment (REQUIERE CONFIGURACIÓN):
 
@@ -145,7 +145,10 @@ Once per project (REQUIERE CONFIGURACIÓN), after the identity in `app.config.ts
    ([above](#environment-variables)).
 3. Signing and store credentials ([below](#store-and-service-credentials)).
 4. Once the first production build has created the `production` channel, protect it, so only
-   account admins can publish to it: `eas channel:protect` (choose `production`).
+   a Release Manager or above can publish to it: `eas channel:protect` (choose `production`),
+   where the account has protected channels (a private beta of the Enterprise plan). The
+   `production` environment's `EXPO_TOKEN` then needs the Release Manager role: with the
+   Developer role, the EAS update and EAS rollback workflows can no longer publish there.
 5. GitHub: the `preview` and `production` environments with the `EXPO_TOKEN` secret, the rulesets
    and the repository variables ([CI_CD.md](CI_CD.md#setting-up-the-repository)).
 6. A first `development` build for each platform:
@@ -263,6 +266,18 @@ store binary 1.5.0 (build 57) ──fingerprint──▶ runtime version B ◀�
 - If an update crashes before the app finishes launching, expo-updates falls back to the previous
   update or the embedded bundle on that device by itself; roll it back for everyone anyway
   ([Rollback](#rollback)).
+- The update computes its runtime version on the CI runner, the build on EAS. They agree only
+  when the app config sees the same values in both places: `eas update --environment` loads the
+  environment's plain text and sensitive variables, and never a secret one (they are not
+  readable outside EAS servers; eas-cli 24.8.0 and Expo's documentation). Measured with
+  `@expo/fingerprint` on this project: `SENTRY_ORG` and `SENTRY_PROJECT` (they add the Sentry
+  config plugin) change the fingerprint, and so does the content of `GOOGLE_SERVICES_JSON` for
+  Android. The first two are plain text (above). `GOOGLE_SERVICES_JSON` is a secret file: once it
+  is set, an update published by the workflow gets another Android runtime version than the
+  builds and reaches none of them, while `eas update` reports success (REQUIERE CONFIGURACIÓN:
+  decide how both get the same file). Before relying on OTA updates for a build, check it with
+  `eas fingerprint:compare --build-id <build id> --environment <channel>`: it must say the
+  fingerprints match.
 
 ## What can ship as an OTA update
 
