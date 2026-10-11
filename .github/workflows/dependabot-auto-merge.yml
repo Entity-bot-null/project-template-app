@@ -11,7 +11,8 @@ name: Dependabot auto-merge
 #     and merged by hand.
 #   - It changes no workflow or action: the default token may not merge those.
 #   - A user with write access approved it. Once someone else has pushed to
-#     it, the approval must be of its latest commit.
+#     it, or Dependabot changed its updates, the approval must be of its
+#     latest commit.
 #   - The "CI passed" check succeeded on its latest commit (the job waits
 #     for CI when the approval comes first).
 on:
@@ -20,8 +21,11 @@ on:
 
 permissions: {}
 
+# One merge attempt per pull request: a newer approval or a request for
+# changes cancels the one waiting for CI. A comment (a "commented" review, a
+# reply in a review thread) cancels nothing: it gets a group of its own.
 concurrency:
-  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}${{ github.event.review.state == 'commented' && format('-comment-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 jobs:
@@ -36,10 +40,28 @@ jobs:
       checks: read # the CI result
       actions: write # start CI on main: a merge made with this token triggers no workflow
     steps:
+      # First, before any action runs: this workflow comes from the pull
+      # request's merge commit, so on a pull request that bumps an action the
+      # new, unreviewed version would run with this job's token.
+      - name: Changes no workflow or action
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' |
+            grep -Eq '^\.github/(workflows|actions)/'; then
+            echo "::notice title=Merge by hand::It changes a workflow or an action, which the workflow token may not merge."
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Dependabot metadata
         id: metadata
+        if: ${{ steps.scope.outputs.workflows != 'true' }}
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
       - name: Check and merge
+        if: ${{ steps.scope.outputs.workflows != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -60,10 +82,6 @@ jobs:
               skip "Dependabot recorded no version change." ;;
             *) skip "A $UPDATE_TYPE update: read its release notes first." ;;
           esac
-          if gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename' |
-            grep -Eq '^\.github/(workflows|actions)/'; then
-            skip "It changes a workflow or an action, which the workflow token may not merge."
-          fi
 
           permission=$(gh api "repos/$REPO/collaborators/$REVIEWER/permission" --jq .permission)
           case "$permission" in
@@ -86,13 +104,19 @@ jobs:
             sleep 30
           done
 
-          # Dependabot's own commits (a rebase, a recreated update) keep the
-          # approval; a commit pushed by anyone else needs a new one.
-          others=$(gh api "repos/$REPO/pulls/$PR/commits" --paginate \
-            --jq '[.[] | select(.author.login != "dependabot[bot]" or .commit.verification.verified != true)] | length' |
-            awk '{ total += $1 } END { print total + 0 }')
-          if [ "$others" -gt 0 ] && [ "$APPROVED_SHA" != "$head" ]; then
-            fail "Someone other than Dependabot pushed to it after the approval: approve its latest commit."
+          # A rebase by Dependabot keeps the approval: the same updates, the
+          # same commit message. A commit pushed by anyone else, or Dependabot
+          # recreating the update with other versions, needs a new approval.
+          if [ "$APPROVED_SHA" != "$head" ]; then
+            others=$(gh api "repos/$REPO/pulls/$PR/commits" --paginate \
+              --jq '[.[] | select(.author.login != "dependabot[bot]" or .commit.verification.verified != true)] | length' |
+              awk '{ total += $1 } END { print total + 0 }')
+            [ "$others" -eq 0 ] ||
+              fail "Someone other than Dependabot pushed to it after the approval: approve its latest commit."
+            approved=$(gh api "repos/$REPO/commits/$APPROVED_SHA" --jq .commit.message)
+            latest=$(gh api "repos/$REPO/commits/$head" --jq .commit.message)
+            [ "$approved" = "$latest" ] ||
+              fail "Dependabot changed the updates after the approval: approve its latest commit."
           fi
 
           gh pr merge "$PR" -R "$REPO" --squash --match-head-commit "$head"
