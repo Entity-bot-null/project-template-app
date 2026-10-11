@@ -33,6 +33,7 @@ env:
     id: new-item-screen
 - tapOn:
     id: new-item-submit
+- assertVisible: Enter a title
 - assertVisible:
     id: new-item-screen
 - tapOn:
