@@ -50,10 +50,10 @@ jobs:
 
   # A pull request opened or updated with the workflow's token gets its
   # pull request runs only once someone approves them, and the ruleset
-  # requires "CI passed" on it. A dispatched run always starts: it reports
-  # "CI passed" on the release branch's latest commit, the one the pull
-  # request shows and the ruleset checks. CI holds no secret, and the branch
-  # is main plus release-please's version and changelog commit.
+  # requires "CI passed" and "Conventions" on it. A dispatched run always
+  # starts: each reports its check on the release branch's latest commit, the
+  # one the pull request shows and the ruleset checks. Neither holds a secret,
+  # and the branch is main plus release-please's version and changelog commit.
   release-pr-ci:
     name: CI on the release pull request
     needs: release-please
@@ -61,13 +61,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      actions: write # start CI on the release branch
+      actions: write # start CI and Conventions on the release branch
     steps:
-      - name: Start CI on the release branch
+      - name: Start CI and Conventions on the release branch
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
-        run: gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+        run: |
+          set -euo pipefail
+          [[ "$BRANCH" == release-please--* ]] || {
+            echo "::error::Not a release-please branch: $BRANCH"
+            exit 1
+          }
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          gh workflow run conventions.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
 
   # The SBOM in two jobs: the one that installs the dependencies (the
   # project's prepare script runs Expo's CLI) and generates the SBOM holds a

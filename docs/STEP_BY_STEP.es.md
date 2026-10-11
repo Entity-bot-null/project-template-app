@@ -367,23 +367,25 @@ GitHub → **Settings**:
    ```
 
    Con GitHub Pro, en su lugar: una regla de protección de rama en `main` (un pull request, una
-   aprobación, el check **CI passed**). En el plan Free con un repositorio privado no hay ninguna de
-   las dos, ni los revisores de los entornos: `main-guard.yml` avisa entonces de un push a `main` que
-   no es un pull request mergeado, y `dependabot-auto-merge.yml` comprueba él mismo la aprobación y
-   el CI, pero nada reemplaza a los revisores ([CI_CD.md](CI_CD.md#required-check)).
+   aprobación, los checks **CI passed** y **Conventions**). En el plan Free con un repositorio
+   privado no hay ninguna de las dos, ni los revisores de los entornos: `main-guard.yml` avisa
+   entonces de un push a `main` que no es un pull request mergeado, y `dependabot-auto-merge.yml`
+   comprueba él mismo la aprobación y el CI, pero nada reemplaza a los revisores
+   ([CI_CD.md](CI_CD.md#required-check)).
 
    El ruleset pide una aprobación de alguien distinto de la última persona que hizo push: un pull
    request necesita a un segundo miembro del equipo. Si trabajas solo, pon
    `required_approving_review_count` a `0` y `require_code_owner_review` y
    `require_last_push_approval` a `false` en `main.json` antes de importarlo; los pull requests,
-   **CI passed**, el historial lineal y los squash merges siguen siendo obligatorios.
+   **CI passed**, **Conventions**, el historial lineal y los squash merges siguen siendo
+   obligatorios.
 
-7. Opcional, el token de release: sin él, el workflow **Release** lanza él mismo el CI en el pull
-   request de release. Con un token de una GitHub App o un **fine-grained personal access token**
-   (tu avatar → Settings → Developer settings) limitado a `REPO`, con lectura y escritura en
-   **Contents**, **Pull requests** e **Issues**, guardado con `gh secret set RELEASE_PLEASE_TOKEN`,
-   el pull request de release ejecuta todos los workflows de pull request, como el de una persona
-   ([CI_CD.md](CI_CD.md#release-pull-requests)).
+7. Opcional, el token de release: sin él, el workflow **Release** lanza él mismo el CI y
+   **Conventions** en el pull request de release. Con un token de una GitHub App o un
+   **fine-grained personal access token** (tu avatar → Settings → Developer settings) limitado a
+   `REPO`, con lectura y escritura en **Contents**, **Pull requests** e **Issues**, guardado con
+   `gh secret set RELEASE_PLEASE_TOKEN`, el pull request de release ejecuta todos los workflows de
+   pull request, como el de una persona ([CI_CD.md](CI_CD.md#release-pull-requests)).
 
 **Comprobación:** Settings → Environments lista `preview` y `production` limitados a `main`; la
 regla de `main` existe; si configuraste el token de release, `gh secret list` muestra
@@ -400,11 +402,11 @@ gh pr create --fill
 gh pr checks --watch
 ```
 
-**Comprobación:** **CI passed** en verde; una segunda persona lo aprueba; mergea con **Squash and
-merge**. Un cambio `docs` o `chore` no publica nada, así que aún no aparece ningún pull request de
-release: el workflow **Release** abre uno cuando el primer `feat` o `fix` llega a `main`, y lanza el
-CI en él (**CI passed** en verde en ese pull request unos minutos después). Déjalo abierto hasta la
-fase 10.
+**Comprobación:** **CI passed** y **Conventions** en verde; una segunda persona lo aprueba; mergea
+con **Squash and merge**. Un cambio `docs` o `chore` no publica nada, así que aún no aparece ningún
+pull request de release: el workflow **Release** abre uno cuando el primer `feat` o `fix` llega a
+`main`, y lanza el CI y **Conventions** en él (los dos en verde en ese pull request unos minutos
+después). Déjalo abierto hasta la fase 10.
 
 ---
 

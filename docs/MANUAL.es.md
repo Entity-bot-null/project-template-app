@@ -151,8 +151,8 @@ Cómo escribirlos y los helpers: [TESTING.md](TESTING.md).
 - Los pull requests usan la plantilla: qué y por qué, cómo se probó en dispositivos, capturas de
   pantalla, el impacto en la release (actualización OTA o build nuevo para las tiendas) y la
   Definition of Done.
-- Haz merge con **Squash and merge** cuando **CI passed** esté en verde y un revisor lo haya
-  aprobado.
+- Haz merge con **Squash and merge** cuando **CI passed** y **Conventions** estén en verde y un
+  revisor lo haya aprobado.
 
 ## 8. Configuración
 
@@ -203,15 +203,16 @@ EAS (CLI global, `eas <comando>`): `login`, `init`, `build`, `build:list`, `subm
 
 ## 10. CI/CD
 
-| Workflow      | Cuándo                                       | Hace                                                                                                                                             |
-| ------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| CI            | en cada pull request y en cada push a `main` | convenciones, todos los gates (formato, lint, tipos, doctor, SAST, tests, seguridad, bundle, prebuild); un solo check obligatorio: **CI passed** |
-| E2E (Android) | pull requests y pushes que tocan la app      | APK de release de la variante `e2e`, API mock, emulador, Maestro                                                                                 |
-| Release       | push a `main`                                | el pull request de release y el CI en él; al mergearlo, el tag y la GitHub release con el SBOM                                                   |
-| EAS build     | a mano, desde `main`                         | los gates, y después un build de EAS de `preview` o `production` (envío opcional a pruebas internas)                                             |
-| EAS update    | a mano, desde `main`                         | los gates, y después una actualización OTA a `preview` o `production`, opcionalmente escalonada                                                  |
-| EAS rollback  | a mano, desde `main`                         | vuelve a publicar una actualización anterior o vuelve al bundle embebido                                                                         |
-| CodeQL        | si se activa                                 | análisis de seguridad                                                                                                                            |
+| Workflow      | Cuándo                                             | Hace                                                                                                                       |
+| ------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| CI            | en cada pull request y en cada push a `main`       | todos los gates (formato, lint, tipos, doctor, SAST, tests, seguridad, bundle, prebuild); check obligatorio: **CI passed** |
+| Conventions   | en cada pull request, otra vez al editar su título | nombre de la rama y título (Conventional Commits); check obligatorio: **Conventions**                                      |
+| E2E (Android) | pull requests y pushes que tocan la app            | APK de release de la variante `e2e`, API mock, emulador, Maestro                                                           |
+| Release       | push a `main`                                      | el pull request de release y el CI en él; al mergearlo, el tag y la GitHub release con el SBOM                             |
+| EAS build     | a mano, desde `main`                               | los gates, y después un build de EAS de `preview` o `production` (envío opcional a pruebas internas)                       |
+| EAS update    | a mano, desde `main`                               | los gates, y después una actualización OTA a `preview` o `production`, opcionalmente escalonada                            |
+| EAS rollback  | a mano, desde `main`                               | vuelve a publicar una actualización anterior o vuelve al bundle embebido                                                   |
+| CodeQL        | si se activa                                       | análisis de seguridad                                                                                                      |
 
 Ningún pull request puede compilar, firmar, enviar a las tiendas ni publicar:
 [CI_CD.md](CI_CD.md#what-protects-production).

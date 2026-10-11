@@ -18,18 +18,19 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 
 ## Workflows
 
-| Workflow                    | Trigger                                        | Secrets                           | Does                                                                                            |
-| --------------------------- | ---------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `ci.yml`                    | pull request, push to `main`, manual           | none                              | conventions (branch name, PR title), dependency review (opt-in), the quality gates, "CI passed" |
-| `quality-gates.yml`         | called by CI, EAS build and EAS update         | none                              | the gates below, on a given commit                                                              |
-| `e2e-android.yml`           | pull request and push touching the app, manual | none                              | release APK of the `e2e` variant, mock API, emulator, Maestro flows                             |
-| `codeql.yml`                | pull request, push, weekly (opt-in)            | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                      |
-| `release.yml`               | push to `main`                                 | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                       |
-| `main-guard.yml`            | push to `main`                                 | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue     |
-| `dependabot-auto-merge.yml` | approval of a Dependabot pull request          | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)           |
-| `eas-build.yml`             | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                          |
-| `eas-update.yml`            | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                           |
-| `eas-rollback.yml`          | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                                 |
+| Workflow                    | Trigger                                        | Secrets                           | Does                                                                                        |
+| --------------------------- | ---------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
+| `ci.yml`                    | pull request, push to `main`, manual           | none                              | dependency review (opt-in), the quality gates, "CI passed"                                  |
+| `conventions.yml`           | pull request, again when its title is edited   | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required      |
+| `quality-gates.yml`         | called by CI, EAS build and EAS update         | none                              | the gates below, on a given commit                                                          |
+| `e2e-android.yml`           | pull request and push touching the app, manual | none                              | release APK of the `e2e` variant, mock API, emulator, Maestro flows                         |
+| `codeql.yml`                | pull request, push, weekly (opt-in)            | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                  |
+| `release.yml`               | push to `main`                                 | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                   |
+| `main-guard.yml`            | push to `main`                                 | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue |
+| `dependabot-auto-merge.yml` | approval of a Dependabot pull request          | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)       |
+| `eas-build.yml`             | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                      |
+| `eas-update.yml`            | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                       |
+| `eas-rollback.yml`          | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                             |
 
 The quality gates: the checks `pnpm verify` runs locally, plus the Docker-based ones, the
 repository scripts' tests (`pnpm test:scripts`) and the native projects (`expo prebuild`):
@@ -75,9 +76,12 @@ support.
 
 ## Required check
 
-Branch protection requires one check, **CI passed**. It fails when any gate failed or was
-cancelled, and passes when the others passed or were skipped because they are opt-in. Adding a gate
-to `quality-gates.yml` makes it required with no settings change.
+Branch protection requires two checks, **CI passed** and **Conventions**. **CI passed** fails when
+any gate failed or was cancelled, and passes when the others passed or were skipped because they
+are opt-in; adding a gate to `quality-gates.yml` makes it required with no settings change.
+**Conventions** (`conventions.yml`) checks the branch name and the title, and runs again whenever
+the title is edited, without re-running the gates: the title becomes the squash commit that
+release-please reads.
 
 Rulesets and branch protection on private repositories need a paid GitHub plan. Without them the
 rules still hold locally (the pre-push hook refuses pushes to `main`) and by convention, and two
@@ -101,9 +105,11 @@ request for good), then add `Maestro flows on an emulator` to the ruleset's requ
 
 release-please opens and updates the release pull request with the workflow's token. GitHub holds
 the pull request runs that token causes until someone with write access approves them, and the
-ruleset requires **CI passed** on every pull request. The release workflow therefore starts CI on
-the release branch itself (`gh workflow run ci.yml`, an event that token can trigger): its **CI
-passed** lands on the branch's latest commit, the one the ruleset checks. Nothing to configure. The
+ruleset requires **CI passed** and **Conventions** on every pull request. The release workflow
+therefore starts both on the release branch itself (`gh workflow run ci.yml` and
+`gh workflow run conventions.yml`, events that token can trigger): their checks land on the
+branch's latest commit, the one the ruleset checks, and the dispatched **Conventions** reads the
+title of the branch's open pull request. Nothing to configure. The
 pull request's other workflows (`E2E (Android)`, CodeQL) keep waiting for an approval no rule
 requires; a project that makes one of them a required check starts it in the same job
 (`release-pr-ci` in `release.yml`). A change that adds nothing to the changelog (`chore`, `docs`,
@@ -190,7 +196,7 @@ ones ([RELEASES.md](RELEASES.md#environment-variables)).
 Once, after creating the repository from this template (REQUIERE CONFIGURACIÓN):
 
 1. Rulesets: Settings → Rules → Rulesets → Import, `.github/rulesets/main.json` (pull requests,
-   one approval, code owners, linear history, squash merges, "CI passed") and
+   one approval, code owners, linear history, squash merges, "CI passed" and "Conventions") and
    `.github/rulesets/tags.json` (release tags cannot be moved or deleted). The approval must come
    from someone other than the last person who pushed: a team of one sets
    `required_approving_review_count` to `0` and `require_code_owner_review` and
