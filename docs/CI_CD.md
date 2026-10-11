@@ -5,7 +5,9 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 [RELEASES.md](RELEASES.md).
 
 - [Workflows](#workflows)
+- [Dependency updates](#dependency-updates)
 - [Required check](#required-check)
+- [Release pull requests](#release-pull-requests)
 - [What protects production](#what-protects-production)
 - [EAS builds](#eas-builds)
 - [Environments](#environments)
@@ -22,7 +24,7 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 | `quality-gates.yml`         | called by CI, EAS build and EAS update         | none                              | the gates below, on a given commit                                                              |
 | `e2e-android.yml`           | pull request and push touching the app, manual | none                              | release APK of the `e2e` variant, mock API, emulator, Maestro flows                             |
 | `codeql.yml`                | pull request, push, weekly (opt-in)            | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                      |
-| `release.yml`               | push to `main`                                 | `RELEASE_PLEASE_TOKEN` (optional) | release pull request; on merge, tag, GitHub release and SBOM                                    |
+| `release.yml`               | push to `main`                                 | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                       |
 | `main-guard.yml`            | push to `main`                                 | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue     |
 | `dependabot-auto-merge.yml` | approval of a Dependabot pull request          | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)           |
 | `eas-build.yml`             | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                          |
@@ -94,6 +96,24 @@ project's flows are stable it can be: first remove the `paths` filters of `e2e-a
 workflow its filters skip reports nothing, and a required check that never reports blocks the pull
 request for good), then add `Maestro flows on an emulator` to the ruleset's required checks.
 
+## Release pull requests
+
+release-please opens and updates the release pull request with the workflow's token. GitHub holds
+the pull request runs that token causes until someone with write access approves them, and the
+ruleset requires **CI passed** on every pull request. The release workflow therefore starts CI on
+the release branch itself (`gh workflow run ci.yml`, an event that token can trigger): its **CI
+passed** lands on the branch's latest commit, the one the ruleset checks. Nothing to configure. The
+pull request's other workflows (`E2E (Android)`, CodeQL) keep waiting for an approval no rule
+requires; a project that makes one of them a required check starts it in the same job
+(`release-pr-ci` in `release.yml`). A change that adds nothing to the changelog (`chore`, `docs`,
+`ci`…) leaves the release pull request as it was, behind `main`: **Update branch** on it brings it
+up to date, and CI runs as for anyone's push.
+
+`RELEASE_PLEASE_TOKEN` is optional: a GitHub App token or a fine-grained token (contents, pull
+requests and issues: read and write) opens the release pull request as that identity instead. Every
+pull request workflow then runs on it as on a person's, and the release workflow starts nothing
+itself.
+
 ## What protects production
 
 No pull request can build, sign, submit or publish the app:
@@ -156,7 +176,7 @@ and without them the protections below do not hold.
 | ------------------------------ | --------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | `EXPO_TOKEN`                   | secret                      | `preview`, `production` environments | EAS CLI: an Expo **robot user** token with the least role that can build and publish                  |
 | `SENTRY_AUTH_TOKEN`            | secret                      | environments                         | source map upload of OTA updates; skipped, with a notice, where it or the variables below are missing |
-| `RELEASE_PLEASE_TOKEN`         | secret (optional)           | repository                           | release pull requests that trigger CI (GitHub App or fine-grained token)                              |
+| `RELEASE_PLEASE_TOKEN`         | secret (optional)           | repository                           | release pull requests that run every pull request workflow ([above](#release-pull-requests))          |
 | `SENTRY_ORG`, `SENTRY_PROJECT` | variable (optional)         | repository                           | with `SENTRY_AUTH_TOKEN`, enable the source map upload step                                           |
 | `ENABLE_CODEQL`                | variable (optional, `true`) | repository                           | turn on CodeQL                                                                                        |
 | `ENABLE_DEPENDENCY_REVIEW`     | variable (optional, `true`) | repository                           | turn on dependency review                                                                             |
@@ -170,7 +190,10 @@ Once, after creating the repository from this template (REQUIERE CONFIGURACIÓN)
 
 1. Rulesets: Settings → Rules → Rulesets → Import, `.github/rulesets/main.json` (pull requests,
    one approval, code owners, linear history, squash merges, "CI passed") and
-   `.github/rulesets/tags.json` (release tags cannot be moved or deleted).
+   `.github/rulesets/tags.json` (release tags cannot be moved or deleted). The approval must come
+   from someone other than the last person who pushed: a team of one sets
+   `required_approving_review_count` to `0` and `require_code_owner_review` and
+   `require_last_push_approval` to `false` before importing `main.json`.
 2. CODEOWNERS: replace the placeholders in `.github/CODEOWNERS` and uncomment.
 3. Environments `preview` and `production` with their secrets ([above](#environments)).
 4. Optional variables and secrets ([above](#secrets-and-variables)).
@@ -187,7 +210,9 @@ Every workflow follows the same rules, checked by `pnpm lint:workflows` (actionl
 in CI):
 
 - `permissions` read-only at the top; a job asks for more only when it writes something (the
-  release job).
+  release jobs).
+- No dependency code runs next to a write token: the release's SBOM is generated in a read-only
+  job and attached by another that installs nothing.
 - `persist-credentials: false` on every checkout: no token left in `.git/config` for later steps.
 - User-controlled values (PR titles, branch names, inputs) reach scripts through `env`, never
   `${{ }}` inside `run:` (script injection).
