@@ -542,7 +542,8 @@ behind an `AnalyticsProvider` interface (`types.ts`). Events and their propertie
 
 `src/lib/flags/index.ts`: every flag declared with its default and why it exists (`FLAGS`), read with
 `isEnabled('newItemForm')`. Values: the defaults, overridden by `EXPO_PUBLIC_FLAGS` in
-development and preview builds. A remote provider (rollouts, experiments) plugs in as another
+development and preview builds (a production build with it fails its configuration check). A remote
+provider (rollouts, experiments) plugs in as another
 source in `resolveFlags()`; none is included, the choice is the project's.
 
 Flags hide unfinished JavaScript features and allow a staged rollout without a store release. They

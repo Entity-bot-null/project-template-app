@@ -230,6 +230,19 @@ export default defineConfig([
     },
   },
 
+  // No JavaScript in src/ (ENGINEERING_STANDARDS.md): TypeScript never reads
+  // a .js file nothing imports, and Expo Router would still load one under
+  // src/app as a route.
+  {
+    files: ['src/**/*.{js,jsx,mjs,cjs}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        { selector: 'Program', message: 'Write it in TypeScript: no JavaScript in src/.' },
+      ],
+    },
+  },
+
   // Node.js: configuration files and repository scripts.
   {
     files: ['*.{js,mjs,cjs}', 'scripts/**/*.mjs'],

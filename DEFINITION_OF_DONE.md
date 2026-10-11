@@ -59,7 +59,7 @@ checked" is not. The pull request template repeats the essentials as a checklist
 
 - [ ] API changes: `openapi/openapi.json` updated, types regenerated (`pnpm contract`), and the change
       is backwards compatible with app versions already installed (or coordinated with the backend).
-- [ ] New environment variables in `src/config/env.schema.ts`, `.env.example`,
+- [ ] New environment variables in `src/config/env.schema.ts`, `src/config/env.ts`, `.env.example`,
       docs/RELEASES.md#environment-variables and each EAS environment.
 - [ ] Release impact identified: OTA-compatible (JavaScript only) or store build (native change).
 - [ ] Stored data from the previous version still loads (preferences schema, storage keys), or is

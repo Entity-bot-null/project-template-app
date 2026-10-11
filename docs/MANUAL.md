@@ -177,7 +177,7 @@ build) and at startup. The full table: [RELEASES.md](RELEASES.md#environment-var
 | `pnpm typecheck`                             | contract drift, generated types, `tsc`                                                                                              |
 | `pnpm test` / `test:watch` / `test:coverage` | Jest                                                                                                                                |
 | `pnpm test:e2e`                              | Maestro flows                                                                                                                       |
-| `pnpm test:scripts`                          | the tests of the repository scripts (`scripts/*.test.mjs`: Doberman's engine)                                                       |
+| `pnpm test:scripts`                          | the tests of the repository scripts (`scripts/*.test.mjs`: Doberman's engine, the dependency policy, the tool images)               |
 | `pnpm expo:doctor`                           | expo-doctor, every check; dependency versions against the installed SDK's manifest (the lockfile), not the newest published patches |
 | `pnpm security`                              | `pnpm audit` (high), dependency and license policy, secret scan                                                                     |
 | `pnpm deps:check` / `pnpm secrets:scan`      | the two policies separately                                                                                                         |

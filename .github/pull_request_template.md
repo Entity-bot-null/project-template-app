@@ -35,7 +35,7 @@ See CONTRIBUTING.md#commits.
 - [ ] Loading, empty, error and offline states handled; nothing blocks the UI thread (long lists virtualized).
 - [ ] Accessible (docs/ACCESSIBILITY.md): labels and roles on controls, touch targets of 48 dp, readable with the largest font size, usable with TalkBack/VoiceOver; new screens added to `src/a11y.spec.tsx`.
 - [ ] API contract updated in `openapi/openapi.json` and the types regenerated (`pnpm contract`) if the API changed.
-- [ ] New environment variables in `src/config/env.schema.ts`, `.env.example` and docs/RELEASES.md#environment-variables; no secret in an `EXPO_PUBLIC_*` variable.
+- [ ] New environment variables in `src/config/env.schema.ts`, `src/config/env.ts`, `.env.example` and docs/RELEASES.md#environment-variables; no secret in an `EXPO_PUBLIC_*` variable.
 - [ ] Security: no tokens, passwords or personal data in logs, analytics or error reports; sensitive data only in secure storage; links validated (src/lib/links.ts); permissions asked in context.
 - [ ] New dependencies justified (maintained, New Architecture compatible, allowed license, `expo install` for SDK packages); no new `nosemgrep`/`eslint-disable` without its reason.
 - [ ] Breaking changes marked in the title (`!`) and explained in a `BREAKING CHANGE:` footer.

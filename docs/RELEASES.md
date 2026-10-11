@@ -68,13 +68,13 @@ app can read them. Never a secret: no API keys with write access, no tokens, no 
 validated by `src/config/env.schema.ts` when the app config is evaluated (a bad value fails the
 build) and again at startup.
 
-| Variable                                | Required              | Value                                                          |
-| --------------------------------------- | --------------------- | -------------------------------------------------------------- |
-| `EXPO_PUBLIC_APP_ENV`                   | yes (set by eas.json) | `development`, `staging` or `production`                       |
-| `EXPO_PUBLIC_API_URL`                   | yes                   | the API's base URL, no trailing slash; HTTPS outside localhost |
-| `EXPO_PUBLIC_SENTRY_DSN`                | no                    | the Sentry project's DSN; unset: error reporting off           |
-| `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | no (default 0)        | share of sessions traced, 0 to 1                               |
-| `EXPO_PUBLIC_FLAGS`                     | no                    | feature flag overrides, `name=true,other=false`                |
+| Variable                                | Required              | Value                                                                  |
+| --------------------------------------- | --------------------- | ---------------------------------------------------------------------- |
+| `EXPO_PUBLIC_APP_ENV`                   | yes (set by eas.json) | `development`, `staging` or `production`                               |
+| `EXPO_PUBLIC_API_URL`                   | yes                   | the API's base URL, no trailing slash; HTTPS outside localhost         |
+| `EXPO_PUBLIC_SENTRY_DSN`                | no                    | the Sentry project's DSN; unset: error reporting off                   |
+| `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | no (default 0)        | share of sessions traced, 0 to 1                                       |
+| `EXPO_PUBLIC_FLAGS`                     | no                    | feature flag overrides, `name=true,other=false`; refused in production |
 
 **Build-time** variables exist only on the build machine; they never reach the bundle.
 
@@ -112,8 +112,9 @@ eas env:list --environment production
 
 Do not define a variable both in `eas.json` and in an EAS environment: keep the variant's fixed
 values (`APP_VARIANT`, `EXPO_PUBLIC_APP_ENV`) in `eas.json`, everything project-specific in EAS. A
-new variable is added to `env.schema.ts`, `.env.example`, this table and each EAS environment in the
-same pull request.
+new variable is added to `env.schema.ts`, `env.ts` (Expo inlines only the variables read there by
+name; `pnpm typecheck` fails when one of the schema's is missing), `.env.example`, this table and
+each EAS environment in the same pull request.
 
 ## Versioning
 

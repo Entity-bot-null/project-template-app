@@ -36,7 +36,8 @@ jobs:
       - run: pnpm lint
       # Includes the contract check: src/api/schema.d.ts matches openapi/openapi.json.
       - run: pnpm typecheck
-      # The repository tooling's own tests: Doberman's engine (scripts/*.test.mjs).
+      # The repository tooling's own tests (scripts/*.test.mjs): Doberman's
+      # engine, the dependency policy, the tool images.
       - run: pnpm test:scripts
       # actionlint, zizmor and shellcheck on the Git hooks: the pinned images
       # of .github/tool-images/Dockerfile (docs/CI_CD.md#workflow-security).
