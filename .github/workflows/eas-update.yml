@@ -30,10 +30,6 @@ on:
         options: ['100', '50', '25', '10', '5', '1']
         default: '100'
 
-concurrency:
-  group: eas-update-${{ inputs.channel }}
-  cancel-in-progress: false
-
 permissions:
   contents: read
 
@@ -72,11 +68,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: ${{ inputs.channel }}
+    # One publication or rollback per channel at a time (eas-rollback.yml
+    # shares the group). Here, not on the whole run: the gates must not hold
+    # back a rollback that is waiting.
+    concurrency:
+      group: eas-update-${{ inputs.channel }}
+      cancel-in-progress: false
     env:
-      # The channel's build variant, as eas.json sets it for its builds: the
-      # same app config gives the same runtime version (fingerprint).
-      APP_VARIANT: ${{ inputs.channel }}
-      EXPO_PUBLIC_APP_ENV: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
       # Source maps go to Sentry only when this environment has everything the
       # upload needs: the repository variables SENTRY_ORG and SENTRY_PROJECT
       # and the environment secret SENTRY_AUTH_TOKEN (optional for preview,
@@ -89,11 +87,21 @@ jobs:
           ref: ${{ needs.resolve.outputs.sha }}
           persist-credentials: false
       - uses: ./.github/actions/setup
+      # The app config is read here as a development one: a preview or
+      # production config requires EXPO_PUBLIC_API_URL, which only the EAS
+      # environment holds, and reading it would fail before anything is
+      # published. The project id is the same in every variant.
       - run: node scripts/check-eas-project.mjs
       # The EAS environment of the same name supplies the other public
       # variables (API URL, Sentry DSN), as it does for builds.
       - name: Publish the update
         env:
+          # The channel's build variant, as eas.json sets it for its builds:
+          # the same app config gives the same runtime version (fingerprint).
+          # This step only: the steps before and after read the app config
+          # without the EAS environment (see above).
+          APP_VARIANT: ${{ inputs.channel }}
+          EXPO_PUBLIC_APP_ENV: ${{ inputs.channel == 'production' && 'production' || 'staging' }}
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CHANNEL: ${{ inputs.channel }}
           MESSAGE: ${{ inputs.message }}

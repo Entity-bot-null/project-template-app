@@ -335,7 +335,8 @@ GitHub → **Settings**:
 1. **General → Pull Requests**: only **squash merging**, default message **Pull request title**,
    **Automatically delete head branches**.
 2. **Actions → General → Workflow permissions**: **Read repository contents and packages
-   permissions**.
+   permissions**, and tick **Allow GitHub Actions to create and approve pull requests** (the
+   **Release** workflow opens the release pull request with the workflow's token).
 3. **Environments → New environment** `preview`: deployment branches **Selected branches** →
    `main`.
 4. **Environments → New environment** `production`: the same, plus **Required reviewers** (tick
@@ -355,26 +356,37 @@ GitHub → **Settings**:
    merged pull request, and `dependabot-auto-merge.yml` checks the approval and CI itself, but
    nothing replaces the reviewers ([CI_CD.md](CI_CD.md#required-check)).
 
-7. The release token (so CI runs on release pull requests): a **fine-grained personal access
-   token** (your avatar → Settings → Developer settings) limited to `REPO`, with **Contents**,
-   **Pull requests** and **Issues** read and write; then `gh secret set RELEASE_PLEASE_TOKEN`.
+   The ruleset asks for one approval from someone other than the last person who pushed: a pull
+   request needs a second member of the team. Working alone, set `required_approving_review_count`
+   to `0` and `require_code_owner_review` and `require_last_push_approval` to `false` in
+   `main.json` before importing it; pull requests, **CI passed**, linear history and squash merges
+   stay required.
+
+7. Optional, the release token: without it, the **Release** workflow starts CI on the release pull
+   request itself. With a GitHub App token or a **fine-grained personal access token** (your
+   avatar → Settings → Developer settings) limited to `REPO`, with **Contents**, **Pull requests**
+   and **Issues** read and write, saved with `gh secret set RELEASE_PLEASE_TOKEN`, the release pull
+   request runs every pull request workflow, like a person's
+   ([CI_CD.md](CI_CD.md#release-pull-requests)).
 
 **Check:** Settings → Environments lists `preview` and `production` limited to `main`; the rule for
-`main` exists; `gh secret list` shows `RELEASE_PLEASE_TOKEN`.
+`main` exists; if you set the release token, `gh secret list` shows `RELEASE_PLEASE_TOKEN`.
 
 ### 5.3 Prove the pull request flow
 
 ```
 git switch -c chore/check-pipeline
-echo "" >> README.md
+printf '\nBuilt from the mobile template.\n' >> README.md
 git commit -am "docs: check the pipeline"
 git push -u origin HEAD
 gh pr create --fill
 gh pr checks --watch
 ```
 
-**Check:** **CI passed** green; merge with **Squash and merge**. The **Release** workflow then opens
-"chore(main): release 0.1.0": leave it open until phase 10.
+**Check:** **CI passed** green; a second person approves; merge with **Squash and merge**. A `docs`
+or `chore` change releases nothing, so no release pull request appears yet: the **Release**
+workflow opens one when the first `feat` or `fix` reaches `main`, and starts CI on it (**CI
+passed** green on that pull request a few minutes later). Leave it open until phase 10.
 
 ---
 
@@ -629,16 +641,18 @@ submission key.
 
 ### 10.1 Cut the version
 
-Merge the release pull request "chore(main): release 0.1.0" (or, to start at 1.0.0, first merge a
-commit whose message has the footer `Release-As: 1.0.0`). The **Release** workflow tags it
-(`v0.1.0`).
+Merge the release pull request, "chore(main): release <version>". The version follows from the
+commits since the template's `0.1.0`: the first `fix` makes it 0.1.1, the first `feat` 0.2.0. To
+start at 1.0.0 instead, first merge a pull request with the footer `Release-As: 1.0.0` added to its
+commit message in the **Squash and merge** dialog. The **Release** workflow tags the release
+(`v<version>`).
 
 ### 10.2 The first Android upload is manual (Google's rule)
 
 Build without submitting:
 
 ```
-gh workflow run eas-build.yml --ref main -f profile=production -f platform=android -f ref=v0.1.0
+gh workflow run eas-build.yml --ref main -f profile=production -f platform=android -f ref=v<version>
 ```
 
 A reviewer approves the run (**Review deployments**). When the build finishes on expo.dev,
@@ -777,14 +791,14 @@ gh workflow run eas-rollback.yml --ref main -f channel=preview -f target=earlier
 
 ## Phase 15. The maintenance calendar
 
-| When                                | Do                                                                                                                                                                                  |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every week                          | Approve Dependabot's pull requests: patch and minor ones merge themselves once CI is green; majors and workflow updates you merge by hand.                                          |
-| Every release                       | Preview build, test on devices, production build, internal testing, staged rollout.                                                                                                 |
-| Every Expo SDK (about three a year) | Upgrade, one SDK at a time ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                          |
-| Every quarter                       | Review `audit.ignore` and the security `overrides` in `pnpm-workspace.yaml`; the pinned EAS CLI, Maestro and Node versions; `RELEASE_PLEASE_TOKEN`'s and `EXPO_TOKEN`'s expiration. |
-| Every year                          | Renew the Apple Developer membership and the distribution certificate (`eas credentials -p ios`) before they expire.                                                                |
-| Every August                        | Google Play's target API level deadline: ship a build of a current Expo SDK before it.                                                                                              |
+| When                                | Do                                                                                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Every week                          | Approve Dependabot's pull requests: patch and minor ones merge themselves once CI is green; majors and workflow updates you merge by hand.                                                  |
+| Every release                       | Preview build, test on devices, production build, internal testing, staged rollout.                                                                                                         |
+| Every Expo SDK (about three a year) | Upgrade, one SDK at a time ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                  |
+| Every quarter                       | Review `audit.ignore` and the security `overrides` in `pnpm-workspace.yaml`; the pinned EAS CLI, Maestro and Node versions; `EXPO_TOKEN`'s expiration, and `RELEASE_PLEASE_TOKEN`'s if set. |
+| Every year                          | Renew the Apple Developer membership and the distribution certificate (`eas credentials -p ios`) before they expire.                                                                        |
+| Every August                        | Google Play's target API level deadline: ship a build of a current Expo SDK before it.                                                                                                      |
 
 ---
 
