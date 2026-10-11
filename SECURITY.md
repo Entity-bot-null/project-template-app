@@ -36,7 +36,8 @@ credit you in the advisory if you wish. <!-- REQUIERE CONFIGURACIÓN: adjust the
 The latest store release receives fixes. Fixes in JavaScript reach installed builds of supported
 runtime versions as OTA updates; native fixes need a store release, and a minimum supported version
 enforced by the API (an "update required" answer) for vulnerabilities that cannot wait for users to
-update ([docs/RELEASES.md](docs/RELEASES.md#minimum-supported-version), REQUIRES CONFIGURATION). Each release lists its dependencies in the SBOM attached to its GitHub release.
+update ([docs/RELEASES.md](docs/RELEASES.md#minimum-supported-version), REQUIRES CONFIGURATION).
+Each release lists its npm dependencies in the SBOM attached to its GitHub release.
 
 ## Threat model
 
@@ -207,7 +208,11 @@ screens that need it. Each one is a native change: a new store build
   enough. From that date `pnpm deps:check` fails until both entries are deleted.
 - `pnpm audit --audit-level=high` in `pnpm security` and CI; Dependabot security updates.
 - Expo SDK packages move together through SDK upgrades; Dependabot proposes their patches only.
-- Every release carries a CycloneDX SBOM of the production dependencies (`pnpm sbom:generate`).
+- Every release carries a CycloneDX SBOM of the production dependencies (`pnpm sbom:generate`):
+  the npm packages they resolve to in the lockfile, peer dependencies included (so some tools
+  appear, Jest through a peer of `expo-router`). It does not list the native libraries Gradle and
+  CocoaPods resolve during an EAS build (AndroidX, the native Sentry SDKs, the Hermes engine),
+  and it describes the tag, not a build: EAS keeps the build itself.
 - A new dependency is justified in its pull request: maintained, New Architecture compatible,
   license allowed, smallest reasonable footprint (bundle and binary).
 
