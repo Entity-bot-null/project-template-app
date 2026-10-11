@@ -15,13 +15,13 @@ end-to-end on a device included.
 
 ## Levels
 
-| Level       | Tool                                   | What it proves                                                                                                       | Where                                                |
-| ----------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Unit        | Jest (jest-expo)                       | logic: errors, links, redaction, env schema, session, flags, storage                                                 | `src/**/<name>.spec.ts` next to the code             |
-| Component   | React Native Testing Library (RNTL 14) | a component renders, is accessible, reacts to the user                                                               | `src/ui/components/components.spec.tsx`              |
-| Integration | RNTL + stubbed `fetch`                 | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                | `src/features/**/*.int.spec.tsx`                     |
-| Navigation  | RNTL + the real routes (`renderApp`)   | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                              | `src/navigation.int.spec.tsx`, `src/routes.spec.tsx` |
-| End-to-end  | Maestro on an emulator / simulator     | the release build works for a user: launch, onboarding, sign-in, session restore, list, create, deep links, sign-out | `.maestro/flows/`                                    |
+| Level       | Tool                                   | What it proves                                                                                                                            | Where                                                |
+| ----------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Unit        | Jest (jest-expo)                       | logic: errors, links, redaction, env schema, session, flags, storage                                                                      | `src/**/<name>.spec.ts` next to the code             |
+| Component   | React Native Testing Library (RNTL 14) | a component renders, is accessible, reacts to the user                                                                                    | `src/ui/components/components.spec.tsx`              |
+| Integration | RNTL + stubbed `fetch`                 | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                                     | `src/features/**/*.int.spec.tsx`                     |
+| Navigation  | RNTL + the real routes (`renderApp`)   | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                                                   | `src/navigation.int.spec.tsx`, `src/routes.spec.tsx` |
+| End-to-end  | Maestro on an emulator / simulator     | the release build works for a user: the critical journeys, and their failures on a device (offline, 429, 5xx, a session the server ended) | `.maestro/flows/`                                    |
 
 The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
 End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
@@ -129,13 +129,43 @@ deterministic and need no backend or credentials.
 The flows (`.maestro/flows/`, run in order by `.maestro/config.yaml`, each continuing the previous
 one's state like a user's first session):
 
-| Flow                          | Covers                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------ |
-| `01-onboarding-and-sign-in`   | clean install, onboarding, on-device validation, wrong password, sign-in |
-| `02-session-survives-restart` | the session restored from secure storage after the app is killed         |
-| `03-items`                    | list, search, detail, form validation, create                            |
-| `04-deep-links`               | an accepted link opens its screen; an unknown one lands on home          |
-| `05-sign-out`                 | sign-out with confirmation, and still signed out after a restart         |
+| Flow                          | Covers                                                                                                                                                                                              |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-onboarding-and-sign-in`   | clean install, onboarding, on-device validation, wrong password, too many attempts (429), a connection dropped before the answer, sign-in                                                           |
+| `02-session-survives-restart` | the session restored from secure storage after the app is killed                                                                                                                                    |
+| `03-items`                    | list, search, detail, form validation, create                                                                                                                                                       |
+| `04-server-errors`            | a 5xx while searching: the error state after the automatic retries, and a retry that recovers                                                                                                       |
+| `05-offline`                  | airplane mode: the offline banner over the saved data, and a search typed offline that runs once the device is back online                                                                          |
+| `06-session-ends`             | the server expires the access token (renewed, and the refused create sent again with its body), revokes the session in use (sign-in screen with the reason), and revokes it while the app is closed |
+| `07-deep-links`               | an accepted link opens its screen; an unknown route or a refused id lands on home; a link that starts the app opens its screen with the list below it                                               |
+| `08-sign-out`                 | sign-out with confirmation, still signed out after a restart, and a link into the app lands on sign-in                                                                                              |
+
+**Failures on demand.** The mock API fails when a flow asks it to, through control endpoints outside
+the contract (listed at the top of `scripts/mock-api.mjs`), which `.maestro/scripts/mock-api.js`
+calls from a flow: a status for one route (429, a 5xx, or no answer at all) until cleared, and
+expiring or revoking every session. The same endpoints show an error state by hand while developing:
+
+```sh
+curl -X POST localhost:4010/__mock/faults -d '{"route":"GET /api/items","status":503}'
+curl -X POST localhost:4010/__mock/faults/clear
+curl -X POST localhost:4010/__mock/sessions/revoke   # the app's session ends at its next request
+```
+
+A failure goes into a flow when only a device can prove it: the device's network stack, its
+connection state, the release build's request replay. Where the stubbed `fetch` of a Jest test
+proves it as well, the Jest test is the better place (milliseconds, and exact about what was
+sent):
+
+| Failure                                            | Proven by                                                                                                                                                                                                            |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Wrong password, too many attempts (429), no answer | `01-onboarding-and-sign-in`; `SignInScreen.int.spec.tsx` (wrong password, field errors, offline)                                                                                                                     |
+| Offline, back online                               | `05-offline`; `query.spec.ts` (online and focus wiring), `components.spec.tsx` (offline banner), `session.spec.ts` (offline restore)                                                                                 |
+| Session expired or revoked while in use            | `06-session-ends`; `http.spec.ts` (one replay after a 401), `session.spec.ts` (shared renewal, refused renewal), `navigation.int.spec.tsx` (a create refused because the session ended)                              |
+| Server errors (5xx)                                | `04-server-errors`; `items.int.spec.tsx` (error with a retry that recovers, missing item told apart from a failure)                                                                                                  |
+| Validation errors on create                        | `03-items` (on-device validation); `items.int.spec.tsx` (the server's field errors under their field, the optimistic item rolled back): the client's own limits keep the mock API's validation out of a user's reach |
+| Unknown or hostile link                            | `07-deep-links`, `08-sign-out`; `links.spec.ts` (the allowlist), `routes.spec.tsx`, `navigation.int.spec.tsx`                                                                                                        |
+| App killed and restored                            | `02-session-survives-restart`, `06-session-ends`, `07-deep-links`, `08-sign-out`; `session.spec.ts`                                                                                                                  |
+| A response that breaks the contract                | `items.int.spec.tsx`, `session.spec.ts`: the mock API implements the contract and cannot break it                                                                                                                    |
 
 **In CI**: `.github/workflows/e2e-android.yml` builds the APK with Gradle, starts the mock API and
 an Android emulator, and runs the flows on every pull request that touches the app; screenshots,

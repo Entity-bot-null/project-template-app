@@ -257,6 +257,24 @@ export default defineConfig([
       },
     },
   },
+  // Maestro's JavaScript (runScript in .maestro/flows): its own globals, and
+  // each variable of the flow's `env` as a global of the same name.
+  {
+    files: ['.maestro/**/*.js'],
+    extends: [tsConfigs.disableTypeChecked],
+    languageOptions: {
+      globals: {
+        http: 'readonly',
+        json: 'readonly',
+        output: 'writable',
+        maestro: 'readonly',
+        MOCK_API_URL: 'readonly',
+        CONTROL: 'readonly',
+        ROUTE: 'readonly',
+        STATUS: 'readonly',
+      },
+    },
+  },
   {
     files: ['app.config.ts'],
     rules: { 'no-restricted-properties': 'off' },

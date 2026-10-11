@@ -1,0 +1,54 @@
+# Links from outside the app: an accepted one opens its screen, anything
+# else lands on the home screen (src/lib/links.ts). A link that starts the
+# app opens its screen with the list below it, to go back to.
+appId: ${APP_ID}
+name: Deep links
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+  SCHEME: templateapp-e2e
+---
+- openLink: ${SCHEME}://items/item-3
+- extendedWaitUntil:
+    visible:
+      id: item-detail-screen
+    timeout: 10000
+- assertVisible: Example item number 3.
+
+# Opened from the item's screen, so landing on the home screen is visible.
+- openLink: ${SCHEME}://admin/delete-everything
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 10000
+- assertNotVisible:
+    id: item-detail-screen
+
+# A known route with an id the allowlist refuses (markup): home as well.
+- openLink: ${SCHEME}://items/item-3
+- extendedWaitUntil:
+    visible:
+      id: item-detail-screen
+    timeout: 10000
+- openLink: ${SCHEME}://items/%3Cscript%3E
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 10000
+- assertNotVisible:
+    id: item-detail-screen
+
+# The link starts the app: the session is restored first, then the item
+# opens, with the list below it (the anchor of src/app/(app)/_layout.tsx).
+- stopApp
+- openLink: ${SCHEME}://items/item-5
+- extendedWaitUntil:
+    visible:
+      id: item-detail-screen
+    timeout: 15000
+- assertVisible: Example item number 5.
+- back
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 10000
