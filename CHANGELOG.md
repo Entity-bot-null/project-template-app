@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Entity-bot-null/project-template-app/compare/v0.1.1...v0.1.2) (2026-10-11)
+
+
+### Bug fixes
+
+* **navigation:** keep the list below an item opened by a link ([ceb9284](https://github.com/Entity-bot-null/project-template-app/commit/ceb928426d7ee3cbe1c26fc71e45ad5e7b31c02d))
+
 ## [0.1.1](https://github.com/Entity-bot-null/project-template-app/compare/v0.1.0...v0.1.1) (2026-10-11)
 
 
