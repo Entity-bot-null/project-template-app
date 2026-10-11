@@ -137,8 +137,12 @@ No pull request can build, sign, submit or publish the app:
 5. Every build and update runs the full gates on the exact commit first.
 6. Production builds go to internal testing (Play internal track as a draft, TestFlight); the
    public release is a separate human action in each store.
-7. The production EAS Update channel is protected (`eas channel:protect`): only account admins can
-   publish to it, from any tool.
+7. Where the Expo account has protected channels (a private beta of the Enterprise plan, per
+   Expo's documentation on account roles), the production EAS Update channel is protected
+   (`eas channel:protect`): only a Release Manager or above publishes to it, from any tool, so
+   the `production` environment's `EXPO_TOKEN` belongs to a Release Manager. Without protected
+   channels, any token that can publish reaches production: the environment's reviewer is the
+   gate.
 8. Signing keys and store credentials live on EAS, never in the repository or in GitHub.
 
 ## EAS builds
