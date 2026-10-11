@@ -445,7 +445,9 @@ Every incoming link is untrusted input. `src/app/+native-intent.tsx` passes it t
 
 Query strings are dropped; parameters are validated; a link never performs an action by itself (no
 sign-in, payment, deletion or sharing from a URL): it opens a screen where the user decides. A link
-to a signed-in screen while signed out lands on the sign-in screen (the guards apply).
+to a signed-in screen while signed out lands on the sign-in screen (the guards apply). A link that
+starts the app builds the navigation from its URL alone: the `anchor` of `src/app/(app)/_layout.tsx`
+puts the tabs below the screen it opens, so back leads to the home screen instead of out of the app.
 
 To add a link (password reset, invitation, product page): add its pattern to `ROUTES` in
 `src/lib/links.ts` with a test, then the route. Each route also declares the https path that opens
