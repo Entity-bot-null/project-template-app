@@ -556,7 +556,8 @@ Imprime un enlace o un código QR: ábrelo en el iPhone e instala el perfil que 
 ### 7.5 El token para GitHub
 
 expo.dev → tu cuenta u organización → **Settings → Access tokens**: crea un token (para una
-organización, mejor un **robot user** con el rol Developer que un token personal). Después:
+organización, mejor un **robot user** con el rol Developer que un token personal; cuando el canal
+de producción esté protegido, 10.4, el de `production` necesita el rol Release Manager). Después:
 
 ```
 gh secret set EXPO_TOKEN --env preview
@@ -708,14 +709,18 @@ lo instalan y funciona contra la API de producción.
 
 ### 10.4 Protege el canal de actualizaciones de producción
 
-El primer build de producción creó el canal `production`. Permite publicar en él solo a los
-administradores de la cuenta:
+El primer build de producción creó el canal `production`. Permite publicar en él solo a un
+Release Manager o superior, si la cuenta tiene canales protegidos (una beta privada del plan
+Enterprise de Expo; sin ellos, sáltate este paso: el revisor del entorno `production` sigue siendo
+el control):
 
 ```
 eas channel:protect
 ```
 
-(elige `production`). **Comprobación:** `eas channel:view production` lo muestra protegido.
+(elige `production`). **Comprobación:** `eas channel:view production` lo muestra protegido. Desde
+ahora el `EXPO_TOKEN` del entorno `production` debe ser de un Release Manager (7.5): con el rol
+Developer, los workflows EAS update y EAS rollback ya no pueden publicar en producción.
 
 ### 10.5 Hazla pública
 
@@ -802,7 +807,7 @@ anterior en Settings → About.
 - [ ] Los cambios de backend que necesita la app están en producción y son compatibles con todas las
       versiones que siguen instaladas.
 - [ ] Los builds y las actualizaciones de producción requieren un revisor (entorno de GitHub) y el
-      canal de producción está protegido (10.4).
+      canal de producción está protegido donde la cuenta lo permite (10.4).
 - [ ] El objetivo de sesiones sin crashes, acordado (por ejemplo, el 99.5 % de las sesiones) y
       vigilado.
 - [ ] [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) firmado, con

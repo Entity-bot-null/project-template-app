@@ -529,7 +529,8 @@ It prints a link or QR code: open it on the iPhone and install the profile it of
 ### 7.5 The token for GitHub
 
 expo.dev → your account or organization → **Settings → Access tokens**: create a token (for an
-organization, a **robot user** with the Developer role is better than a personal token). Then:
+organization, a **robot user** with the Developer role is better than a personal token; once the
+production channel is protected, 10.4, the `production` one needs the Release Manager role). Then:
 
 ```
 gh secret set EXPO_TOKEN --env preview
@@ -678,14 +679,18 @@ it and it works against the production API.
 
 ### 10.4 Protect the production update channel
 
-The first production build created the `production` channel. Allow only account admins to publish
-to it:
+The first production build created the `production` channel. Allow only a Release Manager or
+above to publish to it, where the account has protected channels (a private beta of Expo's
+Enterprise plan; without them, skip this step: the `production` environment's reviewer stays the
+gate):
 
 ```
 eas channel:protect
 ```
 
-(choose `production`). **Check:** `eas channel:view production` shows it protected.
+(choose `production`). **Check:** `eas channel:view production` shows it protected. From now on
+the `production` environment's `EXPO_TOKEN` must belong to a Release Manager (7.5): with the
+Developer role, the EAS update and EAS rollback workflows can no longer publish to production.
 
 ### 10.5 Go public
 
@@ -766,7 +771,7 @@ gh workflow run eas-rollback.yml --ref main -f channel=preview -f target=earlier
 - [ ] The reviewers' test account works in production.
 - [ ] Backend changes the app needs are live and compatible with every version still installed.
 - [ ] Production builds and updates require a reviewer (GitHub environment) and the production
-      channel is protected (10.4).
+      channel is protected where the account allows it (10.4).
 - [ ] The crash-free target agreed (for example 99.5 % of sessions) and watched.
 - [ ] [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) signed off, with
       [STORE_COMPLIANCE.md](STORE_COMPLIANCE.md) for both stores and the manual pass of

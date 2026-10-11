@@ -87,15 +87,15 @@ Every capability of the template, and every line below, is exactly one of:
 
 ## Release
 
-| Done | Item                      | Class                  | Verified by                                                                                                                     |
-| ---- | ------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| [ ]  | Production build          | REQUIRES CONFIGURATION | the EAS build workflow from a release tag ([RELEASES.md](RELEASES.md#builds))                                                   |
-| [ ]  | Signing                   | REQUIRES CONFIGURATION | credentials on EAS; Play App Signing; nothing in the repository                                                                 |
-| [ ]  | Runtime version           | CORE                   | fingerprint policy; `eas fingerprint:compare` explains a change ([RELEASES.md](RELEASES.md#runtime-versions-and-compatibility)) |
-| [ ]  | OTA compatibility         | CORE                   | the release's change is in the right column of [what can ship as an OTA update](RELEASES.md#what-can-ship-as-an-ota-update)     |
-| [ ]  | Rollout                   | REQUIRES CONFIGURATION | the [rollout stages](RELEASES.md#rollout-stages) followed; production channel protected (`eas channel:protect`)                 |
-| [ ]  | Rollback                  | REQUIRES CONFIGURATION | an OTA rollback rehearsed on preview (EAS rollback workflow); the store halt steps known ([RELEASES.md](RELEASES.md#rollback))  |
-| [ ]  | Minimum supported version | REQUIRES CONFIGURATION | decided: implemented with the backend, or explicitly not yet ([RELEASES.md](RELEASES.md#minimum-supported-version))             |
+| Done | Item                      | Class                  | Verified by                                                                                                                                                                             |
+| ---- | ------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ ]  | Production build          | REQUIRES CONFIGURATION | the EAS build workflow from a release tag ([RELEASES.md](RELEASES.md#builds))                                                                                                           |
+| [ ]  | Signing                   | REQUIRES CONFIGURATION | credentials on EAS; Play App Signing; nothing in the repository                                                                                                                         |
+| [ ]  | Runtime version           | CORE                   | fingerprint policy; `eas fingerprint:compare` explains a change ([RELEASES.md](RELEASES.md#runtime-versions-and-compatibility))                                                         |
+| [ ]  | OTA compatibility         | CORE                   | the release's change is in the right column of [what can ship as an OTA update](RELEASES.md#what-can-ship-as-an-ota-update)                                                             |
+| [ ]  | Rollout                   | REQUIRES CONFIGURATION | the [rollout stages](RELEASES.md#rollout-stages) followed; production channel protected (`eas channel:protect`) where the account has protected channels, its token a Release Manager's |
+| [ ]  | Rollback                  | REQUIRES CONFIGURATION | an OTA rollback rehearsed on preview (EAS rollback workflow); the store halt steps known ([RELEASES.md](RELEASES.md#rollback))                                                          |
+| [ ]  | Minimum supported version | REQUIRES CONFIGURATION | decided: implemented with the backend, or explicitly not yet ([RELEASES.md](RELEASES.md#minimum-supported-version))                                                                     |
 
 ## Operations
 

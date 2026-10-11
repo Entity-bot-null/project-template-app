@@ -145,7 +145,10 @@ Once per project (REQUIERE CONFIGURACIÓN), after the identity in `app.config.ts
    ([above](#environment-variables)).
 3. Signing and store credentials ([below](#store-and-service-credentials)).
 4. Once the first production build has created the `production` channel, protect it, so only
-   account admins can publish to it: `eas channel:protect` (choose `production`).
+   a Release Manager or above can publish to it: `eas channel:protect` (choose `production`),
+   where the account has protected channels (a private beta of the Enterprise plan). The
+   `production` environment's `EXPO_TOKEN` then needs the Release Manager role: with the
+   Developer role, the EAS update and EAS rollback workflows can no longer publish there.
 5. GitHub: the `preview` and `production` environments with the `EXPO_TOKEN` secret, the rulesets
    and the repository variables ([CI_CD.md](CI_CD.md#setting-up-the-repository)).
 6. A first `development` build for each platform:
