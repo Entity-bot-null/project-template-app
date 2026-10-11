@@ -15,6 +15,7 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 - [Setting up the repository](#setting-up-the-repository)
 - [Workflow security](#workflow-security)
 - [Pinning](#pinning)
+- [Keeping the stack current](#keeping-the-stack-current)
 
 ## Workflows
 
@@ -261,3 +262,70 @@ the digest makes the content identical whatever the source, Docker Hub stays the
 Dependabot keeps updating the pins from their source. GHCR and ECR Public limit anonymous pulls
 too, so before a script runs a tool image it pulls it and, when a registry answers with its rate
 limit, retries after 5, 10 and 20 seconds (`ensureImage`).
+
+## Keeping the stack current
+
+Dependabot's pull requests are the weekly routine ([Dependency updates](#dependency-updates)). What
+it never proposes is moved by a person, on its own branch, with the full CI and E2E (Android) on
+its pull request:
+
+| Part                                       | Dependabot proposes                                                   | Moved by hand                                                                            |
+| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| npm packages outside the SDK               | minors and patches (grouped), majors (one per pull request)           | merging a major after its release notes; ESLint 10 waits for `eslint-config-expo`        |
+| Expo SDK, React Native, the SDK's packages | patches within the SDK's ranges (`expo-sdk` group)                    | the SDK upgrade, about three times a year ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)) |
+| Jest, `@types/jest`                        | patches                                                               | the major `jest-expo` depends on, in an SDK upgrade                                      |
+| TypeScript                                 | patches                                                               | [minors and majors](#typescript)                                                         |
+| Node.js, `@types/node`                     | `@types/node` minors and patches                                      | [Node.js](#nodejs)                                                                       |
+| pnpm                                       | nothing (it never edits `packageManager`)                             | [pnpm](#pnpm)                                                                            |
+| GitHub Actions                             | new SHA and version comment, in the workflows and `.github/actions/*` | merging: the auto-merge never merges a change to a workflow or an action                 |
+| Tool images                                | tag and digest together                                               | nothing                                                                                  |
+| EAS CLI, Maestro, JDK, emulator            | nothing                                                               | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
+
+### Node.js
+
+`.nvmrc` holds one exact version for CI and the Git hooks; `eas.json` (`build.base.node`) holds the
+same one for the build servers. A patch or minor release (security releases are announced on
+nodejs.org) changes both files and nothing else.
+
+A major moves once it is an LTS release (an even major, from its October):
+
+1. `.nvmrc` and `eas.json` `node`: the new version, released at least a week ago (the same delay as
+   every dependency).
+2. `package.json` `engines.node`: it accepts the new major already (`^24.15.0 || >=26.0.0`); drop
+   the old one once everybody has moved. `engineStrict` refuses an install outside the range.
+3. `pnpm add -D @types/node@^<major>`: Dependabot leaves its majors to this step.
+4. Corepack is not part of Node.js 25 and later: developers install it first
+   (`npm install -g corepack`, in the setup steps already). CI (`pnpm/action-setup`) and EAS
+   (`eas.json` `pnpm`) install pnpm without it.
+5. The documents that name the major:
+   `grep -rnE "Node\.js 24|24\.15|24 LTS" README.md CONTRIBUTING.md docs` (the manual and the
+   step-by-step guide in both languages).
+6. `pnpm install`, `pnpm verify` and `pnpm test:scripts`. On the pull request, CI and E2E (Android)
+   run on the new version (`.nvmrc` is in the E2E workflow's paths); an EAS `preview` build then
+   proves the build servers.
+
+### pnpm
+
+`packageManager` in `package.json` pins pnpm for developers (pnpm switches to it by itself) and CI
+(`pnpm/action-setup` reads it); `pnpm-lock.yaml` records it with its checksum
+(`packageManagerDependencies`); `eas.json` (`build.base.pnpm`) pins it for the build servers.
+Dependabot only rewrites dependency declarations, never `packageManager`.
+
+1. Read the release notes: the settings of `pnpm-workspace.yaml` (the supply-chain policies) change
+   between majors; `pnpm deps:check` (in `pnpm security`) checks they still hold.
+2. `pnpm self-update <version>`, a release at least a week old: it rewrites `packageManager` (the
+   project's `minimumReleaseAge` does not apply to `self-update`).
+3. `pnpm install`: it records the version in `pnpm-lock.yaml`. Without it every
+   `pnpm install --frozen-lockfile` fails ("Cannot update packageManagerDependencies").
+4. `eas.json` `pnpm`, and the version named in the manual and the step-by-step guide (both
+   languages): the same version.
+5. `pnpm verify`.
+
+### TypeScript
+
+Dependabot proposes TypeScript's patches only. A minor can change what type-checks (TypeScript does
+not follow semantic versioning), and typescript-eslint supports a range of versions:
+`pnpm view typescript-eslint peerDependencies` (`>=4.8.4 <6.1.0` with typescript-eslint 8.71, so
+neither 6.1 nor 7 yet). Expo does not set the version: `expo install --check` only requires that
+TypeScript is installed. Once typescript-eslint's range includes a new version:
+`pnpm add -D typescript@~<version>`, then `pnpm typecheck`, `pnpm lint` and `pnpm test`.
