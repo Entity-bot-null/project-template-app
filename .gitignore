@@ -51,5 +51,8 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/extensions.json
 
+# Coding agents' local data (Serena: project config, cache and memories)
+.serena/
+
 # TypeScript
 *.tsbuildinfo
