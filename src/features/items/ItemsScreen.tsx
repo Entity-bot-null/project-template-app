@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, View } from 'react-native';
 
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { userMessage } from '@/lib/errors';
 import { isEnabled } from '@/lib/flags';
 import {
   AlertText,
@@ -25,6 +26,8 @@ import { isOptimistic, type Item, useItems } from './api';
 // loading, empty and error states. Switch to FlashList when rows get heavy
 // or lists reach thousands of rows. A search changes the screen without
 // navigating, so its outcome is announced (docs/ACCESSIBILITY.md#announcements).
+// A failure with items already on screen keeps them, and is said where it
+// happened: a refresh above the list, the next page at its end.
 
 /** How many items a settled search found, as said to the user. */
 function foundMessage(total: number): string {
@@ -40,6 +43,7 @@ const useStyles = createStyles((theme) => ({
     gap: theme.spacing.sm,
   },
   footer: { paddingVertical: theme.spacing.lg },
+  failure: { paddingVertical: theme.spacing.md, gap: theme.spacing.sm },
 }));
 
 export function ItemsScreen() {
@@ -70,6 +74,13 @@ export function ItemsScreen() {
         <AlertText variant="caption" tone="muted">
           {foundMessage(found)}
         </AlertText>
+      )}
+      {query.isRefetchError && (
+        <LoadFailure
+          title="Could not refresh the items"
+          error={query.error}
+          onRetry={() => void query.refetch()}
+        />
       )}
       {isEnabled('newItemForm') && (
         <Button
@@ -104,6 +115,19 @@ export function ItemsScreen() {
     );
   }
 
+  let footer;
+  if (query.isFetchingNextPage) {
+    footer = <NextPageSpinner />;
+  } else if (query.isFetchNextPageError) {
+    footer = (
+      <LoadFailure
+        title="Could not load more items"
+        error={query.error}
+        onRetry={() => void query.fetchNextPage()}
+      />
+    );
+  }
+
   return (
     <FlatList
       style={styles.root}
@@ -123,8 +147,28 @@ export function ItemsScreen() {
       onRefresh={() => void query.refetch()}
       removeClippedSubviews={Platform.OS === 'android'}
       ListEmptyComponent={placeholder}
-      ListFooterComponent={query.isFetchingNextPage ? <NextPageSpinner /> : null}
+      ListFooterComponent={footer}
     />
+  );
+}
+
+/** A load that failed while items are shown: what happened, and a retry. The items stay. */
+function LoadFailure({
+  title,
+  error,
+  onRetry,
+}: {
+  title: string;
+  error: unknown;
+  onRetry: () => void;
+}) {
+  const styles = useStyles();
+  return (
+    <View style={styles.failure}>
+      <Text variant="label">{title}</Text>
+      <AlertText tone="muted">{userMessage(error)}</AlertText>
+      <Button label="Try again" variant="secondary" onPress={onRetry} />
+    </View>
   );
 }
 
