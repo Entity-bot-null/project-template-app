@@ -252,6 +252,39 @@ describe('renewal', () => {
     expect(revoked).toContainEqual({ refreshToken: 'refresh-late' });
   });
 
+  it('keeps one renewal at a time in the next session while a late one of the previous lands', async () => {
+    const session = await signedIn();
+    // The server rotates refresh tokens: a second renewal with the same one
+    // reuses a rotated token, and is refused.
+    const lateRenewal = deferred();
+    const nextRenewal = deferred();
+    const answers = [lateRenewal.promise, nextRenewal.promise];
+    fetchStub.on(
+      'POST /api/auth/refresh',
+      () => answers.shift() ?? failure(401, 'Reused refresh token'),
+    );
+    fetchStub.on('POST /api/auth/logout', () => ok(null));
+    const late = session.refreshAfterRejection('access-1');
+    await new Promise(process.nextTick);
+    await session.signOut();
+    fetchStub.on('POST /api/auth/sign-in', () => ok(sessionFixture('2')));
+    await session.signIn({ email: user.email, password: 'pw' });
+    const renewal = session.refreshAfterRejection('access-2');
+    await new Promise(process.nextTick);
+
+    lateRenewal.resolve(ok(tokens('late')));
+    await expect(late).resolves.toBeNull();
+    // Another request of the new session needs a token while its renewal runs.
+    const token = session.getAccessToken();
+    nextRenewal.resolve(ok(tokens('3')));
+
+    await expect(Promise.all([renewal, token])).resolves.toEqual(['access-3', 'access-3']);
+    expect(fetchStub.requests.filter((request) => request.url.endsWith('/refresh'))).toHaveLength(
+      2,
+    );
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null });
+  });
+
   it('ends the session when the server refuses the renewal', async () => {
     const session = await signedIn();
     fetchStub.on('POST /api/auth/refresh', () => failure(401, 'Reused refresh token'));
