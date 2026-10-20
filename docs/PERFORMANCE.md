@@ -54,7 +54,9 @@ Any list that can grow beyond a screenful is virtualized: `FlatList` (or `Sectio
   skip unchanged rows;
 - pagination with `onEndReached` and `onEndReachedThreshold`, guarded against duplicate requests
   (`hasNextPage && !isFetchingNextPage`);
-- pull to refresh, empty and error states, a footer spinner while the next page loads;
+- pull to refresh, empty and error states, a footer spinner while the next page loads; a refresh
+  or a next page that fails keeps the items on screen and says so where it happened (above the
+  list, at its end), with a retry;
 - `removeClippedSubviews` on Android.
 
 Add when a measurement shows the need:

@@ -165,6 +165,53 @@ describe('ItemsScreen', () => {
     expect(await screen.findByText('Item 0')).toBeOnTheScreen();
   });
 
+  // The error state lives in the empty list: once items were shown, a failure
+  // used to vanish with its spinner, and the list looked complete.
+  it('says when the next page failed, keeps the items, and loads it on retry', async () => {
+    fetchStub.on('GET /api/items', (request) =>
+      new URL(request.url).searchParams.get('offset') === '0'
+        ? ok(page(0, 20, 25))
+        : failure(503, 'Maintenance'),
+    );
+    await renderWithProviders(<ItemsScreen />);
+    await screen.findByText('Item 0');
+    await fireEvent(screen.getByTestId('items-list'), 'onEndReached');
+    expect(await screen.findByText('Could not load more items')).toBeOnTheScreen();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Something went wrong on our side. Try again later.',
+    );
+    expect(screen.getByText('Item 0')).toBeOnTheScreen();
+
+    fetchStub.on('GET /api/items', () => ok(page(20, 5, 25)));
+    await userEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => {
+      expect(screen.queryByText('Could not load more items')).toBeNull();
+    });
+    expect(screen.queryByRole('progressbar', { name: 'Loading more items' })).toBeNull();
+    expect(listRequests().map((query) => query.offset)).toEqual(['0', '20', '20']);
+    // Everything is loaded now: the end of the list asks for nothing more.
+    await fireEvent(screen.getByTestId('items-list'), 'onEndReached');
+    expect(listRequests()).toHaveLength(3);
+  });
+
+  it('says when a refresh failed, keeps the items, and refreshes on retry', async () => {
+    fetchStub.on('GET /api/items', () => ok(page(0, 3, 3)));
+    await renderWithProviders(<ItemsScreen />);
+    await screen.findByText('Item 0');
+    fetchStub.on('GET /api/items', () => failure(503, 'Maintenance'));
+    await fireEvent(screen.getByTestId('items-list'), 'onRefresh');
+    expect(await screen.findByText('Could not refresh the items')).toBeOnTheScreen();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Something went wrong on our side. Try again later.',
+    );
+    expect(screen.getByText('Item 0')).toBeOnTheScreen();
+
+    fetchStub.on('GET /api/items', () => ok({ items: [item(7)], total: 1 }));
+    await userEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText('Item 7')).toBeOnTheScreen();
+    expect(screen.queryByText('Could not refresh the items')).toBeNull();
+  });
+
   it('shows an optimistic item as saving, not openable', async () => {
     const queryClient = testQueryClient();
     queryClient.setQueryData<InfiniteData<ItemPage>>(itemKeys.list(''), {
