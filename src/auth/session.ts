@@ -150,9 +150,15 @@ export function createSession({ storage, installation, api, now }: SessionDepend
   }
 
   function renewOnce(): Promise<string | null> {
-    renewing ??= renew(generation).finally(() => {
-      renewing = null;
-    });
+    if (renewing === null) {
+      const current = renew(generation).finally(() => {
+        // A sign-out or a sign-in drops this renewal and the next session may
+        // start its own: clearing that one would let a second renewal reuse
+        // its rotated refresh token, and the server would end the session.
+        if (renewing === current) renewing = null;
+      });
+      renewing = current;
+    }
     return renewing;
   }
 
