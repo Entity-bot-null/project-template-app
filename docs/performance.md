@@ -125,7 +125,7 @@ The bundle matters three times: it is inside every store binary, Hermes maps it 
 an OTA update downloads it (compressed) every time it changes. When the check fails:
 
 1. Find what grew with Expo Atlas: `EXPO_ATLAS=true pnpm build`, then
-   `pnpm dlx expo-atlas .expo/atlas.jsonl` shows the bundle's modules by size.
+   `pnpm dlx expo-atlas apps/mobile/.expo/atlas.jsonl` shows the bundle's modules by size.
 2. Drop or replace the heavy dependency, import only what is used (`lodash/debounce`, not `lodash`),
    compress images.
 3. If the growth is justified, raise the budget in the same pull request and say why. A reviewer of
