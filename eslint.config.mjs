@@ -13,7 +13,7 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import prettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
 import globals from 'globals';
-import { configs as tsConfigs } from 'typescript-eslint';
+import { configs as tsConfigs, plugin as tsPlugin } from 'typescript-eslint';
 
 // eslint-config-expo is versioned with the Expo SDK (expo/bundledNativeModules.json):
 // apps/mobile declares it, so expo-doctor and `expo install --fix` keep it in
@@ -27,7 +27,11 @@ const MOBILE = 'apps/mobile';
 /**
  * A shared configuration applied to the app only: each block's file patterns
  * moved under apps/mobile (all of the app for a block without them), and the
- * patterns of a global ignore too.
+ * patterns of a global ignore too. Expo's blocks bring their own copy of
+ * typescript-eslint's plugin, which a typescript-eslint update leaves behind
+ * at its older version; ESLint refuses two plugin objects under one name for
+ * a file, so those blocks get this repository's (the same major), which also
+ * serves Expo's @typescript-eslint rules.
  * @param {import('eslint').Linter.Config[]} configs
  * @returns {import('eslint').Linter.Config[]}
  */
@@ -38,8 +42,12 @@ function inMobile(configs) {
     if (keys.length === 1 && config.ignores) {
       return { ...config, ignores: config.ignores.map(under) };
     }
+    const plugins = config.plugins?.['@typescript-eslint']
+      ? { ...config.plugins, '@typescript-eslint': tsPlugin }
+      : config.plugins;
     return {
       ...config,
+      ...(plugins ? { plugins } : {}),
       files: config.files
         ? config.files.map((pattern) => under(/** @type {string} */ (pattern)))
         : [`${MOBILE}/**`],

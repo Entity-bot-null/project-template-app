@@ -452,8 +452,8 @@ own links.
 
 ## Phase 7. EAS and services
 
-The `eas` commands of this guide (phases 7 to 11) run in `apps/mobile`, where `eas.json` and the
-app config are: keep a terminal open there.
+Every `eas` command of this guide, from here to the maintenance calendar, runs in `apps/mobile`,
+where `eas.json` and the app config are: keep a terminal open there.
 
 ### 7.1 The EAS project
 
