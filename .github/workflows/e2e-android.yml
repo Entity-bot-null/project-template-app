@@ -1,41 +1,32 @@
 name: E2E (Android)
 
-# The Maestro flows of .maestro/ on an Android emulator, against a release
-# build of the E2E variant (APP_VARIANT=e2e: its own package, plain HTTP to
-# the local mock API only) and scripts/mock-api.mjs (docs/TESTING.md#end-to-end).
+# The Maestro flows of apps/mobile/.maestro/ on an Android emulator, against a
+# release build of the E2E variant (APP_VARIANT=e2e: its own package, plain
+# HTTP to the local mock API only) and apps/mobile/scripts/mock-api.mjs
+# (docs/testing.md#end-to-end).
 # Builds on the runner with Gradle: no EAS account, no secrets, nothing is
 # signed for a store. Runs when app code changes; a project can make it a
 # required check once its flows are stable, without the path filters below
-# (docs/CI_CD.md#required-check).
+# (docs/ci-cd.md#required-check).
 on:
   pull_request:
     paths:
-      - src/**
-      - assets/**
-      - .maestro/**
-      - app.config.ts
-      - metro.config.js
-      - tsconfig.json
+      - apps/mobile/**
       - package.json
       - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - .nvmrc
-      - scripts/mock-api.mjs
       - .github/actions/setup/**
       - .github/workflows/e2e-android.yml
   # Same list as above (no YAML anchor: workflow auditors cannot follow them).
   push:
     branches: [main]
     paths:
-      - src/**
-      - assets/**
-      - .maestro/**
-      - app.config.ts
-      - metro.config.js
-      - tsconfig.json
+      - apps/mobile/**
       - package.json
       - pnpm-lock.yaml
+      - pnpm-workspace.yaml
       - .nvmrc
-      - scripts/mock-api.mjs
       - .github/actions/setup/**
       - .github/workflows/e2e-android.yml
   workflow_dispatch:
@@ -60,7 +51,7 @@ env:
 jobs:
   e2e:
     name: Maestro flows on an emulator
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # A cold build (no cache yet) takes about 20 minutes, a warm one far less;
     # the steps below have their own limits, so a hung one fails early.
     timeout-minutes: 60
@@ -121,6 +112,7 @@ jobs:
 
       - name: Generate the Android project
         timeout-minutes: 5
+        working-directory: apps/mobile
         run: pnpm exec expo prebuild --no-install --platform android --clean
       # The NDK React Native builds with (`ndkVersion` of its version catalog,
       # which Expo's root project plugin reads) is not on the runner image.
@@ -130,9 +122,10 @@ jobs:
       - name: Install the Android NDK
         timeout-minutes: 10
         run: |
-          ndk=$(sed -nE 's/^ndkVersion *= *"([0-9.]+)".*/\1/p' node_modules/react-native/gradle/libs.versions.toml)
+          catalog=apps/mobile/node_modules/react-native/gradle/libs.versions.toml
+          ndk=$(sed -nE 's/^ndkVersion *= *"([0-9.]+)".*/\1/p' "$catalog")
           if [ -z "$ndk" ]; then
-            echo "::error::No ndkVersion in node_modules/react-native/gradle/libs.versions.toml."
+            echo "::error::No ndkVersion in $catalog."
             exit 1
           fi
           # The NDK is installed afresh on every run: ccache must recognise its
@@ -161,9 +154,9 @@ jobs:
       # the native code of a store build. No lint vital checks: they analyse
       # every module (minutes) and the store builds on EAS still run them.
       # --build-cache reuses the outputs of unchanged modules from setup-gradle's
-      # cache; the memory of Gradle's JVMs comes from app.config.ts.
+      # cache; the memory of Gradle's JVMs comes from apps/mobile/app.config.ts.
       - name: Build the release APK (emulator architecture only)
-        working-directory: android
+        working-directory: apps/mobile/android
         timeout-minutes: 40
         run: |
           ccache --zero-stats > /dev/null
@@ -195,7 +188,7 @@ jobs:
       - name: Start the mock API
         timeout-minutes: 2
         run: |
-          node scripts/mock-api.mjs > "$RUNNER_TEMP/mock-api.log" 2>&1 &
+          node apps/mobile/scripts/mock-api.mjs > "$RUNNER_TEMP/mock-api.log" 2>&1 &
           for _ in $(seq 1 30); do
             curl --silent --output /dev/null http://127.0.0.1:4010/ && exit 0
             sleep 1
@@ -216,7 +209,7 @@ jobs:
       # which twice cut Maestro's connection to the device mid-flow
       # ("DeviceServerDiedException ... during 'viewHierarchy'"). The API level
       # is the one the app targets: targetSdk in React Native's version catalog
-      # (node_modules/react-native/gradle/libs.versions.toml), so the flows see
+      # (apps/mobile/node_modules/react-native/gradle/libs.versions.toml), so the flows see
       # the behavior changes of that Android release.
       - name: Run the flows
         timeout-minutes: 25
@@ -227,6 +220,8 @@ jobs:
           target: default
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          # The script's paths (the APK, the flows, the results) are the app's.
+          working-directory: apps/mobile
           # One command per line: the action runs each with sh. Stylus
           # handwriting off: on Google images (most local emulators), Gboard's
           # first-use tutorial can cover the keyboard and swallow typed text.
@@ -241,7 +236,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: maestro-results
-          path: .maestro/results/
+          path: apps/mobile/.maestro/results/
           retention-days: 14
       - name: Upload the mock API log
         if: ${{ failure() }}

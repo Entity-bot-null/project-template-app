@@ -13,8 +13,8 @@ updates:
     open-pull-requests-limit: 10
     # The Expo SDK fixes the versions of React, React Native, the Expo
     # modules and the libraries with native code: they move together, in an
-    # SDK upgrade (`pnpm exec expo install expo@^<next> --fix`,
-    # docs/RELEASES.md#expo-sdk-upgrades), never one by one. Patch releases
+    # SDK upgrade (`pnpm --filter mobile exec expo install expo@^<next> --fix`,
+    # docs/releases.md#expo-sdk-upgrades), never one by one. Patch releases
     # within the SDK's ranges still come here; expo-doctor in CI rejects
     # anything the SDK does not support.
     ignore:
@@ -44,7 +44,7 @@ updates:
         update-types: [version-update:semver-major, version-update:semver-minor]
       # Jest moves to the major jest-expo depends on (babel-jest), in an SDK
       # upgrade; TypeScript once typescript-eslint supports the new version.
-      # By hand: docs/CI_CD.md#keeping-the-stack-current.
+      # By hand: docs/ci-cd.md#keeping-the-stack-current.
       - dependency-name: jest
         update-types: [version-update:semver-major, version-update:semver-minor]
       - dependency-name: '@types/jest'
@@ -97,14 +97,25 @@ updates:
     commit-message:
       prefix: ci
 
-  # The tool images CI runs (.github/tool-images/Dockerfile): tag and digest
-  # updated together.
+  # The tool images CI runs (scripts/tool-images/Dockerfile): tag and digest
+  # updated together. Outside .github/ on purpose: Dependabot may open pull
+  # requests that change files there only for GitHub Actions, and refused
+  # every one of these (dependabot/dependabot-core#15237).
   - package-ecosystem: docker
-    directory: /.github/tool-images
+    directory: /scripts/tool-images
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
+    ignore:
+      # An Ubuntu image (the cloud-init check of the server deployment, when a
+      # project adds it) follows the servers' LTS: only new digests of it.
+      # Dependabot reads an interim release (24.10, whose archive closes when
+      # its nine months of support end) as a minor update and the next LTS as a
+      # major one; the next LTS moves CI, the servers and this image together,
+      # by hand (docs/ci-cd.md#keeping-the-stack-current).
+      - dependency-name: docker/library/ubuntu
+        update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
       tools:
         patterns: ['*']

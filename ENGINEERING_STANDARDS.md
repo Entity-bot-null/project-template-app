@@ -5,38 +5,38 @@ checked in review. The reasons and details live in [docs/](docs/).
 
 ## Language and code
 
-| Rule                                                                                                                                                           | Enforced by                                                                                               |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| TypeScript everywhere, `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noUnusedLocals`/`Parameters`, no JavaScript in `src/` | `tsconfig.json`, `pnpm typecheck`; ESLint for JavaScript files in `src/`                                  |
-| No `any`, no unsafe member access or calls, no floating promises, no unnecessary conditions or assertions                                                      | ESLint `strictTypeChecked`                                                                                |
-| Type assertions (`as`) only where TypeScript cannot know (a narrowed native value), with a comment                                                             | review                                                                                                    |
-| Type-only imports marked (`import { type X }`)                                                                                                                 | ESLint `consistent-type-imports`                                                                          |
-| `===` only                                                                                                                                                     | ESLint `eqeqeq`                                                                                           |
-| No `// eslint-disable` without the rules it disables and its reason (`-- why`, same line); unused disables are errors                                          | ESLint `eslint-comments` (`require-description`, `no-unlimited-disable`), `reportUnusedDisableDirectives` |
-| One formatting style (Prettier: single quotes, 100 columns)                                                                                                    | `pnpm format:check`, pre-commit                                                                           |
-| No `console.log` (use `logger`; `console.warn`/`console.error` only where the logger cannot be used)                                                           | ESLint `no-console`                                                                                       |
-| The Rules of React and of hooks, so the React Compiler can optimize                                                                                            | ESLint (`eslint-config-expo`, React hooks)                                                                |
-| Code, comments, commits and docs in English (the exceptions: `docs/MANUAL.es.md` and `docs/STEP_BY_STEP.es.md`, the Spanish manual and guide)                  | review                                                                                                    |
-| Comments explain why, not what                                                                                                                                 | review                                                                                                    |
-| Names say what things are: `useItems`, `ItemsScreen`, `itemKeys`, `toInternalPath`; files named after their main export                                        | review                                                                                                    |
+| Rule                                                                                                                                                                       | Enforced by                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| TypeScript everywhere, `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `noImplicitReturns`, `noUnusedLocals`/`Parameters`, no JavaScript in `apps/mobile/src/` | `apps/mobile/tsconfig.json`, `pnpm typecheck`; ESLint for JavaScript files in `apps/mobile/src/`          |
+| No `any`, no unsafe member access or calls, no floating promises, no unnecessary conditions or assertions                                                                  | ESLint `strictTypeChecked`                                                                                |
+| Type assertions (`as`) only where TypeScript cannot know (a narrowed native value), with a comment                                                                         | review                                                                                                    |
+| Type-only imports marked (`import { type X }`)                                                                                                                             | ESLint `consistent-type-imports`                                                                          |
+| `===` only                                                                                                                                                                 | ESLint `eqeqeq`                                                                                           |
+| No `// eslint-disable` without the rules it disables and its reason (`-- why`, same line); unused disables are errors                                                      | ESLint `eslint-comments` (`require-description`, `no-unlimited-disable`), `reportUnusedDisableDirectives` |
+| One formatting style (Prettier: single quotes, 100 columns)                                                                                                                | `pnpm format:check`, pre-commit                                                                           |
+| No `console.log` (use `logger`; `console.warn`/`console.error` only where the logger cannot be used)                                                                       | ESLint `no-console`                                                                                       |
+| The Rules of React and of hooks, so the React Compiler can optimize                                                                                                        | ESLint (`eslint-config-expo`, React hooks)                                                                |
+| Code, comments, commits and docs in English (the exceptions: `docs/manual.es.md` and `docs/step-by-step.es.md`, the Spanish manual and guide)                              | review                                                                                                    |
+| Comments explain why, not what                                                                                                                                             | review                                                                                                    |
+| Names say what things are: `useItems`, `ItemsScreen`, `itemKeys`, `toInternalPath`; files named after their main export                                                    | review                                                                                                    |
 
 ## Architecture
 
 The layers and their import rules are in
-[docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md#layers-and-dependency-rules).
+[docs/mobile-architecture.md](docs/mobile-architecture.md#layers-and-dependency-rules).
 
-| Rule                                                                                                    | Enforced by                       |
-| ------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| Routes (`src/app`) do not reach the API or storage                                                      | ESLint `no-restricted-imports`    |
-| `fetch` and `openapi-fetch` only in `src/api`                                                           | ESLint                            |
-| Storage modules only through `src/lib/storage`                                                          | ESLint                            |
-| Sentry only through `src/lib/observability`                                                             | ESLint                            |
-| Text, inputs, buttons, touchables, images only from `src/ui`; colors only from the theme                | ESLint                            |
-| `process.env` only in `src/config/env.ts`                                                               | ESLint `no-restricted-properties` |
-| Server data in TanStack Query, client state in Zustand, never copied between them                       | review                            |
-| A feature does not import another feature's internals                                                   | review                            |
-| Native projects are generated, never edited; native configuration in `app.config.ts` and config plugins | `.gitignore`, review              |
-| Significant decisions recorded as ADRs ([docs/adr/](docs/adr/))                                         | review                            |
+| Rule                                                                                                                | Enforced by                       |
+| ------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| Routes (`apps/mobile/src/app`) do not reach the API or storage                                                      | ESLint `no-restricted-imports`    |
+| `fetch` and `openapi-fetch` only in `apps/mobile/src/api`                                                           | ESLint                            |
+| Storage modules only through `apps/mobile/src/lib/storage`                                                          | ESLint                            |
+| Sentry only through `apps/mobile/src/lib/observability`                                                             | ESLint                            |
+| Text, inputs, buttons, touchables, images only from `apps/mobile/src/ui`; colors only from the theme                | ESLint                            |
+| `process.env` only in `apps/mobile/src/config/env.ts`                                                               | ESLint `no-restricted-properties` |
+| Server data in TanStack Query, client state in Zustand, never copied between them                                   | review                            |
+| A feature does not import another feature's internals                                                               | review                            |
+| Native projects are generated, never edited; native configuration in `apps/mobile/app.config.ts` and config plugins | `.gitignore`, review              |
+| Significant decisions recorded as ADRs ([docs/adr/](docs/adr/))                                                     | review                            |
 
 ## API and data
 
@@ -45,7 +45,7 @@ The layers and their import rules are in
 - Every response validated with Zod before use (`unwrapWith`); every form with a Zod schema; every
   stored value read back through a schema.
 - Errors are `AppError`s; users see `userMessage()`, never a technical message
-  ([docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md#errors)).
+  ([docs/mobile-architecture.md](docs/mobile-architecture.md#errors)).
 
 ## User interface
 
@@ -83,14 +83,14 @@ The layers and their import rules are in
 ## Performance
 
 - Lists virtualized; no work in render that could run once; images through `Image`
-  ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)).
-- The bundle stays within `bundle-budget.json` (`pnpm bundle:check`).
+  ([docs/performance.md](docs/performance.md)).
+- The bundle stays within `apps/mobile/bundle-budget.json` (`pnpm perf:check`).
 - Optimizations come with a measurement, on a release build.
 
 ## Testing
 
 - Unit and component tests next to the code (`*.spec.ts(x)`), screen-to-API integration tests
-  (`*.int.spec.tsx`), Maestro flows for critical journeys ([docs/TESTING.md](docs/TESTING.md)).
+  (`*.int.spec.tsx`), Maestro flows for critical journeys ([docs/testing.md](docs/testing.md)).
 - Tests query by role and label, and stub the network, not the code.
 - Coverage thresholds are a ratchet: never lowered silently.
 - Every bug fix starts with a failing test.
@@ -99,9 +99,9 @@ The layers and their import rules are in
 
 - Short-lived branches, Conventional Commits, pull requests only, squash merge
   ([CONTRIBUTING.md](CONTRIBUTING.md)).
-- Hooks on commit and push; every gate in CI, one required check ([docs/CI_CD.md](docs/CI_CD.md)).
+- Hooks on commit and push; every gate in CI, one required check ([docs/ci-cd.md](docs/ci-cd.md)).
 - Releases: semantic versions from commit titles; builds, submissions and OTA updates started by
-  people, from `main`, through protected workflows ([docs/RELEASES.md](docs/RELEASES.md)).
+  people, from `main`, through protected workflows ([docs/releases.md](docs/releases.md)).
 - Done means [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md).
 
 ## The pipeline

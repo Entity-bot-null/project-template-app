@@ -3,7 +3,7 @@
 # Generated and committed: written by tools, checked by drift gates.
 pnpm-lock.yaml
 openapi/openapi.json
-src/api/schema.d.ts
+apps/mobile/src/api/schema.d.ts
 # Written by release-please (.github/workflows/release.yml).
 CHANGELOG.md
 .release-please-manifest.json

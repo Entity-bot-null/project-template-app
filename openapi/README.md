@@ -5,21 +5,21 @@ their responses. The app's API types are generated from it, so a call that does 
 contract does not compile. It is committed and reviewed like code.
 
 ```
-openapi/openapi.json            ← the backend's OpenAPI document, committed, reviewed
+openapi/openapi.json               ← the backend's OpenAPI document, committed, reviewed
         │  pnpm contract
         ▼
-src/api/schema.d.ts             ← generated types (never edited)
+apps/mobile/src/api/schema.d.ts    ← generated types (never edited)
         │
         ▼
-src/api/client.ts               ← api / publicApi (openapi-fetch), typed by the contract
+apps/mobile/src/api/client.ts      ← api / publicApi (openapi-fetch), typed by the contract
         │
         ▼
-src/features/*/api.ts           ← query and mutation hooks, responses validated with Zod
+apps/mobile/src/features/*/api.ts  ← query and mutation hooks, responses validated with Zod
 ```
 
 The file shipped with the template is an **example** (sign-in, session renewal, profile, items) that
-the example feature and `scripts/mock-api.mjs` implement. Replace it with the product's contract
-(REQUIERE CONFIGURACIÓN).
+the example feature and `apps/mobile/scripts/mock-api.mjs` implement. Replace it with the product's
+contract (REQUIERE CONFIGURACIÓN).
 
 ## Workflow
 
@@ -27,11 +27,12 @@ the example feature and `scripts/mock-api.mjs` implement. Replace it with the pr
    does), download it from the backend's repository or its running instance into
    `openapi/openapi.json`. When the API does not exist yet, write the change here first and agree on
    it with the backend team in the pull request: contract first.
-2. **Generate**: `pnpm contract` writes `src/api/schema.d.ts`.
+2. **Generate**: `pnpm contract` writes `apps/mobile/src/api/schema.d.ts`.
 3. **Fix what no longer compiles**: every call, fixture and schema affected by the change shows up
    in `pnpm typecheck`.
-4. **Update the Zod schemas** of the responses the app reads (`src/features/*/api.ts`,
-   `src/auth/schemas.ts`) and the mock API (`scripts/mock-api.mjs`) for new or changed endpoints.
+4. **Update the Zod schemas** of the responses the app reads (`apps/mobile/src/features/*/api.ts`,
+   `apps/mobile/src/auth/schemas.ts`) and the mock API (`apps/mobile/scripts/mock-api.mjs`) for new
+   or changed endpoints.
 5. **Commit both files.** `pnpm typecheck` (pre-push hook and CI) fails when `schema.d.ts` does not
    match `openapi.json`.
 
@@ -41,13 +42,13 @@ endpoint for incompatible changes).
 
 ## What the app expects from the API
 
-These conventions are built into `src/api/` and `src/auth/`; a backend that differs needs those
-modules adapted.
+These conventions are built into `apps/mobile/src/api/` and `apps/mobile/src/auth/`; a backend that
+differs needs those modules adapted.
 
 | Convention     | Shape                                                                                                                                                                                   |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Envelope       | success: `{ "data": …, "message": "…" }`; failure: `{ "data": null, "message": "…", "errors": [{ "path": "email", "message": "…" }] }` (field errors optional)                          |
-| Status codes   | 400/422 validation, 401 unauthenticated, 403 forbidden, 404 not found, 409 conflict, 429 rate limited, 5xx server ([errors](../docs/MOBILE_ARCHITECTURE.md#errors))                     |
+| Status codes   | 400/422 validation, 401 unauthenticated, 403 forbidden, 404 not found, 409 conflict, 429 rate limited, 5xx server ([errors](../docs/mobile-architecture.md#errors))                     |
 | Sign-in        | `POST /api/auth/sign-in` `{ email, password }` → `{ accessToken, refreshToken, expiresIn, user }`                                                                                       |
 | Renewal        | `POST /api/auth/refresh` `{ refreshToken }` → new `{ accessToken, refreshToken, expiresIn }`; the old refresh token stops working (rotation); 401 when it is invalid, reused or revoked |
 | Sign-out       | `POST /api/auth/logout` `{ refreshToken }` revokes it                                                                                                                                   |
@@ -61,15 +62,15 @@ endpoints for mobile clients, with the same rotation and reuse detection.
 
 ## The mock API
 
-`pnpm mock:api` (`scripts/mock-api.mjs`) implements this contract in memory, for local development
-and the end-to-end flows: accounts `member@example.com` / `member-password` and
+`pnpm mock:api` (`apps/mobile/scripts/mock-api.mjs`) implements this contract in memory, for local
+development and the end-to-end flows: accounts `member@example.com` / `member-password` and
 `admin@example.com` / `admin-password`, 45 example items, rotating single-use refresh tokens.
 `MOCK_ACCESS_TTL_SEC=20 pnpm mock:api` makes access tokens expire quickly, to watch the app renew
-its session; `MOCK_LATENCY_MS=1500` slows every answer, to see loading states; `MOCK_API_PORT`
-moves it from 4010 (then change `EXPO_PUBLIC_API_URL` and the `adb reverse` port to match). It is
-not a backend: no persistence, public passwords, local HTTP only.
+its session; `MOCK_LATENCY_MS=1500` slows every answer, to see loading states; `MOCK_API_PORT` moves
+it from 4010 (then change `EXPO_PUBLIC_API_URL` and the `adb reverse` port to match). It is not a
+backend: no persistence, public passwords, local HTTP only.
 
 It also fails on demand, through control endpoints under `/__mock/` that are not part of this
 contract: a status for one route (429, a 5xx, or no answer at all), and expiring or revoking every
 session. The end-to-end flows use them, and they show an error state by hand
-([docs/TESTING.md](../docs/TESTING.md#end-to-end)).
+([docs/testing.md](../docs/testing.md#end-to-end)).

@@ -36,7 +36,8 @@ checked" is not. The pull request template repeats the essentials as a checklist
 ## Accessibility
 
 - [ ] Every interactive element has a role and an accessible name; images are labeled or decorative;
-      new screens are in `src/a11y.spec.tsx` ([docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md#checklist-for-every-feature)).
+      new screens are in `apps/mobile/src/a11y.spec.tsx`
+      ([docs/accessibility.md](docs/accessibility.md#checklist-for-every-feature)).
 - [ ] Messages that appear without navigation (errors, results, status) use `AlertText`, so screen
       readers announce them on both platforms.
 - [ ] Touch targets of at least 48 dp; contrast from the theme tokens (no new color literals).
@@ -49,8 +50,9 @@ checked" is not. The pull request template repeats the essentials as a checklist
 - [ ] Sensitive data only in secure storage, and cleared at sign-out.
 - [ ] External input validated: API responses (Zod), links (allowlist), notification payloads, route
       parameters.
-- [ ] New permissions asked in context, declared in `app.config.ts` with their usage text, and
-      reflected in the store privacy declarations ([docs/STORE_COMPLIANCE.md](docs/STORE_COMPLIANCE.md)).
+- [ ] New permissions asked in context, declared in `apps/mobile/app.config.ts` with their usage
+      text, and reflected in the store privacy declarations
+      ([docs/store-compliance.md](docs/store-compliance.md)).
 - [ ] New data the app keeps or sends has its row in the data inventory
       ([SECURITY.md](SECURITY.md#data-inventory)), and anything stored per user is cleared at sign-out.
 - [ ] New dependencies justified, installed with `expo install`, license and source policy passing.
@@ -59,8 +61,9 @@ checked" is not. The pull request template repeats the essentials as a checklist
 
 - [ ] API changes: `openapi/openapi.json` updated, types regenerated (`pnpm contract`), and the change
       is backwards compatible with app versions already installed (or coordinated with the backend).
-- [ ] New environment variables in `src/config/env.schema.ts`, `src/config/env.ts`, `.env.example`,
-      docs/RELEASES.md#environment-variables and each EAS environment.
+- [ ] New environment variables in `apps/mobile/src/config/env.schema.ts`,
+      `apps/mobile/src/config/env.ts`, `apps/mobile/.env.example`,
+      docs/releases.md#environment-variables and each EAS environment.
 - [ ] Release impact identified: OTA-compatible (JavaScript only) or store build (native change).
 - [ ] Stored data from the previous version still loads (preferences schema, storage keys), or is
       migrated.

@@ -1,4 +1,4 @@
-// The pinned tool images of .github/tool-images/Dockerfile (docs/CI_CD.md#pinning).
+// The pinned tool images of scripts/tool-images/Dockerfile (docs/ci-cd.md#pinning).
 //
 //   node scripts/tool-image.mjs <name>     print the image reference (workflows)
 //
@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
-const DOCKERFILE = new URL('../.github/tool-images/Dockerfile', import.meta.url);
+const DOCKERFILE = new URL('./tool-images/Dockerfile', import.meta.url);
 
 /** @param {string} name the stage name, e.g. "trivy" */
 export function toolImage(name) {
@@ -23,7 +23,7 @@ export function toolImage(name) {
       return image;
     }
   }
-  throw new Error(`No tool image named "${name}" in .github/tool-images/Dockerfile`);
+  throw new Error(`No tool image named "${name}" in scripts/tool-images/Dockerfile`);
 }
 
 // Docker Hub limits anonymous pulls per address, and CI runners share theirs.

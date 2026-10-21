@@ -5,45 +5,46 @@
 # Docs: https://docs.github.com/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default owners for everything.
-# *                              @your-org/mobile
+# *                                          @your-org/mobile
 
 # The parts where a mistake is a security incident or a broken release.
 # Sessions, tokens, the HTTP pipeline and what is stored on the device.
-# /src/auth/                     @your-org/security-reviewers
-# /src/api/http.ts               @your-org/security-reviewers
-# /src/lib/storage/              @your-org/security-reviewers
-# /src/lib/links.ts              @your-org/security-reviewers
-# /src/app/+native-intent.tsx    @your-org/security-reviewers
-# /src/config/                   @your-org/security-reviewers
+# /apps/mobile/src/auth/                     @your-org/security-reviewers
+# /apps/mobile/src/api/http.ts               @your-org/security-reviewers
+# /apps/mobile/src/lib/storage/              @your-org/security-reviewers
+# /apps/mobile/src/lib/links.ts              @your-org/security-reviewers
+# /apps/mobile/src/app/+native-intent.tsx    @your-org/security-reviewers
+# /apps/mobile/src/config/                   @your-org/security-reviewers
 # Redaction, error reporting and analytics: what leaves the device.
-# /src/lib/observability/        @your-org/security-reviewers
-# /src/lib/analytics/            @your-org/security-reviewers
+# /apps/mobile/src/lib/observability/        @your-org/security-reviewers
+# /apps/mobile/src/lib/analytics/            @your-org/security-reviewers
 # The API contract.
-# /openapi/                      @your-org/backend @your-org/mobile
+# /openapi/                                  @your-org/backend @your-org/mobile
 # Native configuration, signing and releases: a mistake here ships to stores.
-# /app.config.ts                 @your-org/mobile-leads
-# /eas.json                      @your-org/mobile-leads
-# /assets/images/                @your-org/mobile-leads
-# /release-please-config.json    @your-org/mobile-leads
+# /apps/mobile/app.config.ts                 @your-org/mobile-leads
+# /apps/mobile/eas.json                      @your-org/mobile-leads
+# /apps/mobile/assets/images/                @your-org/mobile-leads
+# /release-please-config.json                @your-org/mobile-leads
 # Supply chain: dependencies and install settings.
-# /pnpm-workspace.yaml           @your-org/mobile-leads
-# /pnpm-lock.yaml                @your-org/mobile-leads
-# /package.json                  @your-org/mobile-leads
+# /pnpm-workspace.yaml                       @your-org/mobile-leads
+# /pnpm-lock.yaml                            @your-org/mobile-leads
+# package.json                               @your-org/mobile-leads
 # Gates: CI, hooks and the checks they run. Owning these is what keeps the
 # rules above from being edited away.
-# /.github/                      @your-org/mobile-leads
-# /.husky/                       @your-org/mobile-leads
-# /scripts/                      @your-org/mobile-leads
-# /eslint.config.mjs             @your-org/mobile-leads
-# /tsconfig.json                 @your-org/mobile-leads
-# /commitlint.config.mjs         @your-org/mobile-leads
-# /.gitignore                    @your-org/mobile-leads
-# /jest.config.js                @your-org/mobile-leads
-# /bundle-budget.json            @your-org/mobile-leads
-# /lint-staged.config.mjs        @your-org/mobile-leads
-# /.secretlintrc.json            @your-org/mobile-leads
-# /.secretlintignore             @your-org/mobile-leads
-# /.semgrepignore                @your-org/security-reviewers
+# /.github/                                  @your-org/mobile-leads
+# /.husky/                                   @your-org/mobile-leads
+# /scripts/                                  @your-org/mobile-leads
+# /eslint.config.mjs                         @your-org/mobile-leads
+# /apps/mobile/tsconfig.json                 @your-org/mobile-leads
+# /commitlint.config.mjs                     @your-org/mobile-leads
+# /.gitignore                                @your-org/mobile-leads
+# /apps/mobile/jest.config.js                @your-org/mobile-leads
+# /apps/mobile/bundle-budget.json            @your-org/mobile-leads
+# /apps/mobile/scripts/                      @your-org/mobile-leads
+# /lint-staged.config.mjs                    @your-org/mobile-leads
+# /.secretlintrc.json                        @your-org/mobile-leads
+# /.secretlintignore                         @your-org/mobile-leads
+# /.semgrepignore                            @your-org/security-reviewers
 # What AI coding agents may run and reach in this repository.
-# /.claude/settings.json         @your-org/security-reviewers
-# /.mcp.json                     @your-org/security-reviewers
+# /.claude/settings.json                     @your-org/security-reviewers
+# /.mcp.json                                 @your-org/security-reviewers

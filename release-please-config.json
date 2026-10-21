@@ -19,7 +19,10 @@
   ],
   "packages": {
     ".": {
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        { "type": "json", "path": "apps/mobile/package.json", "jsonpath": "$.version" }
+      ]
     }
   }
 }

@@ -7,7 +7,10 @@ dist/
 expo-env.d.ts
 
 # Generated native projects (Continuous Native Generation: `pnpm prebuild`).
-# Native configuration lives in app.config.ts and config plugins.
+# Native configuration lives in apps/mobile/app.config.ts and config plugins.
+# The root ones are what a checkout from before the workspace generated.
+apps/mobile/ios/
+apps/mobile/android/
 /ios
 /android
 .kotlin/
@@ -29,7 +32,7 @@ GoogleService-Info.plist
 
 # Tests and reports
 coverage/
-.maestro/results/
+apps/mobile/.maestro/results/
 e2e-results/
 
 # Environment: only the examples are committed

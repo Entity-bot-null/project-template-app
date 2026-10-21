@@ -4,13 +4,13 @@ name: Conventions
 # becomes the squash commit on main, which release-please reads for the next
 # version and the changelog. A workflow of its own, so that editing the title
 # checks it again (`edited`) without re-running every gate of CI; its check,
-# "Conventions", is required next to "CI passed" (docs/CI_CD.md#required-check).
+# "Conventions", is required next to "CI passed" (docs/ci-cd.md#required-check).
 # It runs on every event, never skipped by what changed: a skipped run would
 # count as a pass.
 #
 # release.yml also dispatches it on the release pull request's branch: GitHub
 # holds the pull request runs the workflow token causes until someone
-# approves them (docs/CI_CD.md#release-pull-requests). A dispatched run checks
+# approves them (docs/ci-cd.md#release-pull-requests). A dispatched run checks
 # the same two things, reading the title from the branch's open pull request,
 # and reports "Conventions" on the branch's latest commit.
 on:
@@ -30,7 +30,7 @@ jobs:
     name: Conventions
     # Dependency bots name their branches and titles their own way.
     if: github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read

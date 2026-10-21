@@ -19,7 +19,7 @@ runs:
   steps:
     # The checks live in the repository: a copy edited on another branch
     # could drop them, which is why the GitHub environments must also allow
-    # main only (docs/CI_CD.md#environments).
+    # main only (docs/ci-cd.md#environments).
     - name: Refuse runs from another branch
       if: ${{ github.ref != 'refs/heads/main' }}
       shell: bash

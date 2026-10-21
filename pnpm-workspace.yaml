@@ -1,8 +1,11 @@
-# pnpm settings of this repository (one app, no workspace packages). Isolated
+# pnpm settings of this repository: a workspace with one package per app in
+# apps/ (apps/mobile, the Expo app; docs/adr/0002-pnpm-monorepo.md). Isolated
 # installs (pnpm's default) are supported by Expo since SDK 54: every import
-# must be a declared dependency, nothing works by accident through hoisting.
-# (Native Android builds on Windows need a hoisted node_modules on that
-# machine only: docs/TESTING.md#end-to-end.)
+# must be a declared dependency of the package that makes it, nothing works
+# by accident through hoisting. (Native Android builds on Windows need a
+# hoisted node_modules on that machine only: docs/testing.md#end-to-end.)
+packages:
+  - apps/*
 
 # Fail the install on a Node.js version outside package.json "engines".
 engineStrict: true

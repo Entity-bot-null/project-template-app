@@ -4,7 +4,7 @@
 // credentials, cache poisoning, Dependabot cooldown), then shellcheck on the
 // Git hooks (.husky/, POSIX sh) and any shell script, which workflows do not
 // cover. Needs Docker. Any finding fails
-// (docs/CI_CD.md#workflow-security).
+// (docs/ci-cd.md#workflow-security).
 //
 // With GH_TOKEN set (CI), zizmor also runs its online audits: impostor
 // commits (a pinned SHA that is not in the action's repository) and actions
