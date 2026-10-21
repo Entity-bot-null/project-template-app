@@ -5,7 +5,12 @@ export { Button, type ButtonProps, type ButtonVariant } from './components/Butto
 export { Card } from './components/Card';
 export { Icon, type IconName } from './components/Icon';
 export { clearImageCaches, Image, type ImageProps } from './components/Image';
-export { OfflineBanner, useIsOnline } from './components/OfflineBanner';
+export {
+  OfflineBanner,
+  OfflineBannerLayout,
+  useIsOnline,
+  useOfflineBannerStackOptions,
+} from './components/OfflineBanner';
 export { PermissionPrompt } from './components/PermissionPrompt';
 export { Screen } from './components/Screen';
 export { EmptyState, ErrorState, LoadingState } from './components/States';
