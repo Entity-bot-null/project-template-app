@@ -1,6 +1,6 @@
 {
   "name": "project-template-app",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "private": true,
   "description": "Mobile app template: Expo, React Native and TypeScript with architecture, quality, security, testing and delivery wired in from day 0. A pnpm workspace: the app lives in apps/mobile.",
   "packageManager": "pnpm@12.5.1",
