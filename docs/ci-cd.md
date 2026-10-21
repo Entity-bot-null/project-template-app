@@ -2,7 +2,7 @@
 
 The GitHub Actions workflows: what each one checks or ships, how they are protected, and how to set
 up a new repository. What a release is (profiles, versions, updates, rollbacks) is in
-[RELEASES.md](RELEASES.md).
+[releases.md](releases.md).
 
 - [Workflows](#workflows)
 - [Dependency updates](#dependency-updates)
@@ -43,7 +43,7 @@ repository scripts' tests (`pnpm test:scripts`) and the native projects (`expo p
 | Static analysis (Semgrep)             | `node scripts/sast.mjs`                                                                                                                                                                                                              |
 | Unit, component and integration tests | `pnpm test:coverage` with thresholds; the HTML report as an artifact                                                                                                                                                                 |
 | Security                              | `pnpm security` (audit, dependency policy, secrets in the tree) and gitleaks on the full history                                                                                                                                     |
-| Bundle, budget and native projects    | `pnpm build:check` (production export + bundle budget), `expo prebuild` of both platforms                                                                                                                                            |
+| Bundle, budget and native projects    | `pnpm build` (the app's production export), `pnpm perf:check` (bundle budget), `expo prebuild` of both platforms in `apps/mobile`                                                                                                    |
 
 Pull requests from Dependabot run the same gates; they skip only the conventions job (bots name
 branches their own way).
@@ -165,7 +165,7 @@ older than a gate added since can fail it (a script the tag does not have). Ship
 `main` with a new version rather than rebuilding such a tag.
 
 **EAS update** (`eas-update.yml`) and **EAS rollback** (`eas-rollback.yml`): see
-[RELEASES.md](RELEASES.md#ota-updates) and [RELEASES.md](RELEASES.md#rollback).
+[releases.md](releases.md#ota-updates) and [releases.md](releases.md#rollback).
 
 EAS also offers its own workflow engine (EAS Workflows, `.eas/workflows/`). The template keeps the
 release steps in GitHub Actions so the same gates, reviews and audit trail apply to everything.
@@ -194,7 +194,7 @@ and without them the protections below do not hold.
 | `ENABLE_DEPENDENCY_REVIEW`     | variable (optional, `true`) | repository                           | turn on dependency review                                                                             |
 
 Build-time values of the app itself (API URL, Sentry DSN) are EAS environment variables, not GitHub
-ones ([RELEASES.md](RELEASES.md#environment-variables)).
+ones ([releases.md](releases.md#environment-variables)).
 
 ## Setting up the repository
 
@@ -235,23 +235,24 @@ in CI):
 
 ## Pinning
 
-| What                                                | Pinned by                                              | Updated by                                            |
-| --------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------- |
-| GitHub Actions                                      | commit SHA (tag in a comment)                          | Dependabot (`github-actions`)                         |
-| Tool images (actionlint, zizmor, Semgrep, gitleaks) | tag and digest in `.github/tool-images/Dockerfile`     | Dependabot (`docker`)                                 |
-| npm dependencies                                    | `pnpm-lock.yaml`; seven-day release age                | Dependabot (`npm`), SDK packages through SDK upgrades |
-| pnpm                                                | `packageManager` in `package.json`; `eas.json` `pnpm`  | by hand, both together                                |
-| Node.js                                             | one exact version: `.nvmrc` (CI), `eas.json` `node`    | by hand, both together                                |
-| EAS CLI                                             | exact version (`EAS_CLI_VERSION`) in the EAS workflows | by hand, at or above `eas.json` `cli.version`         |
-| Maestro                                             | version and SHA-256 in `e2e-android.yml`               | by hand (release page), keeping the seven-day rule    |
-| JDK (E2E build)                                     | `java-version: '17'` (React Native's supported JDK)    | by hand, with React Native's requirements             |
-| Android NDK (E2E build)                             | `ndkVersion` of React Native's version catalog         | with React Native (read by `e2e-android.yml`)         |
-| Android emulator (E2E)                              | `api-level` in `e2e-android.yml`                       | by hand, to the `targetSdk` of React Native's catalog |
-| ccache (E2E build)                                  | Ubuntu's package (`apt-get`, signed archive)           | the runner image's Ubuntu release                     |
-| Gradle's JVM memory (Android builds)                | `GRADLE_JVM_PROPERTIES` in `app.config.ts`             | by hand, when a build runs out of memory              |
+| What                                                | Pinned by                                                         | Updated by                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------- |
+| GitHub Actions                                      | commit SHA (tag in a comment)                                     | Dependabot (`github-actions`)                             |
+| Runner image                                        | `runs-on: ubuntu-24.04` in every workflow                         | by hand, the next LTS ([Ubuntu](#ubuntu))                 |
+| Tool images (actionlint, zizmor, Semgrep, gitleaks) | tag and digest in `scripts/tool-images/Dockerfile`                | Dependabot (`docker`)                                     |
+| npm dependencies                                    | `pnpm-lock.yaml`; seven-day release age                           | Dependabot (`npm`), SDK packages through SDK upgrades     |
+| pnpm                                                | `packageManager` in `package.json`; `apps/mobile/eas.json` `pnpm` | by hand, both together                                    |
+| Node.js                                             | one exact version: `.nvmrc` (CI), `apps/mobile/eas.json` `node`   | by hand, both together                                    |
+| EAS CLI                                             | exact version (`EAS_CLI_VERSION`) in the EAS workflows            | by hand, at or above `apps/mobile/eas.json` `cli.version` |
+| Maestro                                             | version and SHA-256 in `e2e-android.yml`                          | by hand (release page), keeping the seven-day rule        |
+| JDK (E2E build)                                     | `java-version: '17'` (React Native's supported JDK)               | by hand, with React Native's requirements                 |
+| Android NDK (E2E build)                             | `ndkVersion` of React Native's version catalog                    | with React Native (read by `e2e-android.yml`)             |
+| Android emulator (E2E)                              | `api-level` in `e2e-android.yml`                                  | by hand, to the `targetSdk` of React Native's catalog     |
+| ccache (E2E build)                                  | Ubuntu's package (`apt-get`, signed archive)                      | the runner image's Ubuntu release                         |
+| Gradle's JVM memory (Android builds)                | `GRADLE_JVM_PROPERTIES` in `apps/mobile/app.config.ts`            | by hand, when a build runs out of memory                  |
 
-**EAS CLI's dependencies.** The EAS workflows run `pnpm dlx "eas-cli@$EAS_CLI_VERSION"` from the
-repository's root. The CLI's version is exact; its dependencies have no lockfile and resolve on
+**EAS CLI's dependencies.** The EAS workflows run `pnpm dlx "eas-cli@$EAS_CLI_VERSION"` in
+`apps/mobile`, inside the workspace, so the root's `pnpm-workspace.yaml` applies. The CLI's version is exact; its dependencies have no lockfile and resolve on
 each run. The release delay and the trust policy of `pnpm-workspace.yaml` still apply to them:
 since pnpm 11, `pnpm dlx` honors the project's `minimumReleaseAge*` and `trustPolicy*` settings
 ([pnpm dlx](https://pnpm.io/cli/dlx)). A dependency version younger than seven days, or published
@@ -277,7 +278,7 @@ its pull request:
 | Part                                       | Dependabot proposes                                                   | Moved by hand                                                                            |
 | ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | npm packages outside the SDK               | minors and patches (grouped), majors (one per pull request)           | merging a major after its release notes; ESLint 10 waits for `eslint-config-expo`        |
-| Expo SDK, React Native, the SDK's packages | patches within the SDK's ranges (`expo-sdk` group)                    | the SDK upgrade, about three times a year ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)) |
+| Expo SDK, React Native, the SDK's packages | patches within the SDK's ranges (`expo-sdk` group)                    | the SDK upgrade, about three times a year ([releases.md](releases.md#expo-sdk-upgrades)) |
 | Jest, `@types/jest`                        | patches                                                               | the major `jest-expo` depends on, in an SDK upgrade                                      |
 | TypeScript                                 | patches                                                               | [minors and majors](#typescript)                                                         |
 | Node.js, `@types/node`                     | `@types/node` minors and patches                                      | [Node.js](#nodejs)                                                                       |
@@ -285,23 +286,37 @@ its pull request:
 | GitHub Actions                             | new SHA and version comment, in the workflows and `.github/actions/*` | merging: the auto-merge never merges a change to a workflow or an action                 |
 | Tool images                                | tag and digest together                                               | nothing                                                                                  |
 | EAS CLI, Maestro, JDK, emulator            | nothing                                                               | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
+| Ubuntu (the runners)                       | nothing                                                               | [Ubuntu](#ubuntu)                                                                        |
+
+### Ubuntu
+
+Every job runs on Ubuntu 24.04 LTS: `runs-on: ubuntu-24.04` in every workflow, never
+`ubuntu-latest`. GitHub moves that label to a new release on its own schedule (Ubuntu 26.04, from
+October 2026), which would change the system of every job without a commit. An Ubuntu tool image
+(`scripts/tool-images/Dockerfile`, once a project adds one) follows the same LTS: Dependabot
+proposes only its new digests, since it would read an interim release (24.10, whose package archive
+closes when its nine months of support end) as a minor update. The next LTS moves the runners and
+that image together, in one pull request with the full CI and E2E (Android), once what the jobs
+install on the runner (`apt-get`: ccache) and the Android emulator support it.
 
 ### Node.js
 
-`.nvmrc` holds one exact version for CI and the Git hooks; `eas.json` (`build.base.node`) holds the
-same one for the build servers. A patch or minor release (security releases are announced on
-nodejs.org) changes both files and nothing else.
+`.nvmrc` holds one exact version for CI and the Git hooks; `apps/mobile/eas.json`
+(`build.base.node`) holds the same one for the build servers. A patch or minor release (security
+releases are announced on nodejs.org) changes both files and nothing else.
 
 A major moves once it is an LTS release (an even major, from its October):
 
-1. `.nvmrc` and `eas.json` `node`: the new version, released at least a week ago (the same delay as
-   every dependency).
-2. `package.json` `engines.node`: it accepts the new major already (`^24.15.0 || >=26.0.0`); drop
-   the old one once everybody has moved. `engineStrict` refuses an install outside the range.
-3. `pnpm add -D @types/node@^<major>`: Dependabot leaves its majors to this step.
+1. `.nvmrc` and `apps/mobile/eas.json` `node`: the new version, released at least a week ago (the
+   same delay as every dependency).
+2. `engines.node` in `package.json` and `apps/mobile/package.json`: it accepts the new major already
+   (`^24.15.0 || >=26.0.0`); drop the old one once everybody has moved. `engineStrict` refuses an
+   install outside the range.
+3. `pnpm add -D -w @types/node@^<major>` and `pnpm --filter mobile add -D @types/node@^<major>`
+   (the root and the app declare it): Dependabot leaves its majors to this step.
 4. Corepack is not part of Node.js 25 and later: developers install it first
    (`npm install -g corepack`, in the setup steps already). CI (`pnpm/action-setup`) and EAS
-   (`eas.json` `pnpm`) install pnpm without it.
+   (`apps/mobile/eas.json` `pnpm`) install pnpm without it.
 5. The documents that name the major:
    `grep -rnE "Node\.js 24|24\.15|24 LTS" README.md CONTRIBUTING.md docs` (the manual and the
    step-by-step guide in both languages).
@@ -313,8 +328,8 @@ A major moves once it is an LTS release (an even major, from its October):
 
 `packageManager` in `package.json` pins pnpm for developers (pnpm switches to it by itself) and CI
 (`pnpm/action-setup` reads it); `pnpm-lock.yaml` records it with its checksum
-(`packageManagerDependencies`); `eas.json` (`build.base.pnpm`) pins it for the build servers.
-Dependabot only rewrites dependency declarations, never `packageManager`.
+(`packageManagerDependencies`); `apps/mobile/eas.json` (`build.base.pnpm`) pins it for the build
+servers. Dependabot only rewrites dependency declarations, never `packageManager`.
 
 1. Read the release notes: the settings of `pnpm-workspace.yaml` (the supply-chain policies) change
    between majors; `pnpm deps:check` (in `pnpm security`) checks they still hold.
@@ -322,8 +337,8 @@ Dependabot only rewrites dependency declarations, never `packageManager`.
    project's `minimumReleaseAge` does not apply to `self-update`).
 3. `pnpm install`: it records the version in `pnpm-lock.yaml`. Without it every
    `pnpm install --frozen-lockfile` fails ("Cannot update packageManagerDependencies").
-4. `eas.json` `pnpm`, and the version named in the manual and the step-by-step guide (both
-   languages): the same version.
+4. `apps/mobile/eas.json` `pnpm`, and the version named in the manual and the step-by-step guide
+   (both languages): the same version.
 5. `pnpm verify`.
 
 ### TypeScript
@@ -333,4 +348,6 @@ not follow semantic versioning), and typescript-eslint supports a range of versi
 `pnpm view typescript-eslint peerDependencies` (`>=4.8.4 <6.1.0` with typescript-eslint 8.71, so
 neither 6.1 nor 7 yet). Expo does not set the version: `expo install --check` only requires that
 TypeScript is installed. Once typescript-eslint's range includes a new version:
-`pnpm add -D typescript@~<version>`, then `pnpm typecheck`, `pnpm lint` and `pnpm test`.
+`pnpm add -D -w typescript@~<version>` and `pnpm --filter mobile add -D typescript@~<version>`
+(the root's tooling and the app use the same TypeScript), then `pnpm typecheck`, `pnpm lint` and
+`pnpm test`.

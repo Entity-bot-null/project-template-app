@@ -1,7 +1,7 @@
 import { isHiddenFromAccessibility, screen } from '@testing-library/react-native';
 import { StyleSheet, type TextStyle } from 'react-native';
 
-// The contrast gate (docs/ACCESSIBILITY.md#automated-checks), measured on what
+// The contrast gate (docs/accessibility.md#automated-checks), measured on what
 // is rendered rather than on a list of token pairs: every text against the
 // background it is drawn on (the nearest ancestor with a background color),
 // a meaningful icon likewise, and every text field's border against what

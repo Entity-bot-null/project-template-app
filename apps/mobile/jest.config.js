@@ -1,6 +1,6 @@
 // Jest with Expo's preset (jest-expo): React Native's test environment with
 // the native side of the Expo SDK mocked. Unit, component and integration
-// tests run here (docs/TESTING.md); end-to-end flows run on a device with
+// tests run here (docs/testing.md); end-to-end flows run on a device with
 // Maestro (.maestro/).
 /** @type {import('jest').Config} */
 module.exports = {
@@ -26,7 +26,7 @@ module.exports = {
     '!src/**/*.spec.{ts,tsx}',
   ],
   coverageReporters: ['text-summary', 'html', 'lcov'],
-  // A ratchet, never lowered silently (docs/TESTING.md#coverage): set to the
+  // A ratchet, never lowered silently (docs/testing.md#coverage): set to the
   // coverage measured when the template was built, rounded down.
   coverageThreshold: {
     global: { lines: 97, statements: 96, functions: 94, branches: 90 },

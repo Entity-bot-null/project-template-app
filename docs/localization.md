@@ -11,7 +11,7 @@ to localize when the product needs it, without rewriting the app.
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Dates            | formatted with `Intl.DateTimeFormat` in the device's locale and time zone (`ItemDetailScreen.tsx`); the API sends ISO timestamps in UTC                                           |
 | Layout direction | no physical left/right margins or positions in the code: rows (`flexDirection: 'row'`) mirror by themselves in right-to-left languages; the Android manifest declares RTL support |
-| Text size        | text scales with the system setting, capped per variant, and wraps ([ACCESSIBILITY.md](ACCESSIBILITY.md))                                                                         |
+| Text size        | text scales with the system setting, capped per variant, and wraps ([accessibility.md](accessibility.md))                                                                         |
 | Strings          | inline English in the screens: what changes when the product is translated                                                                                                        |
 
 ## When to localize
@@ -24,14 +24,15 @@ translations into many screens costs more than writing them translatable from th
 
 1. **Library**: `expo-localization` (Expo SDK module) for the device's locales, calendar and time
    zone, plus one translation library recorded in an ADR (`docs/adr/`): for example i18next with
-   react-i18next, or Lingui. Install with `pnpm exec expo install`.
+   react-i18next, or Lingui. Install with `pnpm --filter mobile exec expo install`.
 2. **Locale detection**: `getLocales()` gives the user's preferred languages in order; pick the
    first one the app supports, fall back to the default; follow changes when the app returns to the
    foreground. Let the user override it in Settings if the product needs it (stored in
-   `src/store/preferences.ts`).
-3. **No hard-coded strings** in screens: every user-facing text comes from the translation files
-   by key, including accessibility labels, error messages (`userMessage` in `src/lib/errors.ts`),
-   notification texts and validation messages (the Zod schemas of forms).
+   `apps/mobile/src/store/preferences.ts`).
+3. **No hard-coded strings** in screens: every user-facing text comes from the translation files by
+   key, including accessibility labels, error messages (`userMessage` in
+   `apps/mobile/src/lib/errors.ts`), notification texts and validation messages (the Zod schemas of
+   forms).
 4. **Translations**: one file per locale; keys by feature (`items.empty.title`); full sentences
    with placeholders, never concatenated fragments (`t('items.saving', { title })`); context notes
    for translators; missing keys fail a test in CI.

@@ -14,8 +14,8 @@ releasable, and both stores' review and several markets' laws expect it.
 
 ## What is built in
 
-Use the components of `src/ui` (ESLint keeps React Native's raw `Text`, `TextInput`, `Button`,
-`Image` and touchables out of features) and most of this comes for free:
+Use the components of `apps/mobile/src/ui` (ESLint keeps React Native's raw `Text`, `TextInput`,
+`Button`, `Image` and touchables out of features) and most of this comes for free:
 
 | Component                                  | What it guarantees                                                                                                                                                                                                                              | Tested in                                                |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
@@ -54,11 +54,12 @@ Use the components of `src/ui` (ESLint keeps React Native's raw `Text`, `TextInp
 
 React Native's `accessibilityRole="alert"` gives no VoiceOver trait on iOS, and live regions exist
 on Android only, so a message that appears while the user is on a screen would be heard on one
-platform and not the other. `AlertText` (`src/ui/components/AlertText.tsx`) closes the gap: on
-Android it is a polite live region, on iOS it calls `AccessibilityInfo.announceForAccessibility`
-when the text appears or changes. Use it for every message the user did not navigate to: form and
-field errors, failed requests, connection changes, "Saved", and the outcome of a search ("3 items
-found"; an empty result is an `EmptyState` with `announce`).
+platform and not the other. `AlertText` (`apps/mobile/src/ui/components/AlertText.tsx`) closes the
+gap: on Android it is a polite live region, on iOS it calls
+`AccessibilityInfo.announceForAccessibility` when the text appears or changes. Use it for every
+message the user did not navigate to: form and field errors, failed requests, connection changes,
+"Saved", and the outcome of a search ("3 items found"; an empty result is an `EmptyState` with
+`announce`).
 
 A field error is announced once, when it appears. A user who moves back to the field later hears it
 again because `TextField` makes the error the input's accessibility hint.
@@ -79,19 +80,19 @@ manual testing below before relying on them):
 
 ## Automated checks
 
-| Check                                               | Where                                                                                                                                                | Catches                                                                |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Every control on every screen has a role and a name | `src/a11y.spec.tsx`, with `inaccessibleControls()` from `src/test/a11y.ts`                                                                           | an unlabeled pressable, switch or input; a touchable without a role    |
-| Components: roles, names, states, announcements     | `src/ui/components/components.spec.tsx`                                                                                                              | regressions in the design system                                       |
-| Contrast of what is rendered, both schemes          | `components.spec.tsx` (every variant and state), `src/a11y.spec.tsx` (every screen and state), with `contrastProblems()` from `src/test/contrast.ts` | a color, a variant or a pressed state below AA                         |
-| Contrast floor of the palette                       | `src/ui/theme/tokens.spec.ts`                                                                                                                        | a token change below AA                                                |
-| Touch target size                                   | `components.spec.tsx`                                                                                                                                | a control below 48 dp                                                  |
-| Font scaling caps                                   | `components.spec.tsx`                                                                                                                                | text that stops scaling, or scales without a cap                       |
-| Tests query by role and label                       | every screen and integration test                                                                                                                    | a control a screen reader cannot find (the test cannot find it either) |
+| Check                                               | Where                                                                                                                                                                        | Catches                                                                |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Every control on every screen has a role and a name | `apps/mobile/src/a11y.spec.tsx`, with `inaccessibleControls()` from `apps/mobile/src/test/a11y.ts`                                                                           | an unlabeled pressable, switch or input; a touchable without a role    |
+| Components: roles, names, states, announcements     | `apps/mobile/src/ui/components/components.spec.tsx`                                                                                                                          | regressions in the design system                                       |
+| Contrast of what is rendered, both schemes          | `components.spec.tsx` (every variant and state), `apps/mobile/src/a11y.spec.tsx` (every screen and state), with `contrastProblems()` from `apps/mobile/src/test/contrast.ts` | a color, a variant or a pressed state below AA                         |
+| Contrast floor of the palette                       | `apps/mobile/src/ui/theme/tokens.spec.ts`                                                                                                                                    | a token change below AA                                                |
+| Touch target size                                   | `components.spec.tsx`                                                                                                                                                        | a control below 48 dp                                                  |
+| Font scaling caps                                   | `components.spec.tsx`                                                                                                                                                        | text that stops scaling, or scales without a cap                       |
+| Tests query by role and label                       | every screen and integration test                                                                                                                                            | a control a screen reader cannot find (the test cannot find it either) |
 
-Add each new screen to `src/a11y.spec.tsx`, in each of its states (loaded, empty, error, with
-validation errors): it is checked in light and dark mode. What tests cannot judge (whether a label
-makes sense, the reading order, how an announcement sounds) is the manual checklist below.
+Add each new screen to `apps/mobile/src/a11y.spec.tsx`, in each of its states (loaded, empty, error,
+with validation errors): it is checked in light and dark mode. What tests cannot judge (whether a
+label makes sense, the reading order, how an announcement sounds) is the manual checklist below.
 
 ## Manual testing
 
@@ -112,7 +113,7 @@ Once per feature, on a real device of each platform:
 
 Copy into the pull request of a feature with UI:
 
-- [ ] Built from `src/ui` components; no new color literal; no raw touchable.
+- [ ] Built from `apps/mobile/src/ui` components; no new color literal; no raw touchable.
 - [ ] Every control has a role and a meaningful name; decorative images and icons are hidden.
 - [ ] States (`disabled`, `busy`, `checked`, `selected`) are exposed, not only drawn.
 - [ ] Headings mark the screen's sections.
@@ -123,5 +124,5 @@ Copy into the pull request of a feature with UI:
 - [ ] Nothing is conveyed by color alone.
 - [ ] Custom animations respect Reduce motion.
 - [ ] Custom overlays trap and restore focus.
-- [ ] The screen is in `src/a11y.spec.tsx`, in each of its states.
+- [ ] The screen is in `apps/mobile/src/a11y.spec.tsx`, in each of its states.
 - [ ] Tried with TalkBack and VoiceOver: the reading order makes sense and every action can be done.

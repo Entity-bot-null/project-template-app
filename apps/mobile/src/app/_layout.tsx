@@ -14,7 +14,7 @@ import { queryClient } from '@/lib/query/queryClient';
 import { usePreferences } from '@/store/preferences';
 import { clearImageCaches, ErrorState, Screen, ThemeProvider } from '@/ui';
 
-// The root of the app (docs/MOBILE_ARCHITECTURE.md#navigation). Startup work runs
+// The root of the app (docs/mobile-architecture.md#navigation). Startup work runs
 // once, before the first render; the splash screen stays until the session
 // is known, so nobody sees a screen they are about to leave. The navigation
 // follows the state: three flows, each available only when its guard holds,

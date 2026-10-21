@@ -4,8 +4,9 @@
 # by tag for readers and by digest for the runner: a moved tag cannot change
 # what runs with the repository checked out. Written as a Dockerfile so
 # Dependabot (the docker entry in .github/dependabot.yml) proposes tag and
-# digest updates together. scripts/tool-image.mjs reads it: one
-# `FROM <image> AS <name>` per tool.
+# digest updates together; kept outside .github/, where Dependabot may change
+# files for GitHub Actions only (dependabot/dependabot-core#15237).
+# scripts/tool-image.mjs reads it: one `FROM <image> AS <name>` per tool.
 #
 # Docker Hub limits anonymous pulls per address, and CI runners share theirs:
 # the images hosted there (actionlint, Semgrep) are pulled in CI through a

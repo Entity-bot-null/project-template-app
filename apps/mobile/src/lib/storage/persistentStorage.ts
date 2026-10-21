@@ -6,7 +6,7 @@ import type { KeyValueStorage, SyncKeyValueStorage } from './types';
 // a key-value table in the app's SQLite database, private to the app but not
 // encrypted. Never a credential or personal data a backup could expose (the
 // app also opts out of Android backups, app.config.ts). Structured offline
-// data goes in its own SQLite tables (docs/MOBILE_ARCHITECTURE.md#offline).
+// data goes in its own SQLite tables (docs/mobile-architecture.md#offline).
 export const persistentStorage: KeyValueStorage = {
   getItem: (key) => Storage.getItem(key),
   setItem: (key, value) => Storage.setItem(key, value),

@@ -5,7 +5,7 @@ import type { AnalyticsEvents, AnalyticsProvider } from './types';
 
 export type { AnalyticsEvents, AnalyticsProvider } from './types';
 
-// Product analytics behind an interface (docs/MOBILE_ARCHITECTURE.md#analytics).
+// Product analytics behind an interface (docs/mobile-architecture.md#analytics).
 // The app calls analytics.track/screen/identify with typed events; the
 // provider (Amplitude, PostHog, Firebase, Segment...) is one adapter in
 // providers.ts, chosen here. Nothing is sent before the user consents

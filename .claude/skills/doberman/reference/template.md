@@ -3,9 +3,9 @@
 What Doberman must know about this repository to review a change in it. The repository's own
 documents are the authority: [AGENTS.md](../../../../AGENTS.md),
 [DEFINITION_OF_DONE.md](../../../../DEFINITION_OF_DONE.md),
-[docs/MOBILE_ARCHITECTURE.md](../../../../docs/MOBILE_ARCHITECTURE.md),
-[docs/TESTING.md](../../../../docs/TESTING.md), [SECURITY.md](../../../../SECURITY.md),
-[docs/RELEASES.md](../../../../docs/RELEASES.md). When this file and those disagree, they win; say
+[docs/mobile-architecture.md](../../../../docs/mobile-architecture.md),
+[docs/testing.md](../../../../docs/testing.md), [SECURITY.md](../../../../SECURITY.md),
+[docs/releases.md](../../../../docs/releases.md). When this file and those disagree, they win; say
 so in the report.
 
 ## Contents
@@ -20,38 +20,39 @@ so in the report.
 
 ## Stack
 
-Expo SDK (see `expo` in `package.json`; never trust memory for Expo APIs: AGENTS.md says how to
-check the docs of that version), React Native New Architecture, Hermes, Expo Router (typed routes,
-`Stack.Protected`), TypeScript strict, OpenAPI contract first (`openapi/openapi.json` →
-`src/api/schema.d.ts` by `pnpm contract`), openapi-fetch, TanStack Query, Zustand, Zod, React Hook
-Form, SecureStore and the SQLite key-value store behind `src/lib/storage`, Sentry behind
-`src/lib/observability`, Jest + React Native Testing Library 14, Maestro, EAS.
+Expo SDK (see `expo` in `apps/mobile/package.json`; never trust memory for Expo APIs: AGENTS.md says
+how to check the docs of that version), React Native New Architecture, Hermes, Expo Router (typed
+routes, `Stack.Protected`), TypeScript strict, OpenAPI contract first (`openapi/openapi.json` →
+`apps/mobile/src/api/schema.d.ts` by `pnpm contract`), openapi-fetch, TanStack Query, Zustand, Zod,
+React Hook Form, SecureStore and the SQLite key-value store behind `apps/mobile/src/lib/storage`,
+Sentry behind `apps/mobile/src/lib/observability`, Jest + React Native Testing Library 14, Maestro,
+EAS.
 
 ## Flows
 
 ```
-Route (src/app/**, thin: validates params)
-  → Screen (src/features/<f>/<X>Screen.tsx: states, a11y, AlertText)
-  → hook (src/features/<f>/api.ts: useQuery / useInfiniteQuery / useMutation, query keys factory)
-  → TanStack Query (src/lib/query/queryClient.ts: retries, staleTime, error reporting)
-  → api (src/api/client.ts: openapi-fetch typed from the contract)
-  → http pipeline (src/api/http.ts: timeout, abort forwarding, request id, bearer token,
+Route (apps/mobile/src/app/**, thin: validates params)
+  → Screen (apps/mobile/src/features/<f>/<X>Screen.tsx: states, a11y, AlertText)
+  → hook (apps/mobile/src/features/<f>/api.ts: useQuery / useInfiniteQuery / useMutation, query keys factory)
+  → TanStack Query (apps/mobile/src/lib/query/queryClient.ts: retries, staleTime, error reporting)
+  → api (apps/mobile/src/api/client.ts: openapi-fetch typed from the contract)
+  → http pipeline (apps/mobile/src/api/http.ts: timeout, abort forwarding, request id, bearer token,
                    one replay after a 401, AppError mapping, breadcrumbs)
-  → session (src/auth/session.ts: access token in memory, refresh token in secureStorage,
+  → session (apps/mobile/src/auth/session.ts: access token in memory, refresh token in secureStorage,
              one renewal at a time, generation guard)
-  → backend (contract) → unwrap / unwrapWith(Schema) (src/api/unwrap.ts: envelope + Zod)
+  → backend (contract) → unwrap / unwrapWith(Schema) (apps/mobile/src/api/unwrap.ts: envelope + Zod)
   → cache → Screen
 ```
 
 Sign-out (`session.signOut()` → `end()`): generation bumped, access token dropped, refresh token
 removed from secure storage, state `signedOut`, then the `onSignOut` listeners in
-`src/app/_layout.tsx`: `queryClient.clear()`, image caches cleared, error reporter user reset,
-analytics reset; the `Stack.Protected` guards move the navigation. Screens never navigate after an
-auth event.
+`apps/mobile/src/app/_layout.tsx`: `queryClient.clear()`, image caches cleared, error reporter user
+reset, analytics reset; the `Stack.Protected` guards move the navigation. Screens never navigate
+after an auth event.
 
 ## Invariants to check against
 
-**Session and networking** (`src/auth/session.ts`, `src/api/http.ts`)
+**Session and networking** (`apps/mobile/src/auth/session.ts`, `apps/mobile/src/api/http.ts`)
 
 - One renewal at a time (`renewOnce`): concurrent requests and 401s share it; a request that got a
   401 after someone else renewed reuses the new token (`refreshAfterRejection`).
@@ -63,7 +64,7 @@ auth event.
   loops; failures become `AppError` (`network`, `timeout`, `cancelled`, …).
 - Breadcrumbs and logs carry the path only: no query string, no body, no token.
 
-**Server state** (`src/features/**/api.ts`, `src/lib/query/**`)
+**Server state** (`apps/mobile/src/features/**/api.ts`, `apps/mobile/src/lib/query/**`)
 
 - Server data only through TanStack Query hooks in the feature's `api.ts`, calling `api` with
   `unwrap`/`unwrapWith`; never `fetch` (lint), never copied into Zustand or `useState`.
@@ -74,23 +75,27 @@ auth event.
   invalidate on settle (see `useCreateItem`).
 - Only transient errors are retried (`isRetryable`); a 4xx is an answer.
 
-**Screens and navigation** (`src/app/**`, `src/features/**/*.tsx`)
+**Screens and navigation** (`apps/mobile/src/app/**`, `apps/mobile/src/features/**/*.tsx`)
 
-- Routes are thin; protected screens live behind `Stack.Protected` in `src/app/_layout.tsx`.
+- Routes are thin; protected screens live behind `Stack.Protected` in
+  `apps/mobile/src/app/_layout.tsx`.
 - Every screen handles loading, empty, error and offline states, and recovers without a restart;
   double taps on submit do not send twice; interrupted flows (backgrounding, lost connection, a
   session expiring while the screen is open) behave.
-- Components from `src/ui` only; theme tokens (no color literals); every control with a role and
-  accessible name; 48 dp targets; messages that appear without navigation use `AlertText`; every
-  new screen is in `src/a11y.spec.tsx`.
+- Components from `apps/mobile/src/ui` only; theme tokens (no color literals); every control with a
+  role and accessible name; 48 dp targets; messages that appear without navigation use `AlertText`;
+  every new screen is in `apps/mobile/src/a11y.spec.tsx`.
 
-**Untrusted input** (`src/lib/links.ts`, `src/app/+native-intent.tsx`, `src/lib/notifications`)
+**Untrusted input** (`apps/mobile/src/lib/links.ts`, `apps/mobile/src/app/+native-intent.tsx`,
+`apps/mobile/src/lib/notifications`)
 
-- Links and notification payloads pass the allowlist of `src/lib/links.ts` (query strings dropped,
-  ids restricted to `[A-Za-z0-9_-]{1,64}`); a link opens a screen, never performs an action.
+- Links and notification payloads pass the allowlist of `apps/mobile/src/lib/links.ts` (query
+  strings dropped, ids restricted to `[A-Za-z0-9_-]{1,64}`); a link opens a screen, never performs
+  an action.
 - API responses validated with Zod (`unwrapWith`) where the shape matters; route params validated.
 
-**Storage and privacy** (`src/lib/storage/**`, `src/store/**`, SECURITY.md#data-inventory)
+**Storage and privacy** (`apps/mobile/src/lib/storage/**`, `apps/mobile/src/store/**`,
+SECURITY.md#data-inventory)
 
 - Every key in `STORAGE_KEYS`; credentials in `secureStorage`; nothing sensitive or personal in
   `persistentStorage`; no AsyncStorage.
@@ -99,27 +104,29 @@ auth event.
 - Stored data from the previous app version still loads (preferences schema, storage keys) or is
   migrated.
 
-**Configuration and native** (`app.config.ts`, `eas.json`, `src/config/**`)
+**Configuration and native** (`apps/mobile/app.config.ts`, `apps/mobile/eas.json`,
+`apps/mobile/src/config/**`)
 
-- Configuration read only through `src/config/env.ts`; a new variable in `env.schema.ts`, its line
-  in `env.ts`, `.env.example` and docs/RELEASES.md#environment-variables. `EXPO_PUBLIC_*` is
-  public: never a secret.
+- Configuration read only through `apps/mobile/src/config/env.ts`; a new variable in
+  `env.schema.ts`, its line in `env.ts`, `apps/mobile/.env.example` and
+  docs/releases.md#environment-variables. `EXPO_PUBLIC_*` is public: never a secret.
 - New permissions declared with their usage text, asked in context, reflected in the store privacy
-  declarations (docs/STORE_COMPLIANCE.md).
-- `android/` and `ios/` are generated (`expo prebuild`) and never committed.
+  declarations (docs/store-compliance.md).
+- `apps/mobile/android/` and `apps/mobile/ios/` are generated (`expo prebuild`) and never committed.
 
-**Observability** (`src/lib/observability/**`, `src/lib/analytics/**`)
+**Observability** (`apps/mobile/src/lib/observability/**`, `apps/mobile/src/lib/analytics/**`)
 
 - `reportError()` and `logger`, never `console.log`; redaction (`redact.ts`) not bypassed; no
   tokens, passwords or personal data in logs, breadcrumbs, reports or analytics events.
 
 **Gates and supply chain**
 
-- No threshold (`jest.config.js`), lint rule, budget (`bundle-budget.json`), ignore file, supply-chain
-  setting (`pnpm-workspace.yaml`: `minimumReleaseAge`, `trustPolicy`, `allowBuilds`, overrides,
-  `audit.ignore`), dependency policy or workflow permission weakened; `nosemgrep` and
-  `eslint-disable` carry their reason on the same line.
-- Dependencies added with `pnpm exec expo install`, justified; EAS CLI is never a dependency.
+- No threshold (`apps/mobile/jest.config.js`), lint rule, budget (`apps/mobile/bundle-budget.json`),
+  ignore file, supply-chain setting (`pnpm-workspace.yaml`: `minimumReleaseAge`, `trustPolicy`,
+  `allowBuilds`, overrides, `audit.ignore`), dependency policy or workflow permission weakened;
+  `nosemgrep` and `eslint-disable` carry their reason on the same line.
+- Dependencies added with `pnpm --filter mobile exec expo install`, justified; EAS CLI is never a
+  dependency.
 - Releases (builds, submissions, OTA updates) only through the manual workflows from `main`.
 
 ## Red flags in a diff
@@ -140,17 +147,17 @@ Each one is a lead to verify, not a finding by itself:
   `links.spec.ts`.
 - `console.*`, string-interpolated errors with user data, analytics events with ids or emails.
 - New native dependency or config plugin: store build, prebuild, permissions, privacy manifest.
-- Edited `src/api/schema.d.ts` without a matching `openapi/openapi.json` change.
+- Edited `apps/mobile/src/api/schema.d.ts` without a matching `openapi/openapi.json` change.
 - Tests stubbing with instant responses for a flow whose bug would be a race; tests that only
   assert `toHaveBeenCalled`.
 
 ## Release impact
 
-JavaScript-only changes can ship as an OTA update to the same runtime version; anything native
-(a module, a config plugin, permissions, native fields of `app.config.ts`, the SDK) needs a store
-build and changes the fingerprint runtime version (docs/RELEASES.md). Check the pull request
-declares the right one. API changes must stay compatible with app versions already installed, or
-be coordinated (docs/RELEASES.md#minimum-supported-version).
+JavaScript-only changes can ship as an OTA update to the same runtime version; anything native (a
+module, a config plugin, permissions, native fields of `apps/mobile/app.config.ts`, the SDK) needs a
+store build and changes the fingerprint runtime version (docs/releases.md). Check the pull request
+declares the right one. API changes must stay compatible with app versions already installed, or be
+coordinated (docs/releases.md#minimum-supported-version).
 
 ## Gates
 
@@ -164,19 +171,21 @@ The plan comes from `doberman.mjs start` (`verify` in `package.json`, plus the C
   Doberman engine).
 - `pnpm sast` and `pnpm lint:workflows` need Docker; `pnpm security` and `pnpm expo:doctor` need the
   network.
-- Prebuild writes `android/` and `ios/`: run it in the sandbox only. Never run `pnpm prebuild` (it
-  is `--clean`) in the workspace. On Windows, Expo generates `android/` only (it skips iOS there):
-  the iOS half is UNVERIFIED unless Docker is available to run the same command in a Linux
-  container (`node:24-bookworm-slim`, frozen install, then the prebuild) on a copy of the sandbox.
+- Prebuild writes `apps/mobile/android/` and `apps/mobile/ios/`: run it in the sandbox only. Never
+  run `pnpm prebuild` (it is `--clean`) in the workspace. On Windows, Expo generates
+  `apps/mobile/android/` only (it skips iOS there): the iOS half is UNVERIFIED unless Docker is
+  available to run the same command in a Linux container (`node:24-bookworm-slim`, frozen install,
+  then the prebuild) on a copy of the sandbox.
 - gitleaks scans the history: it needs commits. On Windows (Git Bash) the template command needs a
   Windows path for Docker (`commandWindows` in the plan).
-- Android E2E (docs/TESTING.md#end-to-end) needs an emulator or device, JDK 17 and Maestro; on
+- Android E2E (docs/testing.md#end-to-end) needs an emulator or device, JDK 17 and Maestro; on
   Windows the native build also needs a short path (`DOBERMAN_TMP=C:\dbm` before `start`) and a
   hoisted `node_modules` in the sandbox (`pnpm_config_node_linker=hoisted`). It is not part of
   "CI passed", but a change to a critical journey should run it.
 - iOS builds need macOS with Xcode: elsewhere `SKIPPED — REQUIRES MAC/iOS ENVIRONMENT`.
-- `pnpm lint` and `pnpm typecheck` run `expo customize tsconfig.json`; the clean step reports it if
-  that rewrote `tsconfig.json`.
+- `pnpm lint` and `pnpm typecheck` run `expo customize tsconfig.json` in `apps/mobile`
+  (`pnpm --filter mobile types:generate`); the clean step reports it if that rewrote
+  `apps/mobile/tsconfig.json`.
 
 ## Whole-repository audit order
 

@@ -1,7 +1,7 @@
 import { isExpected, toAppError } from '../errors';
 import { redact } from './redact';
 
-// Error and crash reporting behind an interface (docs/MOBILE_ARCHITECTURE.md#observability).
+// Error and crash reporting behind an interface (docs/mobile-architecture.md#observability).
 // The app reports through reportError() and addBreadcrumb(); the provider
 // (Sentry, sentry.ts) is chosen once at startup and can be swapped without
 // touching feature code. Without a DSN nothing is sent anywhere.

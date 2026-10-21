@@ -17,7 +17,7 @@ export interface PermissionPromptProps {
 
 /**
  * Explains a permission before the system prompt, and offers the device
- * settings once the system will no longer ask (docs/MOBILE_ARCHITECTURE.md#permissions).
+ * settings once the system will no longer ask (docs/mobile-architecture.md#permissions).
  */
 export function PermissionPrompt({
   icon,

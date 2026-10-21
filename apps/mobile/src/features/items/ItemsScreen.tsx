@@ -20,12 +20,12 @@ import {
 
 import { isOptimistic, type Item, useItems } from './api';
 
-// A paginated, searchable list (docs/PERFORMANCE.md#lists): virtualized
+// A paginated, searchable list (docs/performance.md#lists): virtualized
 // (FlatList renders what is on screen, plus a window), next page fetched as
 // the end nears, one request per pause in typing, pull to refresh, and the
 // loading, empty and error states. Switch to FlashList when rows get heavy
 // or lists reach thousands of rows. A search changes the screen without
-// navigating, so its outcome is announced (docs/ACCESSIBILITY.md#announcements).
+// navigating, so its outcome is announced (docs/accessibility.md#announcements).
 // A failure with items already on screen keeps them, and is said where it
 // happened: a refresh above the list, the next page at its end.
 

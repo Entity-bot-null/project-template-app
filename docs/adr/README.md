@@ -15,6 +15,7 @@ security trade-off, a release process change, a deviation from these docs.
 4. On merge the status becomes `Accepted`. Decisions are not edited afterwards: a later ADR
    supersedes them (and the old one links to it).
 
-| ADR                   | Decision                                               |
-| --------------------- | ------------------------------------------------------ |
-| [0001](0001-stack.md) | The stack: Expo, its libraries, and what was ruled out |
+| ADR                           | Decision                                                |
+| ----------------------------- | ------------------------------------------------------- |
+| [0001](0001-stack.md)         | The stack: Expo, its libraries, and what was ruled out  |
+| [0002](0002-pnpm-monorepo.md) | The repository is a pnpm workspace, one package per app |

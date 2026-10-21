@@ -5,7 +5,7 @@ import pkg from './package.json';
 import { parsePublicEnv } from './src/config/env.schema.ts';
 import { APP_LINK_PATHS } from './src/lib/links.ts';
 
-// The app config, evaluated by Expo CLI and EAS at build time (docs/RELEASES.md).
+// The app config, evaluated by Expo CLI and EAS at build time (docs/releases.md).
 // Everything returned here ends up in the app's manifest, readable by anyone
 // who has the binary: never a secret.
 
@@ -127,7 +127,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     userInterfaceStyle: 'automatic',
     scheme,
     icon: './assets/images/icon.png',
-    // OTA updates (docs/RELEASES.md#ota-updates): an update reaches only builds
+    // OTA updates (docs/releases.md#ota-updates): an update reaches only builds
     // whose native code has the same fingerprint, so a JavaScript update can
     // never run on a binary that lacks the native code it needs.
     runtimeVersion: { policy: 'fingerprint' },
@@ -157,7 +157,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: APP.colors.adaptiveIconBackground,
       },
       // Push notifications on Android need the Firebase project's
-      // google-services.json (REQUIERE CONFIGURACIÓN, docs/MOBILE_ARCHITECTURE.md#notifications):
+      // google-services.json (REQUIERE CONFIGURACIÓN, docs/mobile-architecture.md#notifications):
       // never committed; on EAS a file-type environment variable whose value
       // is the file's path on the builder.
       ...(process.env.GOOGLE_SERVICES_JSON && {

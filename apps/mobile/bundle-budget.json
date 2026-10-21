@@ -1,5 +1,5 @@
 {
-  "$comment": "Sizes in kB (1000 bytes) of `pnpm export` output, checked by scripts/check-bundle-size.mjs. Set about 10% above the template's own size; raise only in a reviewed pull request that says why (docs/PERFORMANCE.md#bundle-budget).",
+  "$comment": "Sizes in kB (1000 bytes) of the app's export (`pnpm build`, apps/mobile/dist), checked by apps/mobile/scripts/check-bundle-size.mjs (`pnpm perf:check`). Set about 10% above the template's own size; raise only in a reviewed pull request that says why (docs/performance.md#bundle-budget).",
   "budgets": {
     "android": { "maxBundleKb": 6200, "maxAssetsKb": 1500 },
     "ios": { "maxBundleKb": 5800, "maxAssetsKb": 500 }

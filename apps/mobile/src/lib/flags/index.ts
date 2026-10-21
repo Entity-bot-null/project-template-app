@@ -1,6 +1,6 @@
 import { env } from '@/config/env';
 
-// Feature flags (docs/MOBILE_ARCHITECTURE.md#feature-flags): every flag declared
+// Feature flags (docs/mobile-architecture.md#feature-flags): every flag declared
 // here with its default and why it exists, so shipping dark code is a
 // reviewed decision. Values come from the defaults, overridden by
 // EXPO_PUBLIC_FLAGS in development and preview builds. A remote provider

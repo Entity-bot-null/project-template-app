@@ -1,6 +1,6 @@
-# Maestro workspace (pnpm test:e2e). The flows run in this order and share
+# Maestro workspace (pnpm test:e2e:mobile). The flows run in this order and share
 # the installed app's state: each one starts where the previous one ended,
-# like a user's first session. See .maestro/README.md.
+# like a user's first session. See apps/mobile/.maestro/README.md.
 flows:
   - flows/*.yaml
 executionOrder:

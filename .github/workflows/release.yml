@@ -1,10 +1,11 @@
 name: Release
 
-# Release management (docs/RELEASES.md#versioning). release-please reads the
+# Release management (docs/releases.md#versioning). release-please reads the
 # Conventional Commits that reach main (the squashed pull request titles) and
-# keeps one release pull request open: the next semantic version in
-# package.json (the app's user-visible version, read by app.config.ts) and
-# the CHANGELOG.md entry. Merging it, after review and CI like any pull
+# keeps one release pull request open: the next semantic version, one for the
+# whole repository (package.json, and apps/mobile/package.json, the app's
+# user-visible version that apps/mobile/app.config.ts reads, as extra-files of
+# release-please-config.json), and the CHANGELOG.md entry. Merging it, after review and CI like any pull
 # request, tags vX.Y.Z (immutable, .github/rulesets/tags.json), publishes the
 # GitHub release with those notes and attaches the SBOM. Building and
 # submitting that version is a separate, manual step (eas-build.yml with the
@@ -22,7 +23,7 @@ permissions: {}
 jobs:
   release-please:
     name: Release pull request and tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write # the release branch, tags and releases
@@ -39,7 +40,7 @@ jobs:
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          # Optional (docs/CI_CD.md#release-pull-requests): a GitHub App token
+          # Optional (docs/ci-cd.md#release-pull-requests): a GitHub App token
           # or a fine-grained token (contents, pull requests and issues:
           # write) opens the release pull request as that identity, so every
           # pull request workflow runs on it. Without it, the workflow's token
@@ -58,7 +59,7 @@ jobs:
     name: CI on the release pull request
     needs: release-please
     if: ${{ needs.release-please.outputs.pr != '' && needs.release-please.outputs.own-token != 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       actions: write # start CI and Conventions on the release branch
@@ -85,7 +86,7 @@ jobs:
     name: Generate the SBOM
     needs: release-please
     if: ${{ needs.release-please.outputs.created == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -110,7 +111,7 @@ jobs:
   attach-sbom:
     name: Attach the SBOM
     needs: [release-please, sbom]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write # upload the release asset

@@ -1,6 +1,6 @@
 // Links from outside the app: the custom scheme (templateapp://items/42),
 // universal links / App Links (https://<domain>/items/42) and notification
-// payloads (docs/MOBILE_ARCHITECTURE.md#deep-links). They are untrusted input:
+// payloads (docs/mobile-architecture.md#deep-links). They are untrusted input:
 // anyone can craft one. Only the paths below are accepted, with their
 // parameters validated; query strings are dropped (no arbitrary parameters
 // reach a screen); anything else opens the home screen. A link never

@@ -8,7 +8,7 @@ import { analytics } from '@/lib/analytics';
 import { toAppError, userMessage } from '@/lib/errors';
 import { AlertText, Button, Card, Screen, Text, TextField } from '@/ui';
 
-// A form the template's way (docs/MOBILE_ARCHITECTURE.md#forms): React Hook Form
+// A form the template's way (docs/mobile-architecture.md#forms): React Hook Form
 // with a Zod schema, errors under each field and announced, the keyboard
 // moving from field to field, one submission at a time, and server errors
 // mapped to the field or to a message the user understands.

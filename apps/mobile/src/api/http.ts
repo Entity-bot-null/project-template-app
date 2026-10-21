@@ -1,7 +1,7 @@
 import { AppError } from '@/lib/errors';
 import { addBreadcrumb } from '@/lib/observability/errorReporter';
 
-// The fetch every API call goes through (docs/MOBILE_ARCHITECTURE.md#networking):
+// The fetch every API call goes through (docs/mobile-architecture.md#networking):
 //   - a timeout per request, and the caller's cancellation (TanStack Query
 //     aborts queries nobody needs anymore);
 //   - an X-Request-Id, so a failure reported by a user can be found in the

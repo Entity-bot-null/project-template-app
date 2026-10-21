@@ -1,12 +1,51 @@
-// ESLint: Expo's recommended rules (React, hooks, imports, Expo), the strict
-// type-aware rules of typescript-eslint, and the architecture rules of this
-// template (docs/MOBILE_ARCHITECTURE.md): which layer may import what. Prettier
+// ESLint, one configuration for the whole workspace (`pnpm lint` runs it once
+// from the root, the pre-commit hook on staged files, CI on everything). The
+// app (apps/mobile): Expo's recommended rules (React, hooks, imports, Expo),
+// the strict type-aware rules of typescript-eslint, and the architecture rules
+// of this template (docs/mobile-architecture.md): which layer may import what.
+// The repository tooling: ESLint's recommended rules for Node.js. Prettier
 // owns formatting. `pnpm lint` allows zero warnings.
+import { createRequire } from 'node:module';
+
 import comments from '@eslint-community/eslint-plugin-eslint-comments/configs';
+import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
-import expoConfig from 'eslint-config-expo/flat.js';
 import prettier from 'eslint-config-prettier';
+import importPlugin from 'eslint-plugin-import';
+import globals from 'globals';
 import { configs as tsConfigs } from 'typescript-eslint';
+
+// eslint-config-expo is versioned with the Expo SDK (expo/bundledNativeModules.json):
+// apps/mobile declares it, so expo-doctor and `expo install --fix` keep it in
+// step with the SDK, and it is loaded from there (docs/adr/0002-pnpm-monorepo.md).
+const requireFromMobile = createRequire(new URL('./apps/mobile/package.json', import.meta.url));
+/** @type {import('eslint').Linter.Config[]} */
+const expoConfig = requireFromMobile('eslint-config-expo/flat.js');
+
+const MOBILE = 'apps/mobile';
+
+/**
+ * A shared configuration applied to the app only: each block's file patterns
+ * moved under apps/mobile (all of the app for a block without them), and the
+ * patterns of a global ignore too.
+ * @param {import('eslint').Linter.Config[]} configs
+ * @returns {import('eslint').Linter.Config[]}
+ */
+function inMobile(configs) {
+  const under = (/** @type {string} */ pattern) => `${MOBILE}/${pattern}`;
+  return configs.map((config) => {
+    const keys = Object.keys(config).filter((key) => key !== 'name');
+    if (keys.length === 1 && config.ignores) {
+      return { ...config, ignores: config.ignores.map(under) };
+    }
+    return {
+      ...config,
+      files: config.files
+        ? config.files.map((pattern) => under(/** @type {string} */ (pattern)))
+        : [`${MOBILE}/**`],
+    };
+  });
+}
 
 // Raw colors belong to the theme only (src/ui/theme): one palette, light and
 // dark mode from the same tokens. Caught: hex, rgb(), hsl() and hwb() values,
@@ -32,7 +71,7 @@ const NAMED_COLORS = `aliceblue antiquewhite aqua aquamarine azure beige bisque 
   thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen`.split(/\s+/);
 const COLOR_LITERAL = String.raw`/^(?:#[0-9a-fA-F]{3,8}|rgba?\(|hsla?\(|hwb\(|(?:${NAMED_COLORS.join('|')})$)/`;
 
-// What only one layer may import (docs/MOBILE_ARCHITECTURE.md#layers-and-dependency-rules),
+// What only one layer may import (docs/mobile-architecture.md#layers-and-dependency-rules),
 // by the layer that owns it. Every block below builds no-restricted-imports
 // from this list with restrictedImports(): in flat config a later block's
 // options replace the earlier ones, so a block that restated the rule by hand,
@@ -90,16 +129,54 @@ function restrictedImports({ owns = [], patterns = [] } = {}) {
 
 export default defineConfig([
   globalIgnores([
-    'dist/**',
-    'coverage/**',
+    '**/dist/**',
+    '**/coverage/**',
+    '**/.expo/**',
+    // Generated native projects (expo prebuild), the app's and any left at the
+    // root by a checkout from before the workspace.
     'android/**',
     'ios/**',
-    '.expo/**',
-    'expo-env.d.ts',
-    'src/api/schema.d.ts',
+    'apps/mobile/android/**',
+    'apps/mobile/ios/**',
+    // Written by `expo customize tsconfig.json` (types:generate).
+    '**/expo-env.d.ts',
+    'apps/mobile/src/api/schema.d.ts',
   ]),
 
-  expoConfig,
+  // The repository tooling (scripts/, the root configuration files): plain
+  // JavaScript on Node.js. ESLint's and the import plugin's recommended
+  // rules, plus the ones of Expo's core set they lack: Expo's configuration
+  // checked these files before the app moved to apps/mobile.
+  {
+    files: ['*.{js,mjs,cjs}', 'scripts/**/*.mjs'],
+    extends: [js.configs.recommended, importPlugin.flatConfigs.recommended],
+    // The import plugin's preset parses as ES2018: these scripts run on the
+    // Node.js of .nvmrc.
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
+    // TypeScript's resolution reads package.json "exports" (eslint/config,
+    // typescript-eslint), which the plugin's Node.js resolver does not.
+    settings: { 'import/resolver': { node: true, typescript: true } },
+    rules: {
+      eqeqeq: ['error', 'smart'],
+      'import/first': 'error',
+      'no-extend-native': 'error',
+      'no-extra-bind': 'error',
+      'no-unused-expressions': ['error', { allowShortCircuit: true }],
+      'no-var': 'error',
+      'unicode-bom': ['error', 'never'],
+    },
+  },
+
+  ...inMobile(expoConfig),
+  // Expo's import rules resolve the app's path aliases (@/) through its tsconfig.
+  {
+    files: [`${MOBILE}/**`],
+    settings: {
+      'import/resolver': {
+        typescript: { project: `${MOBILE}/tsconfig.json` },
+      },
+    },
+  },
 
   // Directive comments: an eslint-disable names its rules and says why on the
   // same line (`// eslint-disable-next-line <rule> -- <why>`), so review sees
@@ -136,7 +213,7 @@ export default defineConfig([
 
   // Application code: the architecture rules.
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['apps/mobile/src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -150,7 +227,7 @@ export default defineConfig([
         {
           object: 'process',
           property: 'env',
-          message: 'Read configuration from src/config/env.ts (validated at startup).',
+          message: 'Read configuration from apps/mobile/src/config/env.ts (validated at startup).',
         },
       ],
       'no-restricted-globals': [
@@ -167,50 +244,50 @@ export default defineConfig([
   // The layers allowed to use what the rules above keep from everyone else:
   // each one lifts only what it owns.
   {
-    files: ['src/ui/theme/**'],
+    files: ['apps/mobile/src/ui/theme/**'],
     rules: { 'no-restricted-syntax': 'off' },
   },
   {
-    files: ['src/config/env.ts'],
+    files: ['apps/mobile/src/config/env.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
   {
-    files: ['src/lib/observability/logger.ts'],
+    files: ['apps/mobile/src/lib/observability/logger.ts'],
     rules: { 'no-console': 'off' },
   },
   {
-    files: ['src/api/**'],
+    files: ['apps/mobile/src/api/**'],
     rules: {
       'no-restricted-globals': 'off',
       'no-restricted-imports': restrictedImports({ owns: ['apiClient'] }),
     },
   },
   {
-    files: ['src/ui/**'],
+    files: ['apps/mobile/src/ui/**'],
     rules: { 'no-restricted-imports': restrictedImports({ owns: ['designSystem', 'image'] }) },
   },
   {
-    files: ['src/lib/storage/**'],
+    files: ['apps/mobile/src/lib/storage/**'],
     rules: {
       'no-restricted-imports': restrictedImports({ owns: ['secureStorage', 'persistentStorage'] }),
     },
   },
   {
-    files: ['src/lib/observability/sentry.ts'],
+    files: ['apps/mobile/src/lib/observability/sentry.ts'],
     rules: { 'no-restricted-imports': restrictedImports({ owns: ['observability'] }) },
   },
 
-  // Routes (src/app) stay thin: they compose screens from features and never
+  // Routes (apps/mobile/src/app) stay thin: they compose screens from features and never
   // reach the API or storage themselves.
   {
-    files: ['src/app/**'],
+    files: ['apps/mobile/src/app/**'],
     rules: {
       'no-restricted-imports': restrictedImports({
         patterns: [
           {
             group: ['@/api', '@/api/*', '@/lib/storage', '@/lib/storage/*'],
             message:
-              'Routes compose screens from src/features; data access belongs to the feature (docs/MOBILE_ARCHITECTURE.md#navigation).',
+              'Routes compose screens from src/features; data access belongs to the feature (docs/mobile-architecture.md#navigation).',
           },
         ],
       }),
@@ -219,7 +296,7 @@ export default defineConfig([
 
   // Tests: jest mocks are loosely typed by nature.
   {
-    files: ['**/*.spec.{ts,tsx}', 'src/test/**'],
+    files: ['apps/mobile/**/*.spec.{ts,tsx}', 'apps/mobile/src/test/**'],
     rules: {
       '@typescript-eslint/unbound-method': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
@@ -230,11 +307,11 @@ export default defineConfig([
     },
   },
 
-  // No JavaScript in src/ (ENGINEERING_STANDARDS.md): TypeScript never reads
-  // a .js file nothing imports, and Expo Router would still load one under
-  // src/app as a route.
+  // No JavaScript in the app's src/ (ENGINEERING_STANDARDS.md): TypeScript
+  // never reads a .js file nothing imports, and Expo Router would still load
+  // one under src/app as a route.
   {
-    files: ['src/**/*.{js,jsx,mjs,cjs}'],
+    files: ['apps/mobile/src/**/*.{js,jsx,mjs,cjs}'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -243,9 +320,14 @@ export default defineConfig([
     },
   },
 
-  // Node.js: configuration files and repository scripts.
+  // Node.js: configuration files and scripts, the repository's and the app's.
   {
-    files: ['*.{js,mjs,cjs}', 'scripts/**/*.mjs'],
+    files: [
+      '*.{js,mjs,cjs}',
+      'scripts/**/*.mjs',
+      'apps/mobile/*.{js,mjs,cjs}',
+      'apps/mobile/scripts/**/*.mjs',
+    ],
     extends: [tsConfigs.disableTypeChecked],
     languageOptions: {
       globals: {
@@ -257,10 +339,10 @@ export default defineConfig([
       },
     },
   },
-  // Maestro's JavaScript (runScript in .maestro/flows): its own globals, and
+  // Maestro's JavaScript (runScript in apps/mobile/.maestro/flows): its own globals, and
   // each variable of the flow's `env` as a global of the same name.
   {
-    files: ['.maestro/**/*.js'],
+    files: ['apps/mobile/.maestro/**/*.js'],
     extends: [tsConfigs.disableTypeChecked],
     languageOptions: {
       globals: {
@@ -276,7 +358,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['app.config.ts'],
+    files: ['apps/mobile/app.config.ts'],
     rules: { 'no-restricted-properties': 'off' },
   },
 

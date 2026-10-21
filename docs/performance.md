@@ -21,28 +21,28 @@ Set per project; these are reasonable defaults for a commercial app, measured on
 Android device in a release build** (an emulator or a debug build says little about real
 performance):
 
-| Metric                                 | Target                      |
-| -------------------------------------- | --------------------------- |
-| Cold start to first interactive screen | < 2 s                       |
-| Interactions (tap → visible response)  | < 100 ms                    |
-| Scrolling                              | 60 fps without blank areas  |
-| JavaScript bundle (Hermes bytecode)    | within `bundle-budget.json` |
-| Crash-free sessions (Sentry)           | > 99.5 %                    |
+| Metric                                 | Target                                  |
+| -------------------------------------- | --------------------------------------- |
+| Cold start to first interactive screen | < 2 s                                   |
+| Interactions (tap → visible response)  | < 100 ms                                |
+| Scrolling                              | 60 fps without blank areas              |
+| JavaScript bundle (Hermes bytecode)    | within `apps/mobile/bundle-budget.json` |
+| Crash-free sessions (Sentry)           | > 99.5 %                                |
 
 ## What is already in place
 
-| Measure                                                        | Where                                          |
-| -------------------------------------------------------------- | ---------------------------------------------- |
-| New Architecture (Fabric, TurboModules, bridgeless) and Hermes | Expo SDK 57 defaults; nothing to enable        |
-| React Compiler: components and hooks memoized automatically    | `experiments.reactCompiler` in `app.config.ts` |
-| Virtualized, paginated lists                                   | `ItemsScreen.tsx`                              |
-| Cached, deduplicated server data; no refetch on every focus    | TanStack Query defaults (`queryClient.ts`)     |
-| Images decoded natively, cached, downsampled                   | `Image` (`expo-image`) in `src/ui`             |
-| Styles created once per theme, not per render                  | `createStyles` (`ThemeProvider.tsx`)           |
-| Store selectors: components re-render only on what they read   | Zustand selectors                              |
-| Startup state read synchronously (no flash of defaults)        | `persistentStorageSync`                        |
-| R8 minification and resource shrinking on Android release      | `expo-build-properties` in `app.config.ts`     |
-| Bundle size budget in CI                                       | `pnpm bundle:check`                            |
+| Measure                                                        | Where                                                      |
+| -------------------------------------------------------------- | ---------------------------------------------------------- |
+| New Architecture (Fabric, TurboModules, bridgeless) and Hermes | Expo SDK 57 defaults; nothing to enable                    |
+| React Compiler: components and hooks memoized automatically    | `experiments.reactCompiler` in `apps/mobile/app.config.ts` |
+| Virtualized, paginated lists                                   | `ItemsScreen.tsx`                                          |
+| Cached, deduplicated server data; no refetch on every focus    | TanStack Query defaults (`queryClient.ts`)                 |
+| Images decoded natively, cached, downsampled                   | `Image` (`expo-image`) in `apps/mobile/src/ui`             |
+| Styles created once per theme, not per render                  | `createStyles` (`ThemeProvider.tsx`)                       |
+| Store selectors: components re-render only on what they read   | Zustand selectors                                          |
+| Startup state read synchronously (no flash of defaults)        | `persistentStorageSync`                                    |
+| R8 minification and resource shrinking on Android release      | `expo-build-properties` in `apps/mobile/app.config.ts`     |
+| Bundle size budget in CI                                       | `pnpm perf:check`                                          |
 
 ## Lists
 
@@ -75,17 +75,17 @@ Add when a measurement shows the need:
   typing re-renders one screen and not the app.
 - Select from stores (`usePreferences((state) => state.theme)`), never the whole store.
 - Animations: `react-native-reanimated` runs them on the UI thread (it ships with Expo Router;
-  declare it with `pnpm exec expo install react-native-reanimated` before importing it); never
-  animate with `setState` in a loop or JavaScript timers.
+  declare it with `pnpm --filter mobile exec expo install react-native-reanimated` before importing
+  it); never animate with `setState` in a loop or JavaScript timers.
 - Heavy work (parsing a large payload, sorting thousands of rows) does not run during a render or
   a gesture: do it in the query function (once per fetch), or defer it with
   `InteractionManager.runAfterInteractions` / `requestIdleCallback`.
 
 ## Images
 
-`Image` from `src/ui` (built on `expo-image`): native decoding off the JavaScript thread, memory and
-disk cache, downsampling to the displayed size, placeholders (blurhash/thumbhash) and a short
-transition. Rules:
+`Image` from `apps/mobile/src/ui` (built on `expo-image`): native decoding off the JavaScript
+thread, memory and disk cache, downsampling to the displayed size, placeholders (blurhash/thumbhash)
+and a short transition. Rules:
 
 - ask the server for an image close to the displayed size (a CDN size parameter); a 4000 px photo in
   a 64 dp thumbnail wastes bandwidth and memory even when downsampled;
@@ -96,8 +96,8 @@ transition. Rules:
 ## Startup
 
 What happens before the first screen, in order: native launch → Hermes loads the bundle (bytecode:
-no parsing) → module scope of `src/app/_layout.tsx` (observability, notifications, query client) →
-session restore (secure storage read) → first render → splash screen hidden.
+no parsing) → module scope of `apps/mobile/src/app/_layout.tsx` (observability, notifications, query
+client) → session restore (secure storage read) → first render → splash screen hidden.
 
 - Keep module scope cheap: no network calls, no large JSON parsing, no synchronous storage reads
   beyond the few startup keys.
@@ -109,9 +109,10 @@ session restore (secure storage read) → first render → splash screen hidden.
 
 ## Bundle budget
 
-`pnpm export` builds the release JavaScript bundles (Hermes bytecode) for Android and iOS into
-`dist/`; `pnpm bundle:check` compares them with `bundle-budget.json` and fails when a bundle or the
-assets of a platform grow past it. Both run in `pnpm build:check`, `pnpm verify` and CI.
+`pnpm build` builds the release JavaScript bundles (Hermes bytecode) for Android and iOS into
+`apps/mobile/dist/`; `pnpm perf:check` compares them with `apps/mobile/bundle-budget.json` and fails
+when a bundle or the assets of a platform grow past it. Both run in `pnpm build && pnpm perf:check`,
+`pnpm verify` and CI.
 
 Measured when the template was built (Expo SDK 57):
 
@@ -123,12 +124,12 @@ Measured when the template was built (Expo SDK 57):
 The bundle matters three times: it is inside every store binary, Hermes maps it at every start, and
 an OTA update downloads it (compressed) every time it changes. When the check fails:
 
-1. Find what grew with Expo Atlas: `EXPO_ATLAS=true pnpm export`, then
+1. Find what grew with Expo Atlas: `EXPO_ATLAS=true pnpm build`, then
    `pnpm dlx expo-atlas .expo/atlas.jsonl` shows the bundle's modules by size.
 2. Drop or replace the heavy dependency, import only what is used (`lodash/debounce`, not `lodash`),
    compress images.
 3. If the growth is justified, raise the budget in the same pull request and say why. A reviewer of
-   `bundle-budget.json` (CODEOWNERS) decides.
+   `apps/mobile/bundle-budget.json` (CODEOWNERS) decides.
 
 ## Network and data
 

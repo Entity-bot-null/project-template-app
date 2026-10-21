@@ -1,7 +1,8 @@
 # Reproducing a suspected bug
 
 A suspicion becomes a finding when a test shows it. This guide is for this template's test stack
-(Jest + React Native Testing Library 14 + the helpers of `src/test/`, [docs/TESTING.md](../../../../docs/TESTING.md)).
+(Jest + React Native Testing Library 14 + the helpers of `apps/mobile/src/test/`,
+[docs/testing.md](../../../../docs/testing.md)).
 
 ## Contents
 
@@ -27,8 +28,9 @@ A suspicion becomes a finding when a test shows it. This guide is for this templ
 
 ## The file
 
-- Name: `<subject>.doberman.spec.tsx` (or `.ts`), **inside `src/`** next to the code under test:
-  Jest only collects `src/**/*.spec.ts(x)`, and the `@/` aliases resolve there.
+- Name: `<subject>.doberman.spec.tsx` (or `.ts`), **inside `apps/mobile/src/`** next to the code
+  under test: Jest only collects `apps/mobile/src/**/*.spec.ts(x)`, and the `@/` aliases resolve
+  there.
 - First line, exactly this marker (the clean step deletes only marked files):
 
 ```tsx
@@ -57,7 +59,7 @@ afterEach(async () => {
 ## Running and classifying
 
 ```sh
-pnpm exec jest --coverage=false --runTestsByPath <file> > "<logDir>/repro-<id>.log" 2>&1; echo "DOBERMAN_EXIT=$?"
+pnpm --filter mobile exec jest --coverage=false --runTestsByPath <file> > "<logDir>/repro-<id>.log" 2>&1; echo "DOBERMAN_EXIT=$?"
 ```
 
 Read the log, then classify:
@@ -156,8 +158,8 @@ it('cancels the request when the screen goes away', async () => {
 Two requests rejected with 401 at once must produce one `POST /api/auth/refresh` (the server rotates
 the token: a second refresh with the old one signs the user out). Count
 `fetchStub.requests.filter((r) => new URL(r.url).pathname === '/api/auth/refresh')`; hold the
-refresh with `deferred()` so both requests are waiting on it. `src/auth/session.spec.ts` has the
-reference tests (`shares one renewal between concurrent rejected requests`).
+refresh with `deferred()` so both requests are waiting on it. `apps/mobile/src/auth/session.spec.ts`
+has the reference tests (`shares one renewal between concurrent rejected requests`).
 
 ### Double submit
 
@@ -173,8 +175,9 @@ expect(fetchStub.requests.filter((r) => r.method === 'POST')).toHaveLength(1);
 ### Timeout and a request that never answers
 
 `jest.useFakeTimers()` in that test only, a handler returning `deferred().promise` (never resolved,
-wrapped with `abortable`), advance past the timeout (`DEFAULT_TIMEOUT_MS` in `src/api/http.ts`)
-inside `act`, and expect the error state and a working retry. Restore real timers at the end.
+wrapped with `abortable`), advance past the timeout (`DEFAULT_TIMEOUT_MS` in
+`apps/mobile/src/api/http.ts`) inside `act`, and expect the error state and a working retry. Restore
+real timers at the end.
 
 ### Optimistic updates
 

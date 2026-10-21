@@ -1,7 +1,7 @@
 name: EAS rollback
 run-name: Roll back ${{ inputs.channel }} (${{ inputs.target }})
 
-# Takes a bad OTA update out of users' hands (docs/RELEASES.md#rollback). It
+# Takes a bad OTA update out of users' hands (docs/releases.md#rollback). It
 # publishes no new code, so no gates: speed matters here. Like the other
 # release workflows: manual, from main, EXPO_TOKEN only in the protected
 # environments. Users get the rollback at their next launch.
@@ -40,13 +40,13 @@ permissions:
 
 env:
   # EAS CLI is not a project dependency (expo-doctor): this exact version runs
-  # here. Raise it by hand; keep it at or above eas.json cli.version.
+  # here. Raise it by hand; keep it at or above apps/mobile/eas.json cli.version.
   EAS_CLI_VERSION: 24.8.0
 
 jobs:
   rollback:
     name: Roll back ${{ inputs.channel }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     environment: ${{ inputs.channel }}
     steps:
@@ -59,8 +59,9 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - run: node scripts/check-eas-project.mjs
+      - run: node apps/mobile/scripts/check-eas-project.mjs
       - name: Roll back
+        working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CHANNEL: ${{ inputs.channel }}

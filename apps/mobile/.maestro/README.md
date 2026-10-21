@@ -2,7 +2,8 @@
 
 The critical journeys of the app, run by [Maestro](https://maestro.mobile.dev) against a release
 build of the `e2e` variant (application id `com.example.templateapp.e2e`) and the local mock API
-(`pnpm mock:api`). How to build and run them, locally and in CI: [docs/TESTING.md](../docs/TESTING.md#end-to-end).
+(`pnpm mock:api`). How to build and run them, locally and in CI:
+[docs/testing.md](../../../docs/testing.md#end-to-end).
 
 ```
 .maestro/

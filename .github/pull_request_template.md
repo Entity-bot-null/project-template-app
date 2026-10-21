@@ -21,7 +21,9 @@ See CONTRIBUTING.md#commits.
 ## Release impact
 
 - [ ] JavaScript only: can ship as an OTA update.
-- [ ] Changes native code or native configuration (a new or upgraded native module, a config plugin, permissions, app.config.ts native fields, the Expo SDK): needs a new store build; the runtime version changes.
+- [ ] Changes native code or native configuration (a new or upgraded native module, a config plugin,
+      permissions, apps/mobile/app.config.ts native fields, the Expo SDK): needs a new store build;
+      the runtime version changes.
 
 <!-- New environment variables, API changes the app depends on, feature flags,
      migrations of stored data. "None" is a valid answer. -->
@@ -33,10 +35,16 @@ See CONTRIBUTING.md#commits.
 - [ ] `pnpm verify` passes locally; CI is green.
 - [ ] Tried on Android and iOS (device or emulator/simulator), small screen included, light and dark mode.
 - [ ] Loading, empty, error and offline states handled; nothing blocks the UI thread (long lists virtualized).
-- [ ] Accessible (docs/ACCESSIBILITY.md): labels and roles on controls, touch targets of 48 dp, readable with the largest font size, usable with TalkBack/VoiceOver; new screens added to `src/a11y.spec.tsx`.
+- [ ] Accessible (docs/accessibility.md): labels and roles on controls, touch targets of 48 dp,
+      readable with the largest font size, usable with TalkBack/VoiceOver; new screens added to
+      `apps/mobile/src/a11y.spec.tsx`.
 - [ ] API contract updated in `openapi/openapi.json` and the types regenerated (`pnpm contract`) if the API changed.
-- [ ] New environment variables in `src/config/env.schema.ts`, `src/config/env.ts`, `.env.example` and docs/RELEASES.md#environment-variables; no secret in an `EXPO_PUBLIC_*` variable.
-- [ ] Security: no tokens, passwords or personal data in logs, analytics or error reports; sensitive data only in secure storage; links validated (src/lib/links.ts); permissions asked in context.
+- [ ] New environment variables in `apps/mobile/src/config/env.schema.ts`,
+      `apps/mobile/src/config/env.ts`, `apps/mobile/.env.example` and
+      docs/releases.md#environment-variables; no secret in an `EXPO_PUBLIC_*` variable.
+- [ ] Security: no tokens, passwords or personal data in logs, analytics or error reports; sensitive
+      data only in secure storage; links validated (apps/mobile/src/lib/links.ts); permissions asked
+      in context.
 - [ ] New dependencies justified (maintained, New Architecture compatible, allowed license, `expo install` for SDK packages); no new `nosemgrep`/`eslint-disable` without its reason.
 - [ ] Breaking changes marked in the title (`!`) and explained in a `BREAKING CHANGE:` footer.
 - [ ] Documentation updated (README, docs/, an ADR for a significant decision).

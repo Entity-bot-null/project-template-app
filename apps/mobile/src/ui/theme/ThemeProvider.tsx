@@ -8,7 +8,7 @@ import { usePreferences } from '@/store/preferences';
 
 import { type ColorScheme, type Theme, themes } from './theme';
 
-// Light and dark mode from the same tokens (docs/MOBILE_ARCHITECTURE.md#design-system):
+// Light and dark mode from the same tokens (docs/mobile-architecture.md#design-system):
 // the scheme follows the device unless the user chose one in Settings. The
 // navigators, the status bar and the root view (no white flash behind
 // screens) follow it too.

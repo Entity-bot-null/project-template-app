@@ -1,5 +1,5 @@
 /**
- * The one storage interface (docs/MOBILE_ARCHITECTURE.md#storage). Three
+ * The one storage interface (docs/mobile-architecture.md#storage). Three
  * implementations, chosen by what the data is, never by convenience:
  *
  * | Storage             | Backed by                         | For                                          |

@@ -36,7 +36,7 @@ credit you in the advisory if you wish. <!-- REQUIERE CONFIGURACIÓN: adjust the
 The latest store release receives fixes. Fixes in JavaScript reach installed builds of supported
 runtime versions as OTA updates; native fixes need a store release, and a minimum supported version
 enforced by the API (an "update required" answer) for vulnerabilities that cannot wait for users to
-update ([docs/RELEASES.md](docs/RELEASES.md#minimum-supported-version), REQUIRES CONFIGURATION).
+update ([docs/releases.md](docs/releases.md#minimum-supported-version), REQUIRES CONFIGURATION).
 Each release lists its npm dependencies in the SBOM attached to its GitHub release.
 
 ## Threat model
@@ -81,13 +81,14 @@ Standard](https://mas.owasp.org/MASVS/) (v2). Testing guidance: the OWASP MASTG.
 - **Where secrets live**: signing credentials and store/push keys on EAS (`eas credentials`);
   build-time secrets (`SENTRY_AUTH_TOKEN`) as EAS environment variables of visibility `secret`;
   CI tokens (`EXPO_TOKEN`) as secrets of protected GitHub environments
-  ([docs/CI_CD.md](docs/CI_CD.md#secrets-and-variables)).
+  ([docs/ci-cd.md](docs/ci-cd.md#secrets-and-variables)).
 - A leaked secret is revoked and rotated first, then removed from history; removing it from git
   alone does not make it secret again.
 
 ## Storage
 
-Choose the storage by what the data is ([docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md#storage)):
+Choose the storage by what the data is
+([docs/mobile-architecture.md](docs/mobile-architecture.md#storage)):
 
 | Data                                            | Where                                                           |
 | ----------------------------------------------- | --------------------------------------------------------------- |
@@ -103,8 +104,9 @@ lets the app wipe a session the iOS Keychain kept from a previous installation.
 
 ### Data inventory
 
-Every piece of data the app keeps or sends, as the template ships. A feature that adds data adds
-its row, and the store privacy forms follow this table ([docs/STORE_COMPLIANCE.md](docs/STORE_COMPLIANCE.md)).
+Every piece of data the app keeps or sends, as the template ships. A feature that adds data adds its
+row, and the store privacy forms follow this table
+([docs/store-compliance.md](docs/store-compliance.md)).
 
 | Data                                                   | Sensitivity                                                             | Where                                                                          | Encrypted at rest                     | Kept until                                             | Deleted at sign-out                                      | Survives uninstall                                                                                         | In analytics                                 | In crash reports                                       |
 | ------------------------------------------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------ |
@@ -116,7 +118,7 @@ its row, and the store privacy forms follow this table ([docs/STORE_COMPLIANCE.m
 | Server data: profile, items                            | personal (depends on the product)                                       | TanStack Query cache, memory only                                              | n/a                                   | the process; 5 minutes after its screen closes         | yes                                                      | no                                                                                                         | no                                           | no (breadcrumbs keep paths and statuses, never bodies) |
 | Images                                                 | depends on the product                                                  | `expo-image` memory and disk cache (the app's cache folder)                    | no                                    | evicted by size or by the system                       | yes (both caches)                                        | no                                                                                                         | no                                           | no                                                     |
 | OTA updates                                            | none                                                                    | expo-updates files in the app's storage                                        | no                                    | replaced by newer updates or a new binary              | no                                                       | no                                                                                                         | no                                           | no                                                     |
-| Push token                                             | device identifier                                                       | not stored by the app; the backend's registration (REQUIERE CONFIGURACIÓN)     | —                                     | the backend's policy                                   | the backend's job (MOBILE_ARCHITECTURE.md#notifications) | —                                                                                                          | never                                        | never                                                  |
+| Push token                                             | device identifier                                                       | not stored by the app; the backend's registration (REQUIERE CONFIGURACIÓN)     | —                                     | the backend's policy                                   | the backend's job (mobile-architecture.md#notifications) | —                                                                                                          | never                                        | never                                                  |
 | Error reports                                          | an opaque user id, release, device model and OS, breadcrumbs, the error | Sentry (queued on the device while offline)                                    | in transit (TLS)                      | the Sentry project's retention                         | the user id is cleared                                   | queued events: no                                                                                          | —                                            | —                                                      |
 | Analytics events                                       | an opaque user id, event names, enums, route patterns                   | the provider (none ships: REQUIERE CONFIGURACIÓN)                              | in transit                            | the provider's retention                               | the identity is reset                                    | no                                                                                                         | —                                            | —                                                      |
 | Logs                                                   | development only                                                        | the developer's terminal; in release builds only breadcrumbs                   | —                                     | —                                                      | —                                                        | —                                                                                                          | —                                            | as breadcrumbs, redacted                               |
@@ -127,10 +129,10 @@ privacy policy. Identifiers are opaque ids, never emails or names.
 
 ## Network
 
-- HTTPS only: `src/config/env.schema.ts` rejects `http://` URLs except localhost and the Android
-  emulator host, and requires HTTPS in production; Android release builds disallow cleartext
-  (`usesCleartextTraffic` is only enabled for the `e2e` variant against the local mock API); iOS
-  App Transport Security stays at its default.
+- HTTPS only: `apps/mobile/src/config/env.schema.ts` rejects `http://` URLs except localhost and the
+  Android emulator host, and requires HTTPS in production; Android release builds disallow cleartext
+  (`usesCleartextTraffic` is only enabled for the `e2e` variant against the local mock API); iOS App
+  Transport Security stays at its default.
 - Every request has a timeout and a request id; tokens are sent only to the configured API.
 - API responses are validated with Zod before use.
 
@@ -139,11 +141,11 @@ privacy policy. Identifiers are opaque ids, never emails or names.
 Nothing that identifies a user or grants access leaves the device in logs, breadcrumbs, error
 reports, performance traces or analytics:
 
-- `src/lib/observability/redact.ts` replaces values under sensitive keys (`password`, `token`,
-  `authorization`, `cookie`, `secret`, `apiKey`, …), masks emails and bearer tokens in text, and
-  drops query strings from URLs; Sentry events and breadcrumbs pass through it (`scrubEvent`,
-  `scrubBreadcrumb`), and so do transactions when tracing is on (`scrubTransaction`: the request
-  spans' URLs lose the query strings, where a search carries what the user typed).
+- `apps/mobile/src/lib/observability/redact.ts` replaces values under sensitive keys (`password`,
+  `token`, `authorization`, `cookie`, `secret`, `apiKey`, …), masks emails and bearer tokens in
+  text, and drops query strings from URLs; Sentry events and breadcrumbs pass through it
+  (`scrubEvent`, `scrubBreadcrumb`), and so do transactions when tracing is on (`scrubTransaction`:
+  the request spans' URLs lose the query strings, where a search carries what the user typed).
 - Sentry: `sendDefaultPii` off, no screenshots or view hierarchies attached, failed HTTP requests
   not captured with bodies; users identified by opaque id only.
 - Analytics: only after consent; events carry enums, counts and ids, never free text.
@@ -151,17 +153,17 @@ reports, performance traces or analytics:
 
 ## Platform hardening
 
-Configured in `app.config.ts`:
+Configured in `apps/mobile/app.config.ts`:
 
 - Android: `allowBackup` off (no adb or cloud backup of app data); only the permissions the app uses,
   and `blockedPermissions` for ones libraries add but the app does not need
   (`SYSTEM_ALERT_WINDOW`, external storage); R8 minification and resource shrinking in release
   builds; App Links verified (`autoVerify`) when a link domain is configured.
-- iOS: universal links through associated domains (verified by Apple against the domain); the
-  export compliance flag set for HTTPS-only encryption (review it if the app adds cryptography); no
-  Face ID usage text, since nothing uses biometrics (`expo-secure-store` with
-  `faceIDPermission: false`). The one other usage text, local network, comes from the development
-  client and is never prompted in release builds ([docs/STORE_COMPLIANCE.md](docs/STORE_COMPLIANCE.md)).
+- iOS: universal links through associated domains (verified by Apple against the domain); the export
+  compliance flag set for HTTPS-only encryption (review it if the app adds cryptography); no Face ID
+  usage text, since nothing uses biometrics (`expo-secure-store` with `faceIDPermission: false`).
+  The one other usage text, local network, comes from the development client and is never prompted
+  in release builds ([docs/store-compliance.md](docs/store-compliance.md)).
 - Both: separate application ids per variant, so development and test builds can never overwrite
   or read a production installation's data.
 
@@ -191,9 +193,9 @@ How to add each one, when the decision is made: certificate pinning through a co
 writes the platform's pinning configuration (with a backup key); App Attest and Play Integrity
 through a maintained module with a config plugin and the server verification above; biometrics with
 `expo-local-authentication` and SecureStore's `requireAuthentication` (then give `expo-secure-store`
-a `faceIDPermission` text in `app.config.ts`); screenshot blocking with `expo-screen-capture` on the
-screens that need it. Each one is a native change: a new store build
-([docs/RELEASES.md](docs/RELEASES.md#what-can-ship-as-an-ota-update)).
+a `faceIDPermission` text in `apps/mobile/app.config.ts`); screenshot blocking with
+`expo-screen-capture` on the screens that need it. Each one is a native change: a new store build
+([docs/releases.md](docs/releases.md#what-can-ship-as-an-ota-update)).
 
 ## Dependencies
 
@@ -221,14 +223,14 @@ screens that need it. Each one is a native change: a new store build
 `pnpm audit --audit-level=high` runs in `pnpm security` and CI. When an advisory cannot be fixed
 yet, it is handled in the open, in `pnpm-workspace.yaml`, never by lowering the audit level:
 
-| Advisory                                            | Package (path)                                       | Handling                                                                                                                                                                                                                                                              |
-| --------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GHSA-pqg4-j6r4-53mv (critical)                      | shell-quote (`react-devtools-core` in React Native)  | fixed: `overrides` forces 1.11.0 or later; remove the override once React Native's tree resolves it without                                                                                                                                                           |
-| GHSA-68fv-2mgg-jv7q (high)                          | source-map-js (postcss in Expo's Metro config)       | fixed: `overrides` forces 1.2.2; remove the override once Expo's tree resolves it without                                                                                                                                                                             |
-| GHSA-86w9-cpqp-85rv (high)                          | node-forge (`@expo/cli` update code-signing helpers) | `audit.ignore`: no fixed version exists; development tool, not in the app binary                                                                                                                                                                                      |
-| GHSA-vfj7-8cjw-p6xm (high)                          | braces (Metro's file watcher)                        | `audit.ignore`: no fixed version exists; build tool fed by the project's own configuration                                                                                                                                                                            |
-| GHSA-vcc3-ghjq-m6fr (moderate)                      | decode-uri-component (`query-string` in Expo Router) | in the app; the fix (0.5.0) is incompatible with the version range Expo Router requires. Mitigated: every incoming link passes the allowlist of `src/lib/links.ts` (query strings dropped, path parameters restricted to `[A-Za-z0-9_-]`) before the router parses it |
-| GHSA-w5hq-g745-h8pq, GHSA-hp3w-g68c-fv3c (moderate) | uuid (`xcode`, prebuild), sprintf-js (Jest coverage) | build and test tools only                                                                                                                                                                                                                                             |
+| Advisory                                            | Package (path)                                       | Handling                                                                                                                                                                                                                                                                          |
+| --------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GHSA-pqg4-j6r4-53mv (critical)                      | shell-quote (`react-devtools-core` in React Native)  | fixed: `overrides` forces 1.11.0 or later; remove the override once React Native's tree resolves it without                                                                                                                                                                       |
+| GHSA-68fv-2mgg-jv7q (high)                          | source-map-js (postcss in Expo's Metro config)       | fixed: `overrides` forces 1.2.2; remove the override once Expo's tree resolves it without                                                                                                                                                                                         |
+| GHSA-86w9-cpqp-85rv (high)                          | node-forge (`@expo/cli` update code-signing helpers) | `audit.ignore`: no fixed version exists; development tool, not in the app binary                                                                                                                                                                                                  |
+| GHSA-vfj7-8cjw-p6xm (high)                          | braces (Metro's file watcher)                        | `audit.ignore`: no fixed version exists; build tool fed by the project's own configuration                                                                                                                                                                                        |
+| GHSA-vcc3-ghjq-m6fr (moderate)                      | decode-uri-component (`query-string` in Expo Router) | in the app; the fix (0.5.0) is incompatible with the version range Expo Router requires. Mitigated: every incoming link passes the allowlist of `apps/mobile/src/lib/links.ts` (query strings dropped, path parameters restricted to `[A-Za-z0-9_-]`) before the router parses it |
+| GHSA-w5hq-g745-h8pq, GHSA-hp3w-g68c-fv3c (moderate) | uuid (`xcode`, prebuild), sprintf-js (Jest coverage) | build and test tools only                                                                                                                                                                                                                                                         |
 
 `pnpm deps:check` prints the ignored advisories and the release-age exemptions on every run. Each
 entry is removed as soon as a fix ships; the Expo SDK upgrades usually bring them. A release-age
@@ -280,9 +282,9 @@ Any finding fails. A false positive is suppressed where it occurs with the reaso
 ## Release integrity
 
 - Builds come only from commits on `main` that passed every gate, started by a person through a
-  protected GitHub environment ([docs/CI_CD.md](docs/CI_CD.md#what-protects-production)).
+  protected GitHub environment ([docs/ci-cd.md](docs/ci-cd.md#what-protects-production)).
 - Signing keys never leave EAS; Google Play App Signing holds the Android app signing key.
-- OTA updates reach only builds of the same native fingerprint; the production channel is
-  protected. For end-to-end verification of updates, enable EAS Update code signing
-  (`--private-key-path`, the certificate in `app.config.ts` under `updates.codeSigningCertificate`)
-  when the account plan allows it.
+- OTA updates reach only builds of the same native fingerprint; the production channel is protected.
+  For end-to-end verification of updates, enable EAS Update code signing (`--private-key-path`, the
+  certificate in `apps/mobile/app.config.ts` under `updates.codeSigningCertificate`) when the
+  account plan allows it.

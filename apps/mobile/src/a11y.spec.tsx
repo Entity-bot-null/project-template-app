@@ -22,7 +22,7 @@ import { lightColors } from '@/ui/theme/tokens';
 
 // The automated part of the accessibility gate over every screen of the
 // template, in each of its states and in both color schemes
-// (docs/ACCESSIBILITY.md#automated-checks): every control has a role and a
+// (docs/accessibility.md#automated-checks): every control has a role and a
 // name, and every text is readable on its background. Add each new screen,
 // and each new state of a screen, here.
 

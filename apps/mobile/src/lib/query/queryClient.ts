@@ -3,7 +3,7 @@ import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import { isRetryable, toAppError } from '@/lib/errors';
 import { reportError } from '@/lib/observability';
 
-// Server state (docs/MOBILE_ARCHITECTURE.md#state): every piece of data that comes
+// Server state (docs/mobile-architecture.md#state): every piece of data that comes
 // from the API is a TanStack Query query or mutation, cached here. Nothing
 // copies it into Zustand or React state.
 //

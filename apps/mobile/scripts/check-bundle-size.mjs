@@ -1,10 +1,11 @@
-// Bundle budget (docs/PERFORMANCE.md#bundle-budget): fails when the exported
+// Bundle budget (docs/performance.md#bundle-budget): fails when the exported
 // JavaScript bundle or the assets of a platform outgrow bundle-budget.json.
 // The bundle is Hermes bytecode: its size is what the binary carries, what
 // the runtime maps at startup and what an OTA update downloads (compressed in
 // transit; the gzip size is printed for reference). Assets are counted once
 // per platform, as a fresh install of an update downloads them.
-// Run after `pnpm export`; part of `pnpm build:check`, `pnpm verify` and CI.
+// Run after the app's export (`pnpm build`); it is `pnpm perf:check`, part of
+// `pnpm verify` and CI.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { gzipSync } from 'node:zlib';
 
@@ -15,7 +16,7 @@ const BUDGET_FILE = new URL('../bundle-budget.json', import.meta.url);
 /** @typedef {{ bundle: string; assets: { path: string; ext: string }[] }} PlatformMetadata */
 
 if (!existsSync(new URL('metadata.json', DIST))) {
-  console.error('No export found in dist/: run `pnpm export` first.');
+  console.error('No export found in apps/mobile/dist/: run `pnpm build` first.');
   process.exit(1);
 }
 
@@ -32,7 +33,7 @@ let failed = false;
 for (const [platform, budget] of Object.entries(budgets)) {
   const metadata = fileMetadata[platform];
   if (!metadata) {
-    console.error(`MISSING  ${platform}: not in the export (pnpm export builds android and ios).`);
+    console.error(`MISSING  ${platform}: not in the export (pnpm build exports android and ios).`);
     failed = true;
     continue;
   }

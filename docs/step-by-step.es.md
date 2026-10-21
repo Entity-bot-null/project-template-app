@@ -1,12 +1,12 @@
 # Paso a paso: de cero a las tiendas
 
-English version: [STEP_BY_STEP.md](STEP_BY_STEP.md). Las dos versiones tienen los mismos pasos; un
+English version: [step-by-step.md](step-by-step.md). Las dos versiones tienen los mismos pasos; un
 cambio en una se hace también en la otra, en el mismo pull request.
 
 Este es el **instructivo**: qué hacer, en orden, desde la información y las cuentas que necesitas
 antes de empezar hasta una app publicada en Google Play y en la App Store, y después el ciclo
 diario. Cada paso dice qué hacer, el comando exacto, qué deberías ver si ha funcionado y qué hacer
-si no. El [manual](MANUAL.es.md) explica cómo funcionan las cosas; esta página te dice qué hacer a
+si no. El [manual](manual.es.md) explica cómo funcionan las cosas; esta página te dice qué hacer a
 continuación.
 
 Cómo usarla:
@@ -129,8 +129,9 @@ Apple y de Google están, como mínimo, solicitadas.
    → una imagen de sistema reciente con Google APIs → Finish. Arráncalo una vez con ▶.
 4. **JDK 17** (la versión que soporta React Native; el JDK propio de Android Studio es más nuevo):
    instala Temurin 17 (adoptium.net).
-5. Variables de entorno (Windows: System → Advanced → Environment Variables, con Windows en español Sistema → Configuración avanzada del sistema → Variables de entorno; macOS/Linux: tu
-   `~/.zshrc` o `~/.bashrc`):
+5. Variables de entorno (Windows: System → Advanced → Environment Variables, con Windows en español
+   Sistema → Configuración avanzada del sistema → Variables de entorno; macOS/Linux: tu `~/.zshrc` o
+   `~/.bashrc`):
 
    | Variable       | Valor                                                                                                           |
    | -------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -145,7 +146,7 @@ Apple y de Google están, como mínimo, solicitadas.
      `New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -PropertyType DWORD -Force`;
    - añade la variable de entorno de usuario `pnpm_config_node_linker` = `hoisted`.
 
-   (Por qué: [TESTING.md](TESTING.md#end-to-end). Como alternativa, compila en WSL 2, o deja que
+   (Por qué: [testing.md](testing.md#end-to-end). Como alternativa, compila en WSL 2, o deja que
    compile EAS.)
 
 **Comprobación** (en una terminal nueva): `adb --version` imprime una versión; `emulator -list-avds`
@@ -184,11 +185,11 @@ gh repo clone OWNER/REPO
 cd REPO
 ```
 
-**Comprobación:** `ls` muestra `src`, `docs`, `app.config.ts`, `eas.json`.
+**Comprobación:** `ls` muestra `src`, `docs`, `apps/mobile/app.config.ts`, `apps/mobile/eas.json`.
 
 ### 2.2 La identidad de tu app
 
-Abre `app.config.ts` y cambia el bloque `APP`:
+Abre `apps/mobile/app.config.ts` y cambia el bloque `APP`:
 
 | Campo                   | Qué poner                                 |
 | ----------------------- | ----------------------------------------- |
@@ -200,15 +201,15 @@ Abre `app.config.ts` y cambia el bloque `APP`:
 | `linkDomain`            | déjalo vacío hasta la fase 6              |
 | `colors`                | déjalo para la fase 6 (marca)             |
 
-Después: `package.json` → `"name"`; `README.md` → el título y el primer párrafo; `SECURITY.md` → el
-contacto de seguridad y los plazos de respuesta; `.github/CODEOWNERS` → usuarios o equipos reales,
-sin comentar;
-`.maestro/flows/*.yaml` → `APP_ID: <identificador>.e2e` y `SCHEME: <esquema>-e2e`.
+Después: el `package.json` de la raíz → `"name"`; `README.md` → el título y el primer párrafo;
+`SECURITY.md` → el contacto de seguridad y los plazos de respuesta; `.github/CODEOWNERS` → usuarios
+o equipos reales, sin comentar; `apps/mobile/.maestro/flows/*.yaml` → `APP_ID: <identificador>.e2e`
+y `SCHEME: <esquema>-e2e`.
 
 **Comprobación:** `git grep -n "com.example.templateapp"` solo lista documentación (`docs/`,
-`.maestro/README.md`); `git grep -n "REQUIERE CONFIGURACIÓN"` lista lo que queda para fases
-posteriores. (`templateapp` a secas sigue apareciendo en comentarios del código y en fixtures de
-los tests: es normal.)
+`apps/mobile/.maestro/README.md`); `git grep -n "REQUIERE CONFIGURACIÓN"` lista lo que queda para
+fases posteriores. (`templateapp` a secas sigue apareciendo en comentarios del código y en fixtures
+de los tests: es normal.)
 
 ---
 
@@ -226,12 +227,13 @@ pnpm install
 ### 3.2 Configuración local
 
 ```
-cp .env.example .env
+cp apps/mobile/.env.example apps/mobile/.env
 ```
 
 Ya apunta a la API mock (`http://localhost:4010`). No hay que definir nada más.
 
-**Comprobación:** `git status` no lista `.env` (está ignorado: nunca hagas commit de él).
+**Comprobación:** `git status` no lista `apps/mobile/.env` (está ignorado: nunca hagas commit de
+él).
 
 ### 3.3 Arranca la API mock (terminal 1)
 
@@ -273,16 +275,16 @@ directamente; sin `adb reverse`).
 
 **Si falla:**
 
-| Problema                                                    | Arreglo                                                                                                |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| "You seem to be offline" al iniciar sesión                  | vuelve a ejecutar `adb reverse tcp:4010 tcp:4010` (después de cada reinicio del emulador)              |
-| `SDK location not found`                                    | `ANDROID_HOME` no está definida (1.2); abre una terminal nueva                                         |
-| "A restricted method in java.lang.System has been called"   | `JAVA_HOME` tiene que ser el JDK 17                                                                    |
-| Windows: `CMAKE_OBJECT_PATH_MAX`, "build.ninja still dirty" | 1.2 paso 6 (ruta corta, rutas largas, hoisted), después `rm -rf node_modules android` y `pnpm install` |
+| Problema                                                    | Arreglo                                                                                                                                     |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| "You seem to be offline" al iniciar sesión                  | vuelve a ejecutar `adb reverse tcp:4010 tcp:4010` (después de cada reinicio del emulador)                                                   |
+| `SDK location not found`                                    | `ANDROID_HOME` no está definida (1.2); abre una terminal nueva                                                                              |
+| "A restricted method in java.lang.System has been called"   | `JAVA_HOME` tiene que ser el JDK 17                                                                                                         |
+| Windows: `CMAKE_OBJECT_PATH_MAX`, "build.ninja still dirty" | 1.2 paso 6 (ruta corta, rutas largas, hoisted), después `rm -rf node_modules apps/mobile/node_modules apps/mobile/android` y `pnpm install` |
 
 A partir de ahora: `pnpm mock:api` y `pnpm start`, y después abre la app instalada. Después de un
-cambio nativo, `pnpm prebuild` y luego `pnpm android`: `pnpm android` solo genera `android/` cuando
-no existe.
+cambio nativo, `pnpm prebuild` y luego `pnpm android`: `pnpm android` solo genera
+`apps/mobile/android/` cuando no existe.
 
 ---
 
@@ -312,19 +314,19 @@ pnpm lint:workflows
 Con el emulador arrancado y `pnpm mock:api` en la terminal 1:
 
 ```
-APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010 pnpm exec expo prebuild --platform android --clean --no-install
-cd android
+APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010 pnpm --filter mobile exec expo prebuild --platform android --clean --no-install
+cd apps/mobile/android
 APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010 ./gradlew assembleRelease -PreactNativeArchitectures=x86_64
-cd ..
+cd ../../..
 adb reverse tcp:4010 tcp:4010
 adb shell settings put secure stylus_handwriting_enabled 0
-adb install -r android/app/build/outputs/apk/release/app-release.apk
-pnpm test:e2e
+adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+pnpm test:e2e:mobile
 ```
 
-**Comprobación:** `5/5 Flows Passed`. CI ejecuta lo mismo en cada pull request.
+**Comprobación:** `8/8 Flows Passed`. CI ejecuta lo mismo en cada pull request.
 
-`android/` contiene ahora la variante `e2e`: ejecuta `pnpm prebuild` antes de volver a
+`apps/mobile/android/` contiene ahora la variante `e2e`: ejecuta `pnpm prebuild` antes de volver a
 `pnpm android`.
 
 ---
@@ -371,7 +373,7 @@ GitHub → **Settings**:
    privado no hay ninguna de las dos, ni los revisores de los entornos: `main-guard.yml` avisa
    entonces de un push a `main` que no es un pull request mergeado, y `dependabot-auto-merge.yml`
    comprueba él mismo la aprobación y el CI, pero nada reemplaza a los revisores
-   ([CI_CD.md](CI_CD.md#required-check)).
+   ([ci-cd.md](ci-cd.md#required-check)).
 
    El ruleset pide una aprobación de alguien distinto de la última persona que hizo push: un pull
    request necesita a un segundo miembro del equipo. Si trabajas solo, pon
@@ -385,7 +387,7 @@ GitHub → **Settings**:
    **fine-grained personal access token** (tu avatar → Settings → Developer settings) limitado a
    `REPO`, con lectura y escritura en **Contents**, **Pull requests** e **Issues**, guardado con
    `gh secret set RELEASE_PLEASE_TOKEN`, el pull request de release ejecuta todos los workflows de
-   pull request, como el de una persona ([CI_CD.md](CI_CD.md#release-pull-requests)).
+   pull request, como el de una persona ([ci-cd.md](ci-cd.md#release-pull-requests)).
 
 **Comprobación:** Settings → Environments lista `preview` y `production` limitados a `main`; la
 regla de `main` existe; si configuraste el token de release, `gh secret list` muestra
@@ -418,27 +420,30 @@ Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diari
 
 1. Pon el documento OpenAPI de tu API en `openapi/openapi.json`, y después `pnpm contract`.
 2. `pnpm typecheck` lista cada sitio que ya no coincide: corrige los esquemas Zod y los hooks de
-   `src/features/*/api.ts` y `src/auth/schemas.ts`.
+   `apps/mobile/src/features/*/api.ts` y `apps/mobile/src/auth/schemas.ts`.
 3. La app espera los endpoints de sesión de
    [openapi/README.md](../openapi/README.md#what-the-app-expects-from-the-api) (un inicio de sesión
    que devuelve un access token y un refresh token, la renovación con el refresh token **en el
    cuerpo de la petición**, rotación). Un backend hecho solo para navegadores (como la API de la
    plantilla web, con una cookie HTTP-only) necesita que se le añadan esos endpoints para los
    clientes móviles.
-4. Apunta tu `.env` local a tu API de staging (`EXPO_PUBLIC_API_URL=https://staging-api.acme.com`)
-   y prueba la app contra ella; conserva la API mock para los tests.
+4. Apunta tu `apps/mobile/.env` local a tu API de staging
+   (`EXPO_PUBLIC_API_URL=https://staging-api.acme.com`) y prueba la app contra ella; conserva la API
+   mock para los tests.
 
 **Comprobación:** el inicio de sesión, las listas y los formularios funcionan contra staging;
 `pnpm verify` pasa.
 
 ### 6.2 Tu marca
 
-1. Sustituye las cinco imágenes de `assets/images/` por las de tu diseñador, con los tamaños de
-   [README.md](../README.md#branding) (icono de iOS sin transparencia; icono adaptativo de Android
-   con el logo dentro del 66 % central; icono de notificación blanco sobre transparente).
-2. Colores: `src/ui/theme/tokens.ts` (la paleta y los colores claros/oscuros) y `APP.colors` en
-   `app.config.ts`. `pnpm test` comprueba el contraste del texto en los dos temas.
-3. Los textos de las pantallas (`src/features/*`), los puntos del onboarding, el nombre de la app.
+1. Sustituye las cinco imágenes de `apps/mobile/assets/images/` por las de tu diseñador, con los
+   tamaños de [README.md](../README.md#branding) (icono de iOS sin transparencia; icono adaptativo
+   de Android con el logo dentro del 66 % central; icono de notificación blanco sobre transparente).
+2. Colores: `apps/mobile/src/ui/theme/tokens.ts` (la paleta y los colores claros/oscuros) y
+   `APP.colors` en `apps/mobile/app.config.ts`. `pnpm test` comprueba el contraste del texto en los
+   dos temas.
+3. Los textos de las pantallas (`apps/mobile/src/features/*`), los puntos del onboarding, el nombre
+   de la app.
 4. Los iconos y el splash son nativos: `pnpm prebuild` y después `pnpm android` / `pnpm ios` para
    verlos.
 
@@ -447,47 +452,52 @@ Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diari
 
 ### 6.3 Tus funcionalidades
 
-Añade cada una junto a `src/features/items`, siguiendo
-[MOBILE_ARCHITECTURE.md](MOBILE_ARCHITECTURE.md#adding-a-feature): contrato → hooks de datos →
+Añade cada una junto a `apps/mobile/src/features/items`, siguiendo
+[mobile-architecture.md](mobile-architecture.md#adding-a-feature): contrato → hooks de datos →
 pantalla → ruta → tests → un flujo de Maestro para un recorrido crítico. Cuando las tuyas cubran la
-app, borra el ejemplo: `src/features/items`, sus rutas en `src/app/(app)` (incluida la pestaña de
-inicio, `(tabs)/index.tsx`), los enlaces `/items` de `src/lib/links.ts` y sus tests, el flag
-`newItemForm`, el evento de analítica `item_created`, sus tests, las rutas de items del contrato y
-de la API mock, y `.maestro/flows/03-items.yaml`. Los flujos `01` y `02` esperan `items-list`
-después del inicio de sesión, y `04` abre un enlace de un item: apúntalos a tu pantalla de inicio y
-a tus propios enlaces.
+app, borra el ejemplo: `apps/mobile/src/features/items`, sus rutas en `apps/mobile/src/app/(app)`
+(incluida la pestaña de inicio, `(tabs)/index.tsx`), los enlaces `/items` de
+`apps/mobile/src/lib/links.ts` y sus tests, el flag `newItemForm`, el evento de analítica
+`item_created`, sus tests, las rutas de items del contrato y de la API mock, y
+`apps/mobile/.maestro/flows/03-items.yaml`. Los flujos `01` y `02` esperan `items-list` después del
+inicio de sesión, y `04` abre un enlace de un item: apúntalos a tu pantalla de inicio y a tus
+propios enlaces.
 
 ### 6.4 Piezas opcionales
 
-- **Deep links desde tu dominio:** `APP.linkDomain`, las rutas de `src/lib/links.ts`, y los ficheros
-  `/.well-known/apple-app-site-association` y `/.well-known/assetlinks.json` en ese dominio
-  ([MOBILE_ARCHITECTURE.md](MOBILE_ARCHITECTURE.md#deep-links)).
+- **Deep links desde tu dominio:** `APP.linkDomain`, las rutas de `apps/mobile/src/lib/links.ts`, y
+  los ficheros `/.well-known/apple-app-site-association` y `/.well-known/assetlinks.json` en ese
+  dominio ([mobile-architecture.md](mobile-architecture.md#deep-links)).
 - **Notificaciones push:** implementa `PushTokenRegistrar` con el endpoint de tu backend
-  ([MOBILE_ARCHITECTURE.md](MOBILE_ARCHITECTURE.md#notifications)); las credenciales, en la fase
+  ([mobile-architecture.md](mobile-architecture.md#notifications)); las credenciales, en la fase
   7.4.
-- **Analítica:** un proveedor en `src/lib/analytics/providers.ts`.
+- **Analítica:** un proveedor en `apps/mobile/src/lib/analytics/providers.ts`.
 
 ---
 
 ## Fase 7. EAS y servicios
 
+Los comandos `eas` de esta guía (fases 7 a 11) se ejecutan en `apps/mobile`, donde están
+`eas.json` y la configuración de la app: deja una terminal abierta allí.
+
 ### 7.1 El proyecto de EAS
 
 ```
+cd apps/mobile
 eas login
 eas init
 ```
 
 `eas init` crea el proyecto en tu cuenta de Expo (o en tu organización) e imprime su id; no puede
-editar `app.config.ts` por sí mismo. Copia los valores en `APP`:
+editar `apps/mobile/app.config.ts` por sí mismo. Copia los valores en `APP`:
 
 ```ts
 easProjectId: '<el id que imprimió eas init>',
 owner: '<tu cuenta u organización de Expo>',
 ```
 
-**Comprobación:** `node scripts/check-eas-project.mjs` imprime `EAS project <id>`. Haz commit
-mediante un pull request (`chore: link the EAS project`).
+**Comprobación:** `node scripts/check-eas-project.mjs` (en `apps/mobile`) imprime
+`EAS project <id>`. Haz commit mediante un pull request (`chore: link the EAS project`).
 
 ### 7.2 Las variables de entorno de EAS
 
@@ -542,9 +552,9 @@ Imprime un enlace o un código QR: ábrelo en el iPhone e instala el perfil que 
   identificador → descarga `google-services.json` (nunca lo hagas commit). Guárdalo como variable de
   EAS de tipo fichero, por entorno:
   `eas env:create --environment production --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --visibility secret`
-  (`app.config.ts` la lee). Después Project settings → Service accounts → genera una clave privada
-  (JSON); `eas credentials -p android` → `production` → **Google Service Account → Manage your
-  Google Service Account Key for Push Notifications (FCM V1)** → súbela.
+  (`apps/mobile/app.config.ts` la lee). Después Project settings → Service accounts → genera una
+  clave privada (JSON); `eas credentials -p android` → `production` → **Google Service Account →
+  Manage your Google Service Account Key for Push Notifications (FCM V1)** → súbela.
 - **Push en iOS:** `eas credentials -p ios` → `production` → **Push Notifications** → configura una
   clave (EAS la crea con tu cuenta de Apple).
 - **Sentry:** crea un proyecto **React Native**; su DSN, el slug de tu org, el slug del proyecto y
@@ -598,7 +608,8 @@ síguelos en expo.dev → tu proyecto → Builds.
 
 **Comprobación:** los builds terminan; los testers los instalan desde el enlace de la página del
 build (Android: el APK; iPhone: solo dispositivos registrados) y la app habla con tu API de staging.
-Pruébala con la checklist de [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md#devices-and-platforms).
+Pruébala con la checklist de
+[DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md#devices-and-platforms).
 
 **Si falla:**
 
@@ -649,8 +660,8 @@ Pruébala con la checklist de [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md#d
    → Generate API Key** (rol **App Manager**); descarga el `.p8` (solo se puede una vez), apunta el
    Key ID y el Issuer ID. Después `eas credentials -p ios` → `production` → **App Store Connect:
    Manage your API Key** → configúrala con esos valores.
-4. Copia el **Apple ID** numérico de la app (App Information) en `eas.json`, para que los envíos
-   automáticos sepan a qué app subir (no es un secreto):
+4. Copia el **Apple ID** numérico de la app (App Information) en `apps/mobile/eas.json`, para que
+   los envíos automáticos sepan a qué app subir (no es un secreto):
 
    ```json
    "submit": {
@@ -664,7 +675,7 @@ Pruébala con la checklist de [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md#d
    Haz commit mediante un pull request.
 
 **Comprobación:** la ficha de la app existe en App Store Connect; `eas credentials -p ios` muestra
-la clave de API; `eas.json` tiene el `ascAppId`.
+la clave de API; `apps/mobile/eas.json` tiene el `ascAppId`.
 
 ---
 
@@ -761,7 +772,7 @@ instalación desde la tienda, muestra tu versión y tu build.
    Tras un día sin errores nuevos: `eas update:edit` → súbelo al 100 %.
 
 Solo JavaScript y assets se pueden publicar así; un cambio nativo necesita un build nuevo
-([RELEASES.md](RELEASES.md#what-can-ship-as-an-ota-update)).
+([releases.md](releases.md#what-can-ship-as-an-ota-update)).
 
 ### 11.2 Ensaya un rollback (preview)
 
@@ -810,25 +821,25 @@ anterior en Settings → About.
       canal de producción está protegido donde la cuenta lo permite (10.4).
 - [ ] El objetivo de sesiones sin crashes, acordado (por ejemplo, el 99.5 % de las sesiones) y
       vigilado.
-- [ ] [PRODUCTION_READINESS.md](PRODUCTION_READINESS.md) firmado, con
-      [STORE_COMPLIANCE.md](STORE_COMPLIANCE.md) para las dos tiendas y la revisión manual de
-      [ACCESSIBILITY.md](ACCESSIBILITY.md#manual-testing) (documentos en inglés).
+- [ ] [production-readiness.md](production-readiness.md) firmado, con
+      [store-compliance.md](store-compliance.md) para las dos tiendas y la revisión manual de
+      [accessibility.md](accessibility.md#manual-testing) (documentos en inglés).
 
 ---
 
 ## Fase 14. El ciclo diario
 
-| Paso                                              | Haz                                                                                                                                                                 | Comprobación                                         |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 1. Empieza                                        | `git switch main && git pull && pnpm install`, `pnpm mock:api`, `pnpm start`                                                                                        | la app funciona                                      |
-| 2. Rama                                           | `git switch -c feat/<descripción>`                                                                                                                                  |                                                      |
-| 3. Cambio                                         | código y tests ([MOBILE_ARCHITECTURE.md](MOBILE_ARCHITECTURE.md#adding-a-feature)); `pnpm contract` si cambió la API; `pnpm exec expo install` para una dependencia | funciona en Android y en iOS                         |
-| 4. Verifica                                       | `pnpm verify`                                                                                                                                                       | en verde                                             |
-| 5. Pull request                                   | `git commit`, `git push -u origin HEAD`, `gh pr create --fill`; marca el impacto en la release (OTA o build nuevo)                                                  | **CI passed** y **E2E (Android)** en verde, aprobado |
-| 6. Merge                                          | **Squash and merge**                                                                                                                                                |                                                      |
-| 7a. Cambio solo de JavaScript                     | EAS update a `preview`, prueba, después `production` con un despliegue gradual                                                                                      | el nuevo id de actualización en los dispositivos     |
-| 7b. Cambio nativo, o una versión para las tiendas | mergea el pull request de release → tag; EAS build `preview`, prueba; EAS build `production` con submit; promociona en las tiendas                                  | la nueva versión en las tiendas                      |
-| 8. Vigila                                         | Sentry, Android vitals, feedback de TestFlight                                                                                                                      | sin crashes nuevos                                   |
+| Paso                                              | Haz                                                                                                                                                                                 | Comprobación                                         |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| 1. Empieza                                        | `git switch main && git pull && pnpm install`, `pnpm mock:api`, `pnpm start`                                                                                                        | la app funciona                                      |
+| 2. Rama                                           | `git switch -c feat/<descripción>`                                                                                                                                                  |                                                      |
+| 3. Cambio                                         | código y tests ([mobile-architecture.md](mobile-architecture.md#adding-a-feature)); `pnpm contract` si cambió la API; `pnpm --filter mobile exec expo install` para una dependencia | funciona en Android y en iOS                         |
+| 4. Verifica                                       | `pnpm verify`                                                                                                                                                                       | en verde                                             |
+| 5. Pull request                                   | `git commit`, `git push -u origin HEAD`, `gh pr create --fill`; marca el impacto en la release (OTA o build nuevo)                                                                  | **CI passed** y **E2E (Android)** en verde, aprobado |
+| 6. Merge                                          | **Squash and merge**                                                                                                                                                                |                                                      |
+| 7a. Cambio solo de JavaScript                     | EAS update a `preview`, prueba, después `production` con un despliegue gradual                                                                                                      | el nuevo id de actualización en los dispositivos     |
+| 7b. Cambio nativo, o una versión para las tiendas | mergea el pull request de release → tag; EAS build `preview`, prueba; EAS build `production` con submit; promociona en las tiendas                                                  | la nueva versión en las tiendas                      |
+| 8. Vigila                                         | Sentry, Android vitals, feedback de TestFlight                                                                                                                                      | sin crashes nuevos                                   |
 
 ---
 
@@ -838,8 +849,8 @@ anterior en Settings → About.
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Cada semana                         | Aprueba los pull requests de Dependabot: los patch y minor se mergean solos cuando el CI está en verde; las majors y las de workflows las mergeas a mano.                                                                                                                                 |
 | Cada release                        | Build de preview, prueba en dispositivos, build de producción, pruebas internas, despliegue gradual.                                                                                                                                                                                      |
-| Cada SDK de Expo (unos tres al año) | Actualiza, un SDK cada vez ([RELEASES.md](RELEASES.md#expo-sdk-upgrades)).                                                                                                                                                                                                                |
-| Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro, Node.js y pnpm, y TypeScript ([CI_CD.md](CI_CD.md#keeping-the-stack-current)); la caducidad de `EXPO_TOKEN`, y la de `RELEASE_PLEASE_TOKEN` si lo configuraste. |
+| Cada SDK de Expo (unos tres al año) | Actualiza, un SDK cada vez ([releases.md](releases.md#expo-sdk-upgrades)).                                                                                                                                                                                                                |
+| Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro, Node.js y pnpm, y TypeScript ([ci-cd.md](ci-cd.md#keeping-the-stack-current)); la caducidad de `EXPO_TOKEN`, y la de `RELEASE_PLEASE_TOKEN` si lo configuraste. |
 | Cada año                            | Renueva la membresía de Apple Developer y el certificado de distribución (`eas credentials -p ios`) antes de que caduquen.                                                                                                                                                                |
 | Cada agosto                         | La fecha límite de Google Play para el target API level: publica antes un build con un SDK de Expo actual.                                                                                                                                                                                |
 
@@ -849,8 +860,8 @@ anterior en Settings → About.
 
 | Situación                                               | Dónde                                                                          |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Un mensaje de error                                     | [README.md](../README.md#troubleshooting), [TESTING.md](TESTING.md#end-to-end) |
-| Cómo funciona algo                                      | [MANUAL.es.md](MANUAL.es.md)                                                   |
-| Builds, versiones, tiendas y actualizaciones en detalle | [RELEASES.md](RELEASES.md)                                                     |
-| Workflows y ajustes de GitHub                           | [CI_CD.md](CI_CD.md)                                                           |
+| Un mensaje de error                                     | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end) |
+| Cómo funciona algo                                      | [manual.es.md](manual.es.md)                                                   |
+| Builds, versiones, tiendas y actualizaciones en detalle | [releases.md](releases.md)                                                     |
+| Workflows y ajustes de GitHub                           | [ci-cd.md](ci-cd.md)                                                           |
 | Seguridad                                               | [SECURITY.md](../SECURITY.md)                                                  |

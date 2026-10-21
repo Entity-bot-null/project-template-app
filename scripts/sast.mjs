@@ -23,7 +23,8 @@ const RULESETS = [
   'p/typescript',
   'p/react',
   'p/secrets',
-  // scripts/ (the mock API, the checks) run on Node.js.
+  // The scripts (the repository's checks, the app's mock API and tools) run
+  // on Node.js.
   'p/nodejs',
 ];
 

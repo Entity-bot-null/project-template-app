@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 
-// One way to handle every runtime permission (docs/MOBILE_ARCHITECTURE.md#permissions):
+// One way to handle every runtime permission (docs/mobile-architecture.md#permissions):
 // camera, location, notifications, photos, microphone, contacts. Each Expo
 // module exposes get/request functions with the same shape; this hook turns
 // them into a state the UI can explain:

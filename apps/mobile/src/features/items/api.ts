@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { api, type components } from '@/api/client';
 import { unwrapWith } from '@/api/unwrap';
 
-// The items feature's server state (docs/MOBILE_ARCHITECTURE.md#data-fetching):
+// The items feature's server state (docs/mobile-architecture.md#data-fetching):
 // query keys in one factory, one hook per query or mutation, every response
 // validated. Screens use these hooks; they never call the API client.
 

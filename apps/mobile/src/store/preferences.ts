@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { persistentStorageSync, STORAGE_KEYS } from '@/lib/storage';
 
-// Client state that outlives a session (docs/MOBILE_ARCHITECTURE.md#state): the
+// Client state that outlives a session (docs/mobile-architecture.md#state): the
 // device's preferences. Zustand, persisted in the SQLite key-value store and
 // read synchronously, so the first frame already has the right theme and
 // knows whether onboarding is done. Server data never goes here: TanStack

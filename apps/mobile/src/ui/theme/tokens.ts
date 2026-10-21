@@ -1,6 +1,6 @@
 import { Platform, type ViewStyle } from 'react-native';
 
-// Design tokens (docs/MOBILE_ARCHITECTURE.md#design-system): the only place with
+// Design tokens (docs/mobile-architecture.md#design-system): the only place with
 // raw values. Components read them through useTheme(); an ESLint rule
 // refuses color literals anywhere else.
 //
@@ -140,7 +140,7 @@ export interface TypographyToken {
 }
 
 // System fonts: they follow the platform and the user's accessibility
-// settings. A custom font is added with expo-font (docs/MOBILE_ARCHITECTURE.md).
+// settings. A custom font is added with expo-font (docs/mobile-architecture.md).
 export const typography: Record<TypographyVariant, TypographyToken> = {
   display: { fontSize: 32, lineHeight: 40, fontWeight: '700', maxFontSizeMultiplier: 1.4 },
   title: { fontSize: 24, lineHeight: 32, fontWeight: '700', maxFontSizeMultiplier: 1.6 },

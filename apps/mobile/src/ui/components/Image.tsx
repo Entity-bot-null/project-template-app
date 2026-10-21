@@ -1,6 +1,6 @@
 import { Image as ExpoImage, type ImageProps as ExpoImageProps } from 'expo-image';
 
-// Images through expo-image (docs/PERFORMANCE.md#images): decoded off the
+// Images through expo-image (docs/performance.md#images): decoded off the
 // JavaScript thread, cached in memory and on disk, downsampled to the size
 // on screen, with a placeholder and a short fade instead of a pop-in.
 

@@ -13,7 +13,7 @@ import {
 
 import { type Credentials, SessionSchema, type Tokens, TokensSchema, type User } from './schemas';
 
-// The session (docs/MOBILE_ARCHITECTURE.md#authentication):
+// The session (docs/mobile-architecture.md#authentication):
 //   - the access token lives in memory only, and is renewed shortly before
 //     it expires or after a 401;
 //   - the refresh token lives in secure storage (Keychain / Keystore) and is

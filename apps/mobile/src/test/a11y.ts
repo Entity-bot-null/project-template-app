@@ -1,6 +1,6 @@
 import { isHiddenFromAccessibility, screen } from '@testing-library/react-native';
 
-// An automated part of the accessibility gate (docs/ACCESSIBILITY.md#automated-checks):
+// An automated part of the accessibility gate (docs/accessibility.md#automated-checks):
 // on the rendered screen, everything that reacts to a press has a role and a
 // name, and every text input and switch has a name, so TalkBack and
 // VoiceOver can say what it is. It cannot judge whether a name is good, or

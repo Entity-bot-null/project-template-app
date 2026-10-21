@@ -80,7 +80,7 @@ describe('ItemsScreen', () => {
   });
 
   // A search changes the screen without navigating: a screen reader user
-  // hears what it found (docs/ACCESSIBILITY.md#announcements).
+  // hears what it found (docs/accessibility.md#announcements).
   it('announces what a search found, and nothing for the unfiltered list', async () => {
     fetchStub.on('GET /api/items', (request) => {
       const q = new URL(request.url).searchParams.get('q');

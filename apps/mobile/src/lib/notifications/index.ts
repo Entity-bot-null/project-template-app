@@ -10,7 +10,7 @@ import { toInternalPath } from '@/lib/links';
 import type { PermissionSource } from '@/lib/permissions/usePermission';
 
 // Push notifications, prepared and backend-agnostic
-// (docs/MOBILE_ARCHITECTURE.md#notifications):
+// (docs/mobile-architecture.md#notifications):
 //   - the permission is asked from Settings, after an explanation, never on launch;
 //   - the token is handed to a PushTokenRegistrar: the backend endpoint that
 //     stores it is the project's (REQUIERE CONFIGURACIÓN);

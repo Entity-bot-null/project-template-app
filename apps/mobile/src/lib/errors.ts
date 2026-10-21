@@ -1,4 +1,4 @@
-// One error type for the whole app (docs/MOBILE_ARCHITECTURE.md#errors):
+// One error type for the whole app (docs/mobile-architecture.md#errors):
 //
 //   technical error (fetch, HTTP status, parsing, a bug)
 //     → AppError with a kind        toAppError(), errorFromResponse()

@@ -6,7 +6,7 @@ import { Text, type TextProps } from './Text';
 /**
  * A message that appears while the user is on the screen (a field error, a
  * failed request, the offline banner) and must be heard, not only seen
- * (docs/ACCESSIBILITY.md#announcements). Android announces it through its live
+ * (docs/accessibility.md#announcements). Android announces it through its live
  * region. iOS has no live regions, and React Native gives the `alert` role no
  * VoiceOver trait, so the message is announced when it appears or changes.
  */

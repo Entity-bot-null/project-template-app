@@ -15,13 +15,13 @@ end-to-end on a device included.
 
 ## Levels
 
-| Level       | Tool                                   | What it proves                                                                                                                            | Where                                                |
-| ----------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Unit        | Jest (jest-expo)                       | logic: errors, links, redaction, env schema, session, flags, storage                                                                      | `src/**/<name>.spec.ts` next to the code             |
-| Component   | React Native Testing Library (RNTL 14) | a component renders, is accessible, reacts to the user                                                                                    | `src/ui/components/components.spec.tsx`              |
-| Integration | RNTL + stubbed `fetch`                 | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                                     | `src/features/**/*.int.spec.tsx`                     |
-| Navigation  | RNTL + the real routes (`renderApp`)   | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                                                   | `src/navigation.int.spec.tsx`, `src/routes.spec.tsx` |
-| End-to-end  | Maestro on an emulator / simulator     | the release build works for a user: the critical journeys, and their failures on a device (offline, 429, 5xx, a session the server ended) | `.maestro/flows/`                                    |
+| Level       | Tool                                   | What it proves                                                                                                                            | Where                                                                        |
+| ----------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Unit        | Jest (jest-expo)                       | logic: errors, links, redaction, env schema, session, flags, storage                                                                      | `apps/mobile/src/**/<name>.spec.ts` next to the code                         |
+| Component   | React Native Testing Library (RNTL 14) | a component renders, is accessible, reacts to the user                                                                                    | `apps/mobile/src/ui/components/components.spec.tsx`                          |
+| Integration | RNTL + stubbed `fetch`                 | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                                     | `apps/mobile/src/features/**/*.int.spec.tsx`                                 |
+| Navigation  | RNTL + the real routes (`renderApp`)   | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                                                   | `apps/mobile/src/navigation.int.spec.tsx`, `apps/mobile/src/routes.spec.tsx` |
+| End-to-end  | Maestro on an emulator / simulator     | the release build works for a user: the critical journeys, and their failures on a device (offline, 429, 5xx, a session the server ended) | `apps/mobile/.maestro/flows/`                                                |
 
 The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
 End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
@@ -30,13 +30,13 @@ flakiness.
 ## Commands
 
 ```sh
-pnpm test                    # every Jest test once
-pnpm test:watch              # re-run on change
-pnpm test:coverage           # with coverage and its thresholds (CI, pnpm verify)
-pnpm test src/features/items          # a folder
-pnpm test -t "rolls the optimistic"   # tests whose name matches
-pnpm test:e2e                # Maestro flows, on a running emulator/simulator (see End-to-end)
-pnpm test:scripts            # the repository scripts' own tests (scripts/*.test.mjs, node --test)
+pnpm test                                           # every Jest test once
+pnpm test:coverage                                  # with coverage and its thresholds (CI, pnpm verify)
+pnpm --filter mobile test:watch                     # re-run on change
+pnpm --filter mobile test features/items            # the tests under a folder (a pattern of their path)
+pnpm --filter mobile test -t "rolls the optimistic" # tests whose name matches
+pnpm test:e2e:mobile                                # Maestro flows, on a running emulator/simulator (see End-to-end)
+pnpm test:scripts                                   # the repository scripts' own tests (node --test)
 ```
 
 ## Writing tests
@@ -66,12 +66,12 @@ shows the field error the server sent'`), with the arrange/act/assert visible.
 
 ## Test helpers
 
-`src/test/` (setup and helpers; never shipped, excluded from coverage):
+`apps/mobile/src/test/` (setup and helpers; never shipped, excluded from coverage):
 
 | Helper                                          | What it does                                                                                                                                                   |
 | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `renderWithProviders(ui)`                       | renders with the app's providers (theme, safe area, a fresh `testQueryClient()`)                                                                               |
-| `renderApp(url)`                                | renders the real routes of `src/app` at a URL, as the app starts: guards and redirects included                                                                |
+| `renderApp(url)`                                | renders the real routes of `apps/mobile/src/app` at a URL, as the app starts: guards and redirects included                                                    |
 | `stubFetch(routes)`                             | replaces `fetch` with a router: `{ 'GET /api/items': () => ok(page(0, 20, 45)) }`; a request no route expects fails the test; `requests` records what was sent |
 | `ok(data)`, `failure(status, message, fields?)` | API envelopes                                                                                                                                                  |
 | `deferred()`                                    | a response the test resolves when it wants: assert the loading state in between                                                                                |
@@ -79,7 +79,7 @@ shows the field error the server sent'`), with the arrange/act/assert visible.
 | `signInForTest(stub)`, `endTestSession(stub)`   | a signed-in session (tokens in the mocked secure storage) and its clean end                                                                                    |
 | `fixtures.ts`                                   | `user`, `tokens()`, `session()`, `item()`, `page()`, typed from the contract: a contract change breaks a stale fixture at compile time                         |
 
-Example, from `src/features/items/items.int.spec.tsx`:
+Example, from `apps/mobile/src/features/items/items.int.spec.tsx`:
 
 ```tsx
 fetchStub.on('GET /api/items', () => ok(page(0, 20, 25)));
@@ -93,20 +93,21 @@ fake timers). Revisit it when expo-router's testing library supports RNTL 14.
 ## Native modules in tests
 
 Jest runs in Node: there is no native side. `jest-expo` mocks the Expo SDK's native modules;
-`src/test/setup.ts` adds stateful in-memory mocks where tests need behavior, not just a stub:
+`apps/mobile/src/test/setup.ts` adds stateful in-memory mocks where tests need behavior, not just a
+stub:
 
 - `expo-secure-store` and `expo-sqlite/kv-store`: real key-value maps, reset before each test, so
   storage tests read back what was written;
 - `expo-network`, `expo-notifications`, `expo-updates`, `expo-splash-screen`, `expo-system-ui`,
   `@sentry/react-native`, safe area: controllable mocks.
 
-`src/test/env.ts` sets the public environment (`https://api.example.com`) before any module loads.
-A new native module gets its mock in `setup.ts` (shared) or in the spec that needs it
+`apps/mobile/src/test/env.ts` sets the public environment (`https://api.example.com`) before any
+module loads. A new native module gets its mock in `setup.ts` (shared) or in the spec that needs it
 (`jest.mock(...)`), never a real native call.
 
 ## Coverage
 
-`pnpm test:coverage` fails below the thresholds in `jest.config.js`:
+`pnpm test:coverage` fails below the thresholds in `apps/mobile/jest.config.js`:
 
 | Lines | Statements | Functions | Branches |
 | ----- | ---------- | --------- | -------- |
@@ -114,20 +115,20 @@ A new native module gets its mock in `setup.ts` (shared) or in the spec that nee
 
 They are a ratchet: set to what the template measured, rounded down. New code comes with its tests,
 so the numbers hold; they are raised when coverage grows and never lowered to make a pull request
-pass (a reviewer of `jest.config.js` decides). Coverage measures what ran, not what was checked: a
-test without meaningful assertions raises it and proves nothing. The HTML report is in
-`coverage/index.html` (CI uploads it as an artifact).
+pass (a reviewer of `apps/mobile/jest.config.js` decides). Coverage measures what ran, not what was
+checked: a test without meaningful assertions raises it and proves nothing. The HTML report is in
+`apps/mobile/coverage/index.html` (CI uploads it as an artifact).
 
 ## End-to-end
 
 [Maestro](https://maestro.mobile.dev) drives a **release build of the `e2e` variant**: the same
 optimized JavaScript and native code as production, with its own application id
 (`com.example.templateapp.e2e`), plain HTTP allowed to the local mock API only, and OTA updates off.
-It talks to `scripts/mock-api.mjs`, an in-memory implementation of the contract, so the flows are
-deterministic and need no backend or credentials.
+It talks to `apps/mobile/scripts/mock-api.mjs`, an in-memory implementation of the contract, so the
+flows are deterministic and need no backend or credentials.
 
-The flows (`.maestro/flows/`, run in order by `.maestro/config.yaml`, each continuing the previous
-one's state like a user's first session):
+The flows (`apps/mobile/.maestro/flows/`, run in order by `apps/mobile/.maestro/config.yaml`, each
+continuing the previous one's state like a user's first session):
 
 | Flow                          | Covers                                                                                                                                                                                              |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -141,9 +142,10 @@ one's state like a user's first session):
 | `08-sign-out`                 | sign-out with confirmation, still signed out after a restart, and a link into the app lands on sign-in                                                                                              |
 
 **Failures on demand.** The mock API fails when a flow asks it to, through control endpoints outside
-the contract (listed at the top of `scripts/mock-api.mjs`), which `.maestro/scripts/mock-api.js`
-calls from a flow: a status for one route (429, a 5xx, or no answer at all) until cleared, and
-expiring or revoking every session. The same endpoints show an error state by hand while developing:
+the contract (listed at the top of `apps/mobile/scripts/mock-api.mjs`), which
+`apps/mobile/.maestro/scripts/mock-api.js` calls from a flow: a status for one route (429, a 5xx, or
+no answer at all) until cleared, and expiring or revoking every session. The same endpoints show an
+error state by hand while developing:
 
 ```sh
 curl -X POST localhost:4010/__mock/faults -d '{"route":"GET /api/items","status":503}'
@@ -196,10 +198,10 @@ The build is the slow part, and is kept short:
 - **Disk space**: the runner image leaves about 12 GB free, less than the build, its caches and
   the emulator's system image need. The job first removes toolchains it never uses (.NET, Haskell,
   Swift, Boost, CodeQL) and the image's other Android NDKs.
-- **Memory for Gradle's JVMs** comes from `app.config.ts`, written into the generated
-  `android/gradle.properties`, so local builds get it too. Expo's defaults (512 MB of metaspace) run
-  out while the release build compiles Kotlin: `java.lang.OutOfMemoryError: Metaspace`, then
-  "Gradle build daemon disappeared unexpectedly".
+- **Memory for Gradle's JVMs** comes from `apps/mobile/app.config.ts`, written into the generated
+  `apps/mobile/android/gradle.properties`, so local builds get it too. Expo's defaults (512 MB of
+  metaspace) run out while the release build compiles Kotlin:
+  `java.lang.OutOfMemoryError: Metaspace`, then "Gradle build daemon disappeared unexpectedly".
 
 **Locally, Android** (Android SDK with an emulator, JDK 17, Maestro):
 
@@ -207,18 +209,18 @@ The build is the slow part, and is kept short:
 pnpm mock:api                                   # terminal 1: the mock API on :4010
 # terminal 2, with the emulator running:
 export APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010
-pnpm exec expo prebuild --platform android --clean --no-install
-cd android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 && cd ..
+pnpm --filter mobile exec expo prebuild --platform android --clean --no-install
+(cd apps/mobile/android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64)
 adb reverse tcp:4010 tcp:4010                   # the emulator's localhost:4010 → this machine
 adb shell settings put secure stylus_handwriting_enabled 0   # see below
-adb install -r android/app/build/outputs/apk/release/app-release.apk
-pnpm test:e2e
+adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+pnpm test:e2e:mobile
 ```
 
 The variables are exported for both commands: `./gradlew` bundles the JavaScript, with the same
 configuration as the prebuild. In PowerShell use `$env:APP_VARIANT='e2e'` and so on. Afterwards
-`android/` holds the `e2e` variant: `pnpm prebuild` before going back to `pnpm android`. Local
-requirements that CI (Linux) already meets:
+`apps/mobile/android/` holds the `e2e` variant: `pnpm prebuild` before going back to `pnpm android`.
+Local requirements that CI (Linux) already meets:
 
 - **JDK 17**, the version React Native supports: with JDK 24 or newer, the native modules' CMake
   configuration fails on a "restricted method" warning.
@@ -238,9 +240,10 @@ requirements that CI (Linux) already meets:
 android`), and run only the emulator and Maestro on Windows.
 
 **Locally, iOS** (macOS, Xcode, a simulator): build the `e2e` variant for the simulator, with
-`APP_VARIANT=e2e` and the variables above, `pnpm exec expo run:ios --configuration Release`, or
-`eas build --profile e2e --platform ios` and install the result; the simulator reaches the
-Mac's `localhost` directly. Then `pnpm test:e2e`.
+`APP_VARIANT=e2e` and the variables above,
+`pnpm --filter mobile exec expo run:ios --configuration Release`, or
+`eas build --profile e2e --platform ios` and install the result; the simulator reaches the Mac's
+`localhost` directly. Then `pnpm test:e2e:mobile`.
 
 **Writing flows**: target `testID`s (`id:`) and visible text; wait with `extendedWaitUntil`, never
 fixed sleeps; keep the mock API's data and accounts (`member@example.com` / `member-password`) as
@@ -253,8 +256,8 @@ a small Android phone, a recent iPhone, the largest font size, dark mode, TalkBa
 or lost connection (airplane mode mid-request), backgrounding during a request, rotating if
 supported, and an upgrade from the previous store version (stored data and session survive). The
 [Definition of Done](../DEFINITION_OF_DONE.md) lists what each change must be checked against; the
-accessibility pass follows [ACCESSIBILITY.md](ACCESSIBILITY.md#manual-testing) and the upgrade
-pass [RELEASES.md](RELEASES.md#upgrade-testing).
+accessibility pass follows [accessibility.md](accessibility.md#manual-testing) and the upgrade
+pass [releases.md](releases.md#upgrade-testing).
 
 ## Flaky tests
 

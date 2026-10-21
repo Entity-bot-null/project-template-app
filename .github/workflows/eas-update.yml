@@ -2,7 +2,7 @@ name: EAS update
 run-name: OTA update of ${{ inputs.ref }} to ${{ inputs.channel }} (${{ inputs.rollout }}%)
 
 # Publishes an over-the-air JavaScript update from a commit on main, after
-# every gate passed on that exact commit (docs/RELEASES.md#ota-updates). It
+# every gate passed on that exact commit (docs/releases.md#ota-updates). It
 # reaches only the channel's builds whose native fingerprint (runtime
 # version) matches, so it can never run on a binary without the native code
 # it needs. Manual only, like eas-build.yml: EXPO_TOKEN exists only in the
@@ -35,13 +35,13 @@ permissions:
 
 env:
   # EAS CLI is not a project dependency (expo-doctor): this exact version runs
-  # here. Raise it by hand; keep it at or above eas.json cli.version.
+  # here. Raise it by hand; keep it at or above apps/mobile/eas.json cli.version.
   EAS_CLI_VERSION: 24.8.0
 
 jobs:
   resolve:
     name: Resolve the commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
@@ -65,7 +65,7 @@ jobs:
   publish:
     name: Publish to ${{ inputs.channel }}
     needs: [resolve, gates]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ inputs.channel }}
     # One publication or rollback per channel at a time (eas-rollback.yml
@@ -78,7 +78,7 @@ jobs:
       # Source maps go to Sentry only when this environment has everything the
       # upload needs: the repository variables SENTRY_ORG and SENTRY_PROJECT
       # and the environment secret SENTRY_AUTH_TOKEN (optional for preview,
-      # docs/CI_CD.md#environments). Without them the upload is skipped with a
+      # docs/ci-cd.md#environments). Without them the upload is skipped with a
       # notice, instead of failing the run after the update is published.
       SENTRY_UPLOAD: ${{ vars.SENTRY_ORG != '' && vars.SENTRY_PROJECT != '' && secrets.SENTRY_AUTH_TOKEN != '' }}
     steps:
@@ -91,12 +91,13 @@ jobs:
       # production config requires EXPO_PUBLIC_API_URL, which only the EAS
       # environment holds, and reading it would fail before anything is
       # published. The project id is the same in every variant.
-      - run: node scripts/check-eas-project.mjs
+      - run: node apps/mobile/scripts/check-eas-project.mjs
       # The EAS environment of the same name supplies the other public
       # variables (API URL, Sentry DSN), as it does for builds.
       - name: Publish the update
+        working-directory: apps/mobile
         env:
-          # The channel's build variant, as eas.json sets it for its builds:
+          # The channel's build variant, as apps/mobile/eas.json sets it for its builds:
           # the same app config gives the same runtime version (fingerprint).
           # This step only: the steps before and after read the app config
           # without the EAS environment (see above).
@@ -114,6 +115,7 @@ jobs:
       # the Sentry settings are all there (SENTRY_UPLOAD above).
       - name: Upload source maps to Sentry
         if: ${{ env.SENTRY_UPLOAD == 'true' }}
+        working-directory: apps/mobile
         env:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
@@ -124,4 +126,4 @@ jobs:
         run: >-
           echo "::notice title=Source maps not uploaded::This environment does not have
           SENTRY_ORG, SENTRY_PROJECT and SENTRY_AUTH_TOKEN all set, so stack traces of this
-          update stay minified in Sentry (docs/CI_CD.md#secrets-and-variables)."
+          update stay minified in Sentry (docs/ci-cd.md#secrets-and-variables)."
