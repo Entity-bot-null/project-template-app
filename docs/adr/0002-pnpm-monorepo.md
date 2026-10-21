@@ -85,5 +85,10 @@ Option 3, as in the web template:
   expo-doctor checks the native modules). If a native build ever fails because of isolated installs,
   the documented way out is `nodeLinker: hoisted`, only with a new ADR once the cause is understood:
   it gives up the guarantee that every import is declared.
+- The move changes the runtime version (`runtimeVersion: { policy: 'fingerprint' }`), although no
+  native code changes: the fingerprint hashes the native modules' paths (now
+  `../../node_modules/...` from the app) and the project's own files (its `.gitignore`, its
+  `package.json` scripts). An OTA update published after the move reaches only builds made after
+  it: the first release from the workspace is a store build, like a native change.
 - The decision is wrong if expo-doctor reports duplicated native modules, Metro or Gradle cannot
   resolve workspace packages, or EAS builds of `apps/mobile` fail where the root package built.
