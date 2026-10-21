@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.0](https://github.com/Entity-bot-null/project-template-app/compare/v0.1.3...v0.2.0) (2026-10-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* the app lives in apps/mobile. build:check is now build + perf:check, test:e2e is test:e2e:mobile, the app's contract script is api:types (pnpm contract stays at the root); the local .env goes to apps/mobile/.env and eas commands run in apps/mobile. The move changes the app's runtime version (fingerprint): the first release from the workspace is a store build.
+
+### Bug fixes
+
+* **auth:** keep one renewal at a time across a sign-out and a new sign-in ([#27](https://github.com/Entity-bot-null/project-template-app/issues/27)) ([9536d02](https://github.com/Entity-bot-null/project-template-app/commit/9536d02f4de1434a39a8fdd7887677f529de32d0))
+* **items:** say when a refresh or the next page fails with items on screen ([#28](https://github.com/Entity-bot-null/project-template-app/issues/28)) ([a3d67fe](https://github.com/Entity-bot-null/project-template-app/commit/a3d67fe1803df5c6bafb73434bb460bf927c670b))
+* **lint:** give Expo's rules the repository's typescript-eslint plugin ([#39](https://github.com/Entity-bot-null/project-template-app/issues/39)) ([7bb30ef](https://github.com/Entity-bot-null/project-template-app/commit/7bb30ef13d6a9cc505cf1b47ff8c4d9eb926cbc7))
+* **ui:** keep the offline banner below the status bar ([#37](https://github.com/Entity-bot-null/project-template-app/issues/37)) ([f2ba20d](https://github.com/Entity-bot-null/project-template-app/commit/f2ba20d558b37cff276635e89437d89c5b13435c))
+
+
+### Refactoring
+
+* move the Expo app to apps/mobile in a pnpm workspace ([#30](https://github.com/Entity-bot-null/project-template-app/issues/30)) ([f4e2c35](https://github.com/Entity-bot-null/project-template-app/commit/f4e2c353427b1ab23ff49eabc745eaf79b1d0681))
+
 ## [0.1.3](https://github.com/Entity-bot-null/project-template-app/compare/v0.1.2...v0.1.3) (2026-10-20)
 
 
