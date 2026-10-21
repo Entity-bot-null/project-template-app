@@ -123,8 +123,8 @@ and renders a screen from `apps/mobile/src/features/`. Route parameters are inpu
 links can carry anything): `items/[id].tsx` checks the id format before any request.
 
 **Typed routes** (`experiments.typedRoutes`): `router.push('/items/[id]')` with a wrong path or
-missing parameter is a type error. The types are generated in `.expo/types` by `pnpm typecheck` and
-`pnpm start`.
+missing parameter is a type error. The types are generated in `apps/mobile/.expo/types` by
+`pnpm typecheck` and `pnpm start`.
 
 **Errors in a route** are caught by the `ErrorBoundary` exported from
 `apps/mobile/src/app/_layout.tsx`: it reports the error and offers a retry, instead of a white
