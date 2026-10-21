@@ -10,13 +10,15 @@
   "files.insertFinalNewline": true,
   "files.trimTrailingWhitespace": true,
   "files.readonlyInclude": {
-    "src/api/schema.d.ts": true
+    "apps/mobile/src/api/schema.d.ts": true
   },
   "search.exclude": {
     "**/dist": true,
     "**/coverage": true,
     "android": true,
     "ios": true,
+    "apps/mobile/android": true,
+    "apps/mobile/ios": true,
     "pnpm-lock.yaml": true
   }
 }

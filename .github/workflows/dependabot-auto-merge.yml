@@ -1,7 +1,7 @@
 name: Dependabot auto-merge
 
 # A Dependabot update merges itself once a maintainer has approved it and CI
-# has passed (docs/CI_CD.md#dependency-updates). It does not rely on branch
+# has passed (docs/ci-cd.md#dependency-updates). It does not rely on branch
 # protection, which GitHub Free lacks on private repositories: this workflow
 # checks every condition itself, and never checks out or runs the pull
 # request's code.
@@ -32,7 +32,7 @@ jobs:
   merge:
     name: Merge when approved and green
     if: github.event.review.state == 'approved' && github.event.pull_request.user.login == 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
       contents: write # merge

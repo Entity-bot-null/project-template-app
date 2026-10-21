@@ -12,7 +12,7 @@
 ## Setup
 
 Node.js 24 (`.nvmrc`), pnpm (`corepack enable`, after `npm install -g corepack` from Node.js 25; the
-version is in `package.json`), and for native builds Android Studio (SDK, emulator, JDK 17) and, on
+version is in the root `package.json`), and for native builds Android Studio (SDK, emulator, JDK 17) and, on
 macOS, Xcode. Then follow the quick start in the [README](README.md#quick-start). `pnpm install`
 also installs the Git hooks.
 
@@ -24,14 +24,15 @@ also installs the Git hooks.
 3. **Contract first** when the API changes: `openapi/openapi.json`, then `pnpm contract`
    ([openapi/README.md](openapi/README.md)).
 4. **Code and tests together**, following [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) and
-   [docs/TESTING.md](docs/TESTING.md). [docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md#adding-a-feature)
-   has the steps for a new feature.
+   [docs/testing.md](docs/testing.md).
+   [docs/mobile-architecture.md](docs/mobile-architecture.md#adding-a-feature) has the steps for a
+   new feature.
 5. **Try it on devices**: Android and iOS, light and dark, a large font size, offline.
 6. **Commit** with Conventional Commits ([below](#commits)).
-7. **Verify**: `pnpm verify`; `pnpm test:e2e` when a critical flow changed.
+7. **Verify**: `pnpm verify`; `pnpm test:e2e:mobile` when a critical flow changed.
 8. **Push** and open a pull request with the template. Its title becomes the commit on `main`.
 9. **Merge** (squash) once CI passes and a reviewer approved. Releases are a separate, deliberate
-   step ([docs/RELEASES.md](docs/RELEASES.md)).
+   step ([docs/releases.md](docs/releases.md)).
 
 ## Branches
 
@@ -103,12 +104,15 @@ auth, storage, observability, native configuration, release and CI files.
 2. Prefer an Expo SDK module; otherwise a maintained library that supports the New Architecture
    ([React Native Directory](https://reactnative.directory)), with a config plugin if it has native
    code.
-3. Install with `pnpm exec expo install <package>` (SDK-compatible version).
+3. Install with `pnpm --filter mobile exec expo install <package>` (SDK-compatible version). A tool
+   of the repository itself (a lint plugin, a script's library) goes to the root instead:
+   `pnpm add -D -w <package>`. Each package declares what it imports: nothing reaches the app by
+   hoisting.
 4. If pnpm reports an ignored build script, decide in `pnpm-workspace.yaml` `allowBuilds` with the
    reason (default `false`). `true` also needs the reviewed exception, with its reason, in
    `scripts/dependency-policy.json`, or `pnpm deps:check` fails.
-5. `pnpm expo:doctor`, `pnpm security` (license and source policy) and `pnpm build:check` (bundle budget)
-   must pass.
+5. `pnpm expo:doctor`, `pnpm security` (license and source policy) and
+   `pnpm build && pnpm perf:check` (bundle budget) must pass.
 6. Explain the choice in the pull request; with native code, mark the release impact (store build).
 
 ## Reporting security issues

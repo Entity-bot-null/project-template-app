@@ -6,15 +6,20 @@ a store app needs, with a small example feature (sign-in, a list with search and
 creation, settings) that shows every layer working together. Replace the example with the product;
 keep the structure.
 
-Everything project-specific is a placeholder marked **REQUIERE CONFIGURACIÓN**, except in the files
-that cannot hold a comment: `package.json` (`name`) and `eas.json` (`ascAppId`), which
-[docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md) covers.
+The repository is a pnpm workspace: the app lives in `apps/mobile`, and the repository's tooling
+(hooks, gates, CI) at the root ([project structure](#project-structure),
+[docs/adr/0002-pnpm-monorepo.md](docs/adr/0002-pnpm-monorepo.md)). Every command below runs from
+the root.
 
-**Starting a new app?** Follow the step-by-step guide, [docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md):
+Everything project-specific is a placeholder marked **REQUIERE CONFIGURACIÓN**, except in the files
+that cannot hold a comment: the root `package.json` (`name`) and `apps/mobile/eas.json`
+(`ascAppId`), which [docs/step-by-step.md](docs/step-by-step.md) covers.
+
+**Starting a new app?** Follow the step-by-step guide, [docs/step-by-step.md](docs/step-by-step.md):
 what to do, in order, from the information and store accounts you need to the app published, with a
-check after every step (en español: [docs/STEP_BY_STEP.es.md](docs/STEP_BY_STEP.es.md)). **Using it
-day to day?** The manual, [docs/MANUAL.md](docs/MANUAL.md), explains how everything works and lists
-every command (en español: [docs/MANUAL.es.md](docs/MANUAL.es.md)).
+check after every step (en español: [docs/step-by-step.es.md](docs/step-by-step.es.md)). **Using it
+day to day?** The manual, [docs/manual.md](docs/manual.md), explains how everything works and lists
+every command (en español: [docs/manual.es.md](docs/manual.es.md)).
 
 - [Stack](#stack)
 - [Requirements](#requirements)
@@ -52,7 +57,7 @@ Why each one, and what was ruled out: [docs/adr/0001-stack.md](docs/adr/0001-sta
   Node.js 25, which ships no Corepack, `npm install -g corepack` first).
 - Android: Android Studio with the SDK, an emulator and **JDK 17**. Native builds on Windows have
   extra requirements (a short path, long paths enabled, a hoisted `node_modules`:
-  [docs/TESTING.md](docs/TESTING.md#end-to-end)); WSL 2 or EAS builds avoid them.
+  [docs/testing.md](docs/testing.md#end-to-end)); WSL 2 or EAS builds avoid them.
 - iOS: macOS with Xcode and a simulator.
 - An [Expo](https://expo.dev) account for EAS builds and updates.
 - Docker, only for `pnpm sast` and `pnpm lint:workflows` (CI runs them anyway).
@@ -63,107 +68,123 @@ load.
 ## Quick start
 
 ```sh
-pnpm install                 # dependencies and Git hooks
-cp .env.example .env         # local configuration: the mock API on localhost:4010
-pnpm mock:api                # terminal 1: an in-memory implementation of the API contract
-pnpm android                 # terminal 2: compile and run a development build on the emulator
-#   or: pnpm ios             # on macOS, in the simulator
+pnpm install                                   # dependencies and Git hooks
+cp apps/mobile/.env.example apps/mobile/.env   # local configuration: the mock API on localhost:4010
+pnpm mock:api                                  # terminal 1: an in-memory implementation of the API contract
+pnpm android                                   # terminal 2: compile and run a development build on the emulator
+#   or: pnpm ios                               # on macOS, in the simulator
 ```
 
 On an Android emulator or a USB device, forward the mock API's port once per session:
 `adb reverse tcp:4010 tcp:4010`. Sign in with `member@example.com` / `member-password`.
 
 After the first native build, `pnpm start` is enough: JavaScript changes reload instantly. After a
-native change (a dependency with native code, a config plugin, `app.config.ts` native fields, the
-icons or the splash), run `pnpm prebuild`, then `pnpm android` / `pnpm ios`: those two generate
-`android/` and `ios/` only when the folders are missing, so on their own they rebuild the old native
-project.
+native change (a dependency with native code, a config plugin, `apps/mobile/app.config.ts` native
+fields, the icons or the splash), run `pnpm prebuild`, then `pnpm android` / `pnpm ios`: those two
+generate `apps/mobile/android/` and `apps/mobile/ios/` only when the folders are missing, so on
+their own they rebuild the old native project.
 
 ## Commands
 
-| Command                                      | Does                                                                                                                          |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm start`                                 | Metro dev server for an installed development build                                                                           |
-| `pnpm android` / `pnpm ios`                  | compile, install and run a development build locally (generate `android/` / `ios/` only when missing)                         |
-| `pnpm prebuild`                              | regenerate `android/` and `ios/` from `app.config.ts` (never edit them)                                                       |
-| `pnpm mock:api`                              | the mock API on `127.0.0.1:4010` (`MOCK_ACCESS_TTL_SEC`, `MOCK_LATENCY_MS` to test renewal and loading states)                |
-| `pnpm lint` / `pnpm lint:fix`                | ESLint, zero warnings                                                                                                         |
-| `pnpm format` / `pnpm format:check`          | Prettier                                                                                                                      |
-| `pnpm typecheck`                             | contract drift check, typed routes, `tsc`                                                                                     |
-| `pnpm types:generate`                        | Expo's generated types (`expo-env.d.ts`, typed routes in `.expo/types`); run by install, lint and typecheck                   |
-| `pnpm test` / `test:watch` / `test:coverage` | Jest; coverage with thresholds                                                                                                |
-| `pnpm test:e2e`                              | Maestro flows on a running emulator/simulator ([docs/TESTING.md](docs/TESTING.md#end-to-end))                                 |
-| `pnpm expo:doctor`                           | expo-doctor: dependency versions against the installed SDK, config, native module issues                                      |
-| `pnpm security`                              | `pnpm audit`, dependency and license policy, secret scan                                                                      |
-| `pnpm sast`                                  | Semgrep (Docker)                                                                                                              |
-| `pnpm lint:workflows`                        | actionlint, zizmor, shellcheck on hooks (Docker)                                                                              |
-| `pnpm contract`                              | regenerate `src/api/schema.d.ts` from `openapi/openapi.json`                                                                  |
-| `pnpm export`                                | production JavaScript bundles for both platforms in `dist/`                                                                   |
-| `pnpm build:check`                           | `export` + bundle budget                                                                                                      |
-| `pnpm sbom:generate`                         | CycloneDX SBOM of the production dependencies                                                                                 |
-| `pnpm verify`                                | format, lint, typecheck, coverage, doctor, security, build check (CI adds `test:scripts`, `sast`, `lint:workflows`, prebuild) |
+| Command                               | Does                                                                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm start`                          | Metro dev server for an installed development build                                                                                 |
+| `pnpm android` / `pnpm ios`           | compile, install and run a development build locally (generate `apps/mobile/android/` / `apps/mobile/ios/` only when missing)       |
+| `pnpm prebuild`                       | regenerate `apps/mobile/android/` and `apps/mobile/ios/` from `apps/mobile/app.config.ts` (never edit them)                         |
+| `pnpm mock:api`                       | the mock API on `127.0.0.1:4010` (`MOCK_ACCESS_TTL_SEC`, `MOCK_LATENCY_MS` to test renewal and loading states)                      |
+| `pnpm lint` / `pnpm lint:fix`         | ESLint, zero warnings                                                                                                               |
+| `pnpm format` / `pnpm format:check`   | Prettier                                                                                                                            |
+| `pnpm typecheck`                      | contract drift check, typed routes, `tsc`                                                                                           |
+| `pnpm --filter mobile types:generate` | Expo's generated types (`apps/mobile/expo-env.d.ts`, typed routes in `apps/mobile/.expo/types`); run by install, lint and typecheck |
+| `pnpm test` / `pnpm test:coverage`    | Jest; coverage with thresholds (`pnpm --filter mobile test:watch` to watch)                                                         |
+| `pnpm test:scripts`                   | the tests of the repository's scripts (`node --test`)                                                                               |
+| `pnpm test:e2e:mobile`                | Maestro flows on a running emulator/simulator ([docs/testing.md](docs/testing.md#end-to-end))                                       |
+| `pnpm expo:doctor`                    | expo-doctor: dependency versions against the installed SDK, config, native module issues                                            |
+| `pnpm security`                       | `pnpm audit`, dependency and license policy, secret scan                                                                            |
+| `pnpm sast`                           | Semgrep (Docker)                                                                                                                    |
+| `pnpm lint:workflows`                 | actionlint, zizmor, shellcheck on hooks (Docker)                                                                                    |
+| `pnpm contract`                       | regenerate `apps/mobile/src/api/schema.d.ts` from `openapi/openapi.json`                                                            |
+| `pnpm build`                          | production JavaScript bundles (Hermes bytecode) for both platforms in `apps/mobile/dist/`                                           |
+| `pnpm perf:check`                     | the bundle budget (`apps/mobile/bundle-budget.json`), after `pnpm build`                                                            |
+| `pnpm sbom:generate`                  | CycloneDX SBOM of the production dependencies                                                                                       |
+| `pnpm verify`                         | format, lint, typecheck, coverage, doctor, security, build, budget (CI adds `test:scripts`, `sast`, `lint:workflows`, prebuild)     |
+
+A command for the app alone: `pnpm --filter mobile <script>` (its scripts are in
+`apps/mobile/package.json`).
 
 EAS commands use the EAS CLI, installed globally as Expo recommends (`npm install -g eas-cli`, or
-`pnpm dlx eas-cli <command>`): `eas <command>`. The CI workflows pin its version.
+`pnpm dlx eas-cli <command>`): `eas <command>`, run from `apps/mobile`, where `eas.json` and the
+app config are. The CI workflows pin its version.
 
 ## Project structure
 
 ```
-.github/            workflows (CI, E2E, release, EAS build/update/rollback), templates, rulesets
-.husky/             Git hooks
-.maestro/           end-to-end flows
-assets/images/      app icon, adaptive icon, splash, notification icon (neutral placeholders)
-docs/               architecture, performance, releases, testing, CI/CD, decisions (adr/)
-openapi/            the API contract
-scripts/            mock API, checks used by hooks and CI
-src/
-  app/              routes (Expo Router)
-  features/         product areas: screens and their data hooks
-  api/              HTTP client, generated contract types
-  auth/             session and tokens
-  config/           validated public environment
-  lib/              errors, observability, storage, query, links, notifications, permissions, analytics, flags
-  store/            client state (Zustand)
-  ui/               design system: tokens, theme, components
-  hooks/            shared hooks
-  test/             test setup and helpers
-app.config.ts       app identity, variants, native configuration, plugins
-eas.json            build profiles, submission
+apps/
+  mobile/             the Expo app (package "mobile")
+    src/
+      app/            routes (Expo Router)
+      features/       product areas: screens and their data hooks
+      api/            HTTP client, generated contract types
+      auth/           session and tokens
+      config/         validated public environment
+      lib/            errors, observability, storage, query, links, notifications, permissions, analytics, flags
+      store/          client state (Zustand)
+      ui/             design system: tokens, theme, components
+      hooks/          shared hooks
+      test/           test setup and helpers
+    assets/images/    app icon, adaptive icon, splash, notification icon (neutral placeholders)
+    .maestro/         end-to-end flows
+    scripts/          the app's tools: contract types, mock API, bundle budget, expo-doctor, EAS check
+    app.config.ts     app identity, variants, native configuration, plugins
+    eas.json          build profiles, submission (EAS runs from apps/mobile)
+    package.json      the app's dependencies and scripts
+docs/                 architecture, performance, releases, testing, CI/CD, decisions (adr/)
+openapi/              the API contract
+scripts/              the repository's checks, used by hooks and CI; tool images (tool-images/)
+.github/              workflows (CI, E2E, release, EAS build/update/rollback), templates, rulesets
+.husky/               Git hooks
+package.json          repository scripts (run from the root) and shared tooling
+pnpm-workspace.yaml   the workspace (apps/*) and the supply-chain settings
+eslint.config.mjs     one ESLint configuration for the whole repository
 ```
 
-Details: [docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md).
+The root holds what applies to the whole repository: hooks, gates, CI, the supply-chain settings,
+formatting and linting. Each app holds its own dependencies, configuration and tests. Details:
+[docs/mobile-architecture.md](docs/mobile-architecture.md).
 
 ## Start a new project
 
 The complete sequence, with the accounts, commands and checks, is
-[docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md). In short (each item is marked REQUIERE CONFIGURACIÓN
+[docs/step-by-step.md](docs/step-by-step.md). In short (each item is marked REQUIERE CONFIGURACIÓN
 where it lives):
 
-1. **Identity** in `app.config.ts` (`APP`): name, slug, identifier (reverse DNS of a domain you own;
-   it cannot change after the first store release), URL scheme. `package.json` `name`.
-2. **EAS**: `eas login`, `eas init`; copy the project id and owner into `APP`
-   ([docs/RELEASES.md](docs/RELEASES.md#first-time-setup)).
-3. **Environment**: `.env` for local development; EAS environment variables for `development`,
-   `preview` and `production` (API URLs, Sentry) ([docs/RELEASES.md](docs/RELEASES.md#environment-variables)).
+1. **Identity** in `apps/mobile/app.config.ts` (`APP`): name, slug, identifier (reverse DNS of a
+   domain you own; it cannot change after the first store release), URL scheme. The root
+   `package.json` `name`.
+2. **EAS**: `eas login`, then `eas init` in `apps/mobile`; copy the project id and owner into `APP`
+   ([docs/releases.md](docs/releases.md#first-time-setup)).
+3. **Environment**: `apps/mobile/.env` for local development; EAS environment variables for
+   `development`, `preview` and `production` (API URLs, Sentry)
+   ([docs/releases.md](docs/releases.md#environment-variables)).
 4. **API**: replace `openapi/openapi.json` with the product's contract, `pnpm contract`, and adapt
-   `src/auth/` if its session endpoints differ ([openapi/README.md](openapi/README.md)).
+   `apps/mobile/src/auth/` if its session endpoints differ ([openapi/README.md](openapi/README.md)).
 5. **Branding**: icons, splash, colors ([below](#branding)).
 6. **Sentry**: a project for the app; DSN and `SENTRY_*` variables in EAS; `SENTRY_ORG` and
    `SENTRY_PROJECT` repository variables for OTA source maps.
 7. **Links** (optional): `APP.linkDomain`, with `apple-app-site-association` and `assetlinks.json`
-   served by that domain ([docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md#deep-links)).
+   served by that domain ([docs/mobile-architecture.md](docs/mobile-architecture.md#deep-links)).
 8. **Push notifications** (optional): FCM and APNs credentials on EAS, and a `PushTokenRegistrar`
-   for the backend ([docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md#notifications)).
-9. **Analytics** (optional): a provider in `src/lib/analytics/providers.ts`.
+   for the backend ([docs/mobile-architecture.md](docs/mobile-architecture.md#notifications)).
+9. **Analytics** (optional): a provider in `apps/mobile/src/lib/analytics/providers.ts`.
 10. **Repository**: rulesets, environments, secrets, CODEOWNERS, the security contact and response
-    times in `SECURITY.md` ([docs/CI_CD.md](docs/CI_CD.md#setting-up-the-repository)).
+    times in `SECURITY.md` ([docs/ci-cd.md](docs/ci-cd.md#setting-up-the-repository)).
 11. **Stores**: the app records in Play Console and App Store Connect, signing and submission
-    credentials on EAS ([docs/RELEASES.md](docs/RELEASES.md#store-and-service-credentials)).
+    credentials on EAS ([docs/releases.md](docs/releases.md#store-and-service-credentials)).
 12. **The example feature**: build the product's features alongside `items`, using it as the
-    reference, then delete `src/features/items`, its routes (the home tab included), its links in
-    `src/lib/links.ts`, the `newItemForm` flag, the `item_created` event, its Maestro flow and its
-    contract paths; flows 01 and 02 wait for the items list after sign-in
-    ([docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md#63-your-features)).
+    reference, then delete `apps/mobile/src/features/items`, its routes (the home tab included), its
+    links in `apps/mobile/src/lib/links.ts`, the `newItemForm` flag, the `item_created` event, its
+    Maestro flow and its contract paths; flows 01 and 02 wait for the items list after sign-in
+    ([docs/step-by-step.md](docs/step-by-step.md#63-your-features)).
 
 Search for `REQUIERE CONFIGURACIÓN` to find anything left.
 
@@ -172,16 +193,17 @@ Search for `REQUIERE CONFIGURACIÓN` to find anything left.
 The template ships neutral placeholder images and a neutral palette: no brand. Replace them with
 the product's own:
 
-| File                                         | Size and format                                                          | Used for                                                                      |
-| -------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| `assets/images/icon.png`                     | 1024 × 1024 PNG, **no transparency**                                     | iOS app icon (the system applies the rounded mask); onboarding                |
-| `assets/images/adaptive-icon-foreground.png` | 1024 × 1024 PNG, transparent; the logo inside the central 66 % safe zone | Android adaptive icon (over `APP.colors.adaptiveIconBackground`)              |
-| `assets/images/adaptive-icon-monochrome.png` | 1024 × 1024 PNG, single color on transparent                             | Android themed (monochrome) icon                                              |
-| `assets/images/splash-icon.png`              | 1024 × 1024 PNG, transparent, shown at 160 dp wide                       | splash screen, over `APP.colors.splashBackground` (and `…Dark`)               |
-| `assets/images/notification-icon.png`        | 96 × 96 PNG, **white** on transparent                                    | Android notification small icon (tinted with `APP.colors.notificationAccent`) |
+| File                                                     | Size and format                                                          | Used for                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `apps/mobile/assets/images/icon.png`                     | 1024 × 1024 PNG, **no transparency**                                     | iOS app icon (the system applies the rounded mask); onboarding                |
+| `apps/mobile/assets/images/adaptive-icon-foreground.png` | 1024 × 1024 PNG, transparent; the logo inside the central 66 % safe zone | Android adaptive icon (over `APP.colors.adaptiveIconBackground`)              |
+| `apps/mobile/assets/images/adaptive-icon-monochrome.png` | 1024 × 1024 PNG, single color on transparent                             | Android themed (monochrome) icon                                              |
+| `apps/mobile/assets/images/splash-icon.png`              | 1024 × 1024 PNG, transparent, shown at 160 dp wide                       | splash screen, over `APP.colors.splashBackground` (and `…Dark`)               |
+| `apps/mobile/assets/images/notification-icon.png`        | 96 × 96 PNG, **white** on transparent                                    | Android notification small icon (tinted with `APP.colors.notificationAccent`) |
 
-- Colors: the palette and semantic colors in `src/ui/theme/tokens.ts` (light and dark), and
-  `APP.colors` in `app.config.ts`. `pnpm test` checks text contrast against WCAG AA in both themes.
+- Colors: the palette and semantic colors in `apps/mobile/src/ui/theme/tokens.ts` (light and dark),
+  and `APP.colors` in `apps/mobile/app.config.ts`. `pnpm test` checks text contrast against WCAG AA
+  in both themes.
 - Fonts: the template uses the system fonts. A brand font is embedded at build time with the
   `expo-font` config plugin and set in the typography tokens.
 - Icons, splash and app name are native: changing them needs a new store build, not an OTA update.
@@ -192,40 +214,40 @@ the product's own:
 
 | Document                                                                     | For                                                                                                                  |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [docs/STEP_BY_STEP.md](docs/STEP_BY_STEP.md), [.es](docs/STEP_BY_STEP.es.md) | what to do, in order, from zero to the stores                                                                        |
-| [docs/MANUAL.md](docs/MANUAL.md), [.es](docs/MANUAL.es.md)                   | how everything works; every command                                                                                  |
+| [docs/step-by-step.md](docs/step-by-step.md), [.es](docs/step-by-step.es.md) | what to do, in order, from zero to the stores                                                                        |
+| [docs/manual.md](docs/manual.md), [.es](docs/manual.es.md)                   | how everything works; every command                                                                                  |
 | [AGENTS.md](AGENTS.md)                                                       | AI coding agents (Claude Code, Codex, Cursor…): rules, commands, Expo context                                        |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                                           | workflow: branches, commits, hooks, review, dependencies                                                             |
 | [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md)                         | the rules and what enforces them                                                                                     |
 | [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md)                               | when a change is finished                                                                                            |
 | [SECURITY.md](SECURITY.md)                                                   | reporting, threat model, OWASP MASVS, secrets, storage, supply chain                                                 |
-| [docs/MOBILE_ARCHITECTURE.md](docs/MOBILE_ARCHITECTURE.md)                   | layers, navigation, state, API, auth, errors, storage, offline, native code                                          |
-| [docs/PERFORMANCE.md](docs/PERFORMANCE.md)                                   | targets, lists, rendering, startup, bundle budget, measuring                                                         |
-| [docs/TESTING.md](docs/TESTING.md)                                           | test levels, helpers, coverage, Maestro end-to-end                                                                   |
-| [docs/RELEASES.md](docs/RELEASES.md)                                         | variants, environment variables, versions, builds, stores, OTA updates, rollback, SDK upgrades                       |
-| [docs/CI_CD.md](docs/CI_CD.md)                                               | workflows, protections, environments, secrets, repository setup                                                      |
-| [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md)                 | the checklist before a store release; the CORE / OPTIONAL / REQUIRES CONFIGURATION / PROJECT-SPECIFIC classification |
-| [docs/STORE_COMPLIANCE.md](docs/STORE_COMPLIANCE.md)                         | App Store and Google Play requirements: privacy labels, Data safety, permissions, account deletion                   |
-| [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md)                               | the accessibility gate: built-in guarantees, automated checks, the per-feature checklist                             |
-| [docs/LOCALIZATION.md](docs/LOCALIZATION.md)                                 | translating the app, when the product needs it (optional)                                                            |
+| [docs/mobile-architecture.md](docs/mobile-architecture.md)                   | layers, navigation, state, API, auth, errors, storage, offline, native code                                          |
+| [docs/performance.md](docs/performance.md)                                   | targets, lists, rendering, startup, bundle budget, measuring                                                         |
+| [docs/testing.md](docs/testing.md)                                           | test levels, helpers, coverage, Maestro end-to-end                                                                   |
+| [docs/releases.md](docs/releases.md)                                         | variants, environment variables, versions, builds, stores, OTA updates, rollback, SDK upgrades                       |
+| [docs/ci-cd.md](docs/ci-cd.md)                                               | workflows, protections, environments, secrets, repository setup                                                      |
+| [docs/production-readiness.md](docs/production-readiness.md)                 | the checklist before a store release; the CORE / OPTIONAL / REQUIRES CONFIGURATION / PROJECT-SPECIFIC classification |
+| [docs/store-compliance.md](docs/store-compliance.md)                         | App Store and Google Play requirements: privacy labels, Data safety, permissions, account deletion                   |
+| [docs/accessibility.md](docs/accessibility.md)                               | the accessibility gate: built-in guarantees, automated checks, the per-feature checklist                             |
+| [docs/localization.md](docs/localization.md)                                 | translating the app, when the product needs it (optional)                                                            |
 | [docs/adr/](docs/adr/)                                                       | architecture decisions                                                                                               |
 | [openapi/README.md](openapi/README.md)                                       | the API contract and the mock API                                                                                    |
-| [.maestro/README.md](.maestro/README.md)                                     | the end-to-end flows                                                                                                 |
+| [apps/mobile/.maestro/README.md](apps/mobile/.maestro/README.md)             | the end-to-end flows                                                                                                 |
 
 ## Troubleshooting
 
-| Problem                                                                                 | Fix                                                                                                                                                |
-| --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The app cannot reach the mock API on Android ("You seem to be offline")                 | `adb reverse tcp:4010 tcp:4010` (again after restarting the emulator or reconnecting a device)                                                     |
-| `Invalid app configuration: EXPO_PUBLIC_API_URL…` when building                         | set the variable (`.env` locally, EAS environment for builds); HTTPS outside localhost                                                             |
-| Android build: `CMAKE_OBJECT_PATH_MAX` warnings, then "CXX compiler … broken" (Windows) | move the project to a short path (`C:\dev\<app>`), enable Windows long paths, `pnpm install` again                                                 |
-| Android build on Windows: "manifest 'build.ninja' still dirty after 100 tries"          | set the user environment variable `pnpm_config_node_linker=hoisted`, `pnpm install` again ([docs/TESTING.md](docs/TESTING.md#end-to-end))          |
-| Maestro types nothing into a field on the emulator                                      | `adb shell settings put secure stylus_handwriting_enabled 0` (Gboard's stylus tutorial covers the keyboard)                                        |
-| Android build: "A restricted method in java.lang.System has been called"                | use JDK 17 (`JAVA_HOME`); JDK 24+ breaks the native CMake step                                                                                     |
-| `ERR_PNPM_NO_MATURE_MATCHING_VERSION`                                                   | the version is younger than seven days (supply-chain policy): use the previous release, or wait                                                    |
-| `pnpm expo:doctor` reports version mismatches                                           | `EXPO_OFFLINE=1 pnpm exec expo install --fix` (the versions the installed SDK expects; newer SDK patches come through Dependabot after seven days) |
-| Stale JavaScript, odd Metro errors                                                      | `pnpm start --clear`                                                                                                                               |
-| Native errors after changing dependencies or `app.config.ts`                            | `pnpm prebuild` (regenerates `android/` and `ios/`), then `pnpm android` / `pnpm ios`                                                              |
-| Typed routes errors after adding a route, or `process.env` read as `any`                | `pnpm types:generate` (also run by `pnpm install`, `pnpm lint`, `pnpm typecheck` and `pnpm start`)                                                 |
-| A Jest test hangs or Jest does not exit                                                 | a missing `await` (RNTL 14 is async) or a timer left running; see [docs/TESTING.md](docs/TESTING.md#flaky-tests)                                   |
-| Push notifications do not arrive                                                        | development or release build on a **real device**, permission granted, EAS project id set, FCM/APNs credentials on EAS                             |
+| Problem                                                                                 | Fix                                                                                                                                                                |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The app cannot reach the mock API on Android ("You seem to be offline")                 | `adb reverse tcp:4010 tcp:4010` (again after restarting the emulator or reconnecting a device)                                                                     |
+| `Invalid app configuration: EXPO_PUBLIC_API_URL…` when building                         | set the variable (`apps/mobile/.env` locally, EAS environment for builds); HTTPS outside localhost                                                                 |
+| Android build: `CMAKE_OBJECT_PATH_MAX` warnings, then "CXX compiler … broken" (Windows) | move the project to a short path (`C:\dev\<app>`), enable Windows long paths, `pnpm install` again                                                                 |
+| Android build on Windows: "manifest 'build.ninja' still dirty after 100 tries"          | set the user environment variable `pnpm_config_node_linker=hoisted`, `pnpm install` again ([docs/testing.md](docs/testing.md#end-to-end))                          |
+| Maestro types nothing into a field on the emulator                                      | `adb shell settings put secure stylus_handwriting_enabled 0` (Gboard's stylus tutorial covers the keyboard)                                                        |
+| Android build: "A restricted method in java.lang.System has been called"                | use JDK 17 (`JAVA_HOME`); JDK 24+ breaks the native CMake step                                                                                                     |
+| `ERR_PNPM_NO_MATURE_MATCHING_VERSION`                                                   | the version is younger than seven days (supply-chain policy): use the previous release, or wait                                                                    |
+| `pnpm expo:doctor` reports version mismatches                                           | `EXPO_OFFLINE=1 pnpm --filter mobile exec expo install --fix` (the versions the installed SDK expects; newer SDK patches come through Dependabot after seven days) |
+| Stale JavaScript, odd Metro errors                                                      | `pnpm start --clear`                                                                                                                                               |
+| Native errors after changing dependencies or `apps/mobile/app.config.ts`                | `pnpm prebuild` (regenerates `apps/mobile/android/` and `apps/mobile/ios/`), then `pnpm android` / `pnpm ios`                                                      |
+| Typed routes errors after adding a route, or `process.env` read as `any`                | `pnpm --filter mobile types:generate` (also run by `pnpm install`, `pnpm lint`, `pnpm typecheck` and `pnpm start`)                                                 |
+| A Jest test hangs or Jest does not exit                                                 | a missing `await` (RNTL 14 is async) or a timer left running; see [docs/testing.md](docs/testing.md#flaky-tests)                                                   |
+| Push notifications do not arrive                                                        | development or release build on a **real device**, permission granted, EAS project id set, FCM/APNs credentials on EAS                                             |

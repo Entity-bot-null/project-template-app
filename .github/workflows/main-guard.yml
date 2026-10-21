@@ -1,6 +1,6 @@
 name: Main guard
 
-# Every commit on main arrives through a merged pull request (docs/CI_CD.md#required-check).
+# Every commit on main arrives through a merged pull request (docs/ci-cd.md#required-check).
 # A ruleset enforces that, but rulesets need a public repository or a paid plan: on a
 # private repository of GitHub Free nothing stops a direct push. This workflow
 # detects one after the fact. It fails and opens an issue naming the commits and
@@ -16,7 +16,7 @@ permissions: {}
 jobs:
   pull-requests-only:
     name: Pushed through pull requests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read # the pushed commits
@@ -40,7 +40,7 @@ jobs:
           fi
           # A repository created from the template starts with the one commit
           # GitHub made for it: the project's first push extends that commit
-          # (docs/STEP_BY_STEP.md, phase 5.1), before the ruleset exists.
+          # (docs/step-by-step.md, phase 5.1), before the ruleset exists.
           if [ "$(gh api "repos/$REPO/commits/$BEFORE" --jq '.parents | length')" = 0 ]; then
             echo "::notice::main held only the commit it was created with: this is the project's first push."
             exit 0
@@ -89,7 +89,7 @@ jobs:
               echo
             fi
             echo "Review them now: revert them, or open a pull request that runs CI on them and gets"
-            echo "reviewed. Nothing should reach main this way (docs/CI_CD.md#required-check)."
+            echo "reviewed. Nothing should reach main this way (docs/ci-cd.md#required-check)."
           } > issue.md
           gh issue create -R "$REPO" --title "Direct push to main by $PUSHER" --body-file issue.md
           echo "::error title=Direct push to main::See the issue just opened in this repository."

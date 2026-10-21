@@ -1,5 +1,5 @@
 // lint-staged passes every staged environment file (.env*, *.env, .envrc);
-// only .env.example files may be committed (docs/RELEASES.md#environment-variables). .gitignore
+// only .env.example files may be committed (docs/releases.md#environment-variables). .gitignore
 // already excludes the others, so reaching this means a forced add.
 import { basename } from 'node:path';
 

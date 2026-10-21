@@ -2,18 +2,18 @@ name: EAS build
 run-name: EAS ${{ inputs.profile }} build of ${{ inputs.ref }} (${{ inputs.platform }})
 
 # Builds the app on EAS from a commit on main, after every gate passed on that
-# exact commit (docs/CI_CD.md#eas-builds). Manual only: no pull request, push
+# exact commit (docs/ci-cd.md#eas-builds). Manual only: no pull request, push
 # or tag starts it, and the EXPO_TOKEN it needs exists only as a secret of the
 # protected GitHub environments "preview" and "production" (main only;
 # production with required reviewers). A production build can be submitted
 # to the stores' internal testing (Play internal track as a draft,
 # TestFlight); releasing it to the public stays a human decision in Play
-# Console and App Store Connect (docs/RELEASES.md#store-release).
+# Console and App Store Connect (docs/releases.md#store-release).
 on:
   workflow_dispatch:
     inputs:
       profile:
-        description: Build profile (eas.json)
+        description: Build profile (apps/mobile/eas.json)
         type: choice
         options: [preview, production]
         required: true
@@ -41,13 +41,13 @@ permissions:
 
 env:
   # EAS CLI is not a project dependency (expo-doctor): this exact version runs
-  # here. Raise it by hand; keep it at or above eas.json cli.version.
+  # here. Raise it by hand; keep it at or above apps/mobile/eas.json cli.version.
   EAS_CLI_VERSION: 24.8.0
 
 jobs:
   resolve:
     name: Resolve the commit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       sha: ${{ steps.resolve.outputs.sha }}
@@ -76,7 +76,7 @@ jobs:
   build:
     name: Build on EAS
     needs: [resolve, gates]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ inputs.profile }}
     steps:
@@ -85,11 +85,13 @@ jobs:
           ref: ${{ needs.resolve.outputs.sha }}
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - run: node scripts/check-eas-project.mjs
+      - run: node apps/mobile/scripts/check-eas-project.mjs
       # Queues the build and returns: it runs on EAS (logs, artifacts and the
       # submission on expo.dev). Signing credentials are the ones stored on
-      # EAS (eas credentials); none exist in this repository.
+      # EAS (eas credentials); none exist in this repository. EAS runs from
+      # the app's directory, where eas.json is; it uploads the workspace.
       - name: Start the build
+        working-directory: apps/mobile
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           PROFILE: ${{ inputs.profile }}

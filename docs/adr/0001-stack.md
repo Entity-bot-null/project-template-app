@@ -66,9 +66,9 @@ shared with the web template.
 - One TypeScript codebase for both platforms, sharing contract tooling, validation and practices
   with the web template; developers move between them.
 - Native projects are generated: native customization goes through config plugins or local Expo
-  modules, never hand edits ([MOBILE_ARCHITECTURE.md](../MOBILE_ARCHITECTURE.md#native-code)).
+  modules, never hand edits ([mobile-architecture.md](../mobile-architecture.md#native-code)).
 - The Expo SDK sets the versions of React Native and native modules: upgrades happen an SDK at a
-  time, about three times a year ([RELEASES.md](../RELEASES.md#expo-sdk-upgrades)).
+  time, about three times a year ([releases.md](../releases.md#expo-sdk-upgrades)).
 - Builds, signing and OTA updates depend on EAS (an Expo account; paid plans for volume, priority
   builders and some features). Local builds (`pnpm android`, `pnpm ios`, `eas build --local`)
   remain possible if that dependency must be reduced.

@@ -1,5 +1,5 @@
 {
-  "$comment": "What doberman knows about this template: how to recognize it, its gates, its risk areas. scripts/doberman.mjs reads it; keep it in step with package.json, .github/workflows/quality-gates.yml and docs/TESTING.md.",
+  "$comment": "What doberman knows about this template: how to recognize it, its gates, its risk areas. scripts/doberman.mjs reads it; keep it in step with package.json, .github/workflows/quality-gates.yml and docs/testing.md.",
   "template": "MOBILE",
   "displayName": "Golden Template Mobile (Expo / React Native)",
   "detection": {
@@ -8,63 +8,80 @@
         "file": "package.json"
       },
       {
-        "dependency": "expo"
+        "file": "pnpm-workspace.yaml"
       },
       {
-        "dependency": "react-native"
+        "dependency": "expo",
+        "package": "apps/mobile/package.json"
       },
       {
-        "dependency": "expo-router"
+        "dependency": "react-native",
+        "package": "apps/mobile/package.json"
       },
       {
-        "anyFile": ["app.config.ts", "app.config.js", "app.json"]
+        "dependency": "expo-router",
+        "package": "apps/mobile/package.json"
       },
       {
-        "file": "eas.json"
+        "anyFile": [
+          "apps/mobile/app.config.ts",
+          "apps/mobile/app.config.js",
+          "apps/mobile/app.json"
+        ]
+      },
+      {
+        "file": "apps/mobile/eas.json"
       }
     ],
     "supporting": [
       {
-        "dependency": "@tanstack/react-query"
+        "dependency": "@tanstack/react-query",
+        "package": "apps/mobile/package.json"
       },
       {
-        "dependency": "zustand"
+        "dependency": "zustand",
+        "package": "apps/mobile/package.json"
       },
       {
-        "dependency": "zod"
+        "dependency": "zod",
+        "package": "apps/mobile/package.json"
       },
       {
-        "dependency": "openapi-fetch"
+        "dependency": "openapi-fetch",
+        "package": "apps/mobile/package.json"
       },
       {
-        "dependency": "expo-secure-store"
+        "dependency": "expo-secure-store",
+        "package": "apps/mobile/package.json"
       },
       {
-        "dependency": "@sentry/react-native"
+        "dependency": "@sentry/react-native",
+        "package": "apps/mobile/package.json"
       },
       {
-        "dependency": "jest-expo"
+        "dependency": "jest-expo",
+        "package": "apps/mobile/package.json"
       },
       {
         "file": "openapi/openapi.json"
       },
       {
-        "file": "src/app/_layout.tsx"
+        "file": "apps/mobile/src/app/_layout.tsx"
       },
       {
-        "file": "src/api/http.ts"
+        "file": "apps/mobile/src/api/http.ts"
       },
       {
-        "file": "src/auth/session.ts"
+        "file": "apps/mobile/src/auth/session.ts"
       },
       {
-        "file": "src/lib/storage/index.ts"
+        "file": "apps/mobile/src/lib/storage/index.ts"
       },
       {
-        "file": ".maestro/config.yaml"
+        "file": "apps/mobile/.maestro/config.yaml"
       },
       {
-        "file": "bundle-budget.json"
+        "file": "apps/mobile/bundle-budget.json"
       }
     ],
     "minSupporting": 0.6
@@ -105,8 +122,12 @@
       "tags": ["security"],
       "requires": ["network"]
     },
-    "build:check": {
-      "name": "Bundle export + budget",
+    "build": {
+      "name": "Build (the app's export: Hermes bytecode for Android and iOS)",
+      "tags": ["build"]
+    },
+    "perf:check": {
+      "name": "Bundle budget (apps/mobile/bundle-budget.json)",
       "tags": ["build"]
     }
   },
@@ -157,57 +178,57 @@
     {
       "id": "prebuild",
       "name": "Native projects (expo prebuild, Android + iOS)",
-      "command": "pnpm exec expo prebuild --no-install --platform all",
+      "command": "pnpm --filter mobile exec expo prebuild --no-install --platform all",
       "source": ".github/workflows/quality-gates.yml › Bundle, budget and native projects",
       "required": true,
       "when": "always",
       "isolation": "sandbox",
       "requires": ["sandbox"],
       "tags": ["native", "build"],
-      "note": "Writes android/ and ios/: run it in the sandbox, never in the workspace (`pnpm prebuild` is `--clean`)."
+      "note": "Writes apps/mobile/android/ and apps/mobile/ios/: run it in the sandbox, never in the workspace (`pnpm prebuild` is `--clean`)."
     },
     {
       "id": "android-e2e",
       "name": "Android release build + Maestro flows",
-      "command": "docs/TESTING.md#end-to-end: release APK of the e2e variant, `pnpm mock:api`, `pnpm test:e2e`",
+      "command": "docs/testing.md#end-to-end: release APK of the e2e variant, `pnpm mock:api`, `pnpm test:e2e:mobile`",
       "source": ".github/workflows/e2e-android.yml (not part of “CI passed”)",
       "required": false,
       "when": "paths",
       "paths": [
-        "src/app/**",
-        "src/features/**",
-        "src/auth/**",
-        "src/api/**",
-        "src/lib/links.ts",
-        "src/lib/storage/**",
-        "src/ui/**",
-        ".maestro/**",
-        "app.config.ts",
-        "eas.json",
+        "apps/mobile/src/app/**",
+        "apps/mobile/src/features/**",
+        "apps/mobile/src/auth/**",
+        "apps/mobile/src/api/**",
+        "apps/mobile/src/lib/links.ts",
+        "apps/mobile/src/lib/storage/**",
+        "apps/mobile/src/ui/**",
+        "apps/mobile/.maestro/**",
+        "apps/mobile/app.config.ts",
+        "apps/mobile/eas.json",
         "package.json",
         "pnpm-lock.yaml"
       ],
       "isolation": "sandbox",
       "requires": ["android", "jdk17", "maestro", "sandbox"],
       "tags": ["tests", "native"],
-      "note": "On Windows the native build needs a short path (DOBERMAN_TMP=C:\\dbm) and a hoisted node_modules (docs/TESTING.md#end-to-end)."
+      "note": "On Windows the native build needs a short path (DOBERMAN_TMP=C:\\dbm) and a hoisted node_modules (docs/testing.md#end-to-end)."
     },
     {
       "id": "ios-build",
       "name": "iOS build + simulator flows",
-      "command": "macOS only: `pnpm ios` (development build) or the release build of docs/TESTING.md, then `pnpm test:e2e` on the simulator",
+      "command": "macOS only: `pnpm ios` (development build) or the release build of docs/testing.md, then `pnpm test:e2e:mobile` on the simulator",
       "source": "DEFINITION_OF_DONE.md › Devices and platforms",
       "required": false,
       "when": "paths",
       "paths": [
-        "app.config.ts",
-        "eas.json",
+        "apps/mobile/app.config.ts",
+        "apps/mobile/eas.json",
         "package.json",
         "pnpm-lock.yaml",
-        "src/app/**",
-        "src/ui/**",
-        "src/lib/notifications/**",
-        "src/lib/permissions/**"
+        "apps/mobile/src/app/**",
+        "apps/mobile/src/ui/**",
+        "apps/mobile/src/lib/notifications/**",
+        "apps/mobile/src/lib/permissions/**"
       ],
       "isolation": "sandbox",
       "requires": ["ios", "maestro", "sandbox"],
@@ -217,63 +238,67 @@
   "areas": [
     {
       "id": "auth-session",
-      "paths": ["src/auth/**"],
+      "paths": ["apps/mobile/src/auth/**"],
       "focus": "one renewal at a time, generation guard against late renewals, refresh token rotation, restore offline, sign-out cleanup",
-      "docs": ["docs/MOBILE_ARCHITECTURE.md", "SECURITY.md"]
+      "docs": ["docs/mobile-architecture.md", "SECURITY.md"]
     },
     {
       "id": "networking",
-      "paths": ["src/api/**"],
+      "paths": ["apps/mobile/src/api/**"],
       "focus": "timeout and abort forwarding, one replay after 401, AppError mapping, breadcrumbs without query strings or bodies",
-      "docs": ["docs/MOBILE_ARCHITECTURE.md"]
+      "docs": ["docs/mobile-architecture.md"]
     },
     {
       "id": "contract",
       "paths": [
         "openapi/**",
-        "src/api/schema.d.ts",
-        "scripts/api-types.mjs",
-        "scripts/mock-api.mjs"
+        "apps/mobile/src/api/schema.d.ts",
+        "apps/mobile/scripts/api-types.mjs",
+        "apps/mobile/scripts/mock-api.mjs"
       ],
       "focus": "regenerated types, backwards compatibility with installed app versions, mock API and fixtures in step",
-      "docs": ["docs/MOBILE_ARCHITECTURE.md", "DEFINITION_OF_DONE.md"]
+      "docs": ["docs/mobile-architecture.md", "DEFINITION_OF_DONE.md"]
     },
     {
       "id": "server-state",
-      "paths": ["src/features/**/api.ts", "src/lib/query/**"],
+      "paths": ["apps/mobile/src/features/**/api.ts", "apps/mobile/src/lib/query/**"],
       "focus": "query keys, cancellation (signal), invalidation, optimistic updates and rollback, no retried mutations, nothing copied to Zustand",
-      "docs": ["docs/MOBILE_ARCHITECTURE.md"]
+      "docs": ["docs/mobile-architecture.md"]
     },
     {
       "id": "screens",
-      "paths": ["src/features/**/*.tsx", "src/app/**"],
+      "paths": ["apps/mobile/src/features/**/*.tsx", "apps/mobile/src/app/**"],
       "focus": "loading/empty/error/offline states, double submit, unmount during requests, thin routes, Stack.Protected guards, AlertText, a11y spec",
-      "docs": ["docs/MOBILE_ARCHITECTURE.md", "docs/ACCESSIBILITY.md"]
+      "docs": ["docs/mobile-architecture.md", "docs/accessibility.md"]
     },
     {
       "id": "links-notifications",
-      "paths": ["src/lib/links.ts", "src/lib/notifications/**", "src/app/+native-intent.tsx"],
+      "paths": [
+        "apps/mobile/src/lib/links.ts",
+        "apps/mobile/src/lib/notifications/**",
+        "apps/mobile/src/app/+native-intent.tsx"
+      ],
       "focus": "untrusted input: allowlist, parameter validation, no action performed by a link",
-      "docs": ["docs/MOBILE_ARCHITECTURE.md", "SECURITY.md"]
+      "docs": ["docs/mobile-architecture.md", "SECURITY.md"]
     },
     {
       "id": "storage-privacy",
-      "paths": ["src/lib/storage/**", "src/store/**"],
+      "paths": ["apps/mobile/src/lib/storage/**", "apps/mobile/src/store/**"],
       "focus": "secure vs persistent storage, data inventory, cleared at sign-out, stored data from the previous version still loads",
-      "docs": ["SECURITY.md", "docs/MOBILE_ARCHITECTURE.md"]
+      "docs": ["SECURITY.md", "docs/mobile-architecture.md"]
     },
     {
       "id": "config-native-release",
       "paths": [
-        "app.config.ts",
-        "eas.json",
-        "src/config/**",
-        ".env.example",
-        "metro.config.js",
-        "assets/**"
+        "apps/mobile/app.config.ts",
+        "apps/mobile/eas.json",
+        "apps/mobile/src/config/**",
+        "apps/mobile/.env.example",
+        "apps/mobile/metro.config.js",
+        "apps/mobile/assets/**"
       ],
       "focus": "EXPO_PUBLIC_* is public, permissions and usage texts, OTA vs store build, runtimeVersion, store compliance",
-      "docs": ["docs/RELEASES.md", "docs/STORE_COMPLIANCE.md", "SECURITY.md"]
+      "docs": ["docs/releases.md", "docs/store-compliance.md", "SECURITY.md"]
     },
     {
       "id": "dependencies",
@@ -284,19 +309,23 @@
         "scripts/dependency-policy.json"
       ],
       "focus": "justified, SDK-compatible (expo install), supply-chain settings never weakened, no new install scripts",
-      "docs": ["SECURITY.md", "docs/RELEASES.md"]
+      "docs": ["SECURITY.md", "docs/releases.md"]
     },
     {
       "id": "observability",
-      "paths": ["src/lib/observability/**", "src/lib/analytics/**", "src/lib/errors.ts"],
+      "paths": [
+        "apps/mobile/src/lib/observability/**",
+        "apps/mobile/src/lib/analytics/**",
+        "apps/mobile/src/lib/errors.ts"
+      ],
       "focus": "redaction: no tokens, passwords or personal data in logs, breadcrumbs, reports or events",
-      "docs": ["SECURITY.md", "docs/MOBILE_ARCHITECTURE.md"]
+      "docs": ["SECURITY.md", "docs/mobile-architecture.md"]
     },
     {
       "id": "ui-kit",
-      "paths": ["src/ui/**"],
+      "paths": ["apps/mobile/src/ui/**"],
       "focus": "roles and accessible names, 48 dp targets, theme tokens only, announcements",
-      "docs": ["docs/ACCESSIBILITY.md", "docs/PERFORMANCE.md"]
+      "docs": ["docs/accessibility.md", "docs/performance.md"]
     },
     {
       "id": "gates-and-ci",
@@ -304,22 +333,27 @@
         ".github/**",
         ".husky/**",
         "scripts/**",
-        "jest.config.js",
+        "apps/mobile/jest.config.js",
         "eslint.config.mjs",
-        "tsconfig.json",
-        "bundle-budget.json",
+        "apps/mobile/tsconfig.json",
+        "apps/mobile/bundle-budget.json",
         ".semgrepignore",
         ".secretlintrc.json",
-        ".maestro/config.yaml"
+        "apps/mobile/.maestro/config.yaml"
       ],
       "focus": "no gate, threshold, rule or permission weakened; workflows least privilege, pinned, no PR path to releases",
-      "docs": ["docs/CI_CD.md", "SECURITY.md"]
+      "docs": ["docs/ci-cd.md", "SECURITY.md"]
     },
     {
       "id": "tests",
-      "paths": ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/test/**", ".maestro/**"],
+      "paths": [
+        "apps/mobile/src/**/*.spec.ts",
+        "apps/mobile/src/**/*.spec.tsx",
+        "apps/mobile/src/test/**",
+        "apps/mobile/.maestro/**"
+      ],
       "focus": "would the tests fail if the code were wrong: realistic stubs, failure paths, races, no snapshots",
-      "docs": ["docs/TESTING.md"]
+      "docs": ["docs/testing.md"]
     },
     {
       "id": "docs",
@@ -328,21 +362,26 @@
       "docs": ["AGENTS.md"]
     }
   ],
-  "artifacts": ["coverage", "dist", ".maestro/results"],
+  "artifacts": ["apps/mobile/coverage", "apps/mobile/dist", "apps/mobile/.maestro/results"],
   "coverage": {
     "lcov": [
       {
-        "file": "coverage/lcov.info",
-        "base": "."
+        "file": "apps/mobile/coverage/lcov.info",
+        "base": "apps/mobile"
       }
     ],
-    "include": ["src/**/*.ts", "src/**/*.tsx"],
-    "exclude": ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/test/**", "src/**/*.d.ts"]
+    "include": ["apps/mobile/src/**/*.ts", "apps/mobile/src/**/*.tsx"],
+    "exclude": [
+      "apps/mobile/src/**/*.spec.ts",
+      "apps/mobile/src/**/*.spec.tsx",
+      "apps/mobile/src/test/**",
+      "apps/mobile/src/**/*.d.ts"
+    ]
   },
   "reproduction": {
     "fileSuffix": ".doberman.spec.tsx (or .doberman.spec.ts)",
-    "location": "inside src/, next to the code under test (jest only collects src/**/*.spec.ts(x))",
-    "runOne": "pnpm exec jest --coverage=false --runTestsByPath <file>",
+    "location": "inside apps/mobile/src/, next to the code under test (jest only collects apps/mobile/src/**/*.spec.ts(x))",
+    "runOne": "pnpm --filter mobile exec jest --coverage=false --runTestsByPath <path from apps/mobile>",
     "guide": "reference/reproduction.md"
   }
 }
