@@ -218,6 +218,11 @@ jobs:
           api-level: 36
           arch: x86_64
           target: default
+          # A current phone's screen (Pixel 8: 1080 x 2400, 420 dpi) rather than
+          # the small default profile, on which an element drawn under the
+          # status bar still showed below it and passed the flows (the offline
+          # banner did, until it padded the top inset itself).
+          profile: pixel_8
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           # The script's paths (the APK, the flows, the results) are the app's.

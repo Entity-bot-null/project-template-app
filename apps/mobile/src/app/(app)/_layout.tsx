@@ -5,7 +5,7 @@ import { useMe } from '@/features/account/api';
 import { analytics } from '@/lib/analytics';
 import { useNotificationNavigation } from '@/lib/notifications';
 import { errorReporter } from '@/lib/observability';
-import { OfflineBanner } from '@/ui';
+import { OfflineBannerLayout, useOfflineBannerStackOptions } from '@/ui';
 
 // A link that starts the app (src/lib/links.ts) builds the stack from its URL
 // alone: the anchor puts the tabs below the screen it opens, so there is a
@@ -16,10 +16,10 @@ export const unstable_settings = { anchor: '(tabs)' };
 export default function AppLayout() {
   useNotificationNavigation();
   useIdentifyUser();
+  const bannerOptions = useOfflineBannerStackOptions();
   return (
-    <>
-      <OfflineBanner />
-      <Stack>
+    <OfflineBannerLayout>
+      <Stack screenOptions={bannerOptions}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="items/[id]" options={{ title: 'Item' }} />
         <Stack.Screen
@@ -32,7 +32,7 @@ export default function AppLayout() {
           }}
         />
       </Stack>
-    </>
+    </OfflineBannerLayout>
   );
 }
 

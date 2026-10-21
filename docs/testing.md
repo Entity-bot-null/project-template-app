@@ -136,7 +136,7 @@ continuing the previous one's state like a user's first session):
 | `02-session-survives-restart` | the session restored from secure storage after the app is killed                                                                                                                                    |
 | `03-items`                    | list, search, detail, form validation, create                                                                                                                                                       |
 | `04-server-errors`            | a 5xx while searching: the error state after the automatic retries, and a retry that recovers                                                                                                       |
-| `05-offline`                  | airplane mode: the offline banner over the saved data, and a search typed offline that runs once the device is back online                                                                          |
+| `05-offline`                  | airplane mode: the offline banner (below the status bar) over the saved data, and a search typed offline that runs once the device is back online                                                   |
 | `06-session-ends`             | the server expires the access token (renewed, and the refused create sent again with its body), revokes the session in use (sign-in screen with the reason), and revokes it while the app is closed |
 | `07-deep-links`               | an accepted link opens its screen; an unknown route or a refused id lands on home; a link that starts the app opens its screen with the list below it                                               |
 | `08-sign-out`                 | sign-out with confirmation, still signed out after a restart, and a link into the app lands on sign-in                                                                                              |
@@ -172,9 +172,11 @@ sent):
 **In CI**: `.github/workflows/e2e-android.yml` builds the APK with Gradle, starts the mock API and
 an Android emulator, and runs the flows on every pull request that touches the app; screenshots,
 logs and a JUnit report are uploaded. The NDK React Native builds with (`ndkVersion` in
-`node_modules/react-native/gradle/libs.versions.toml`) is not on the runner image: the workflow
-installs it with `sdkmanager` before the build, verified and with retries, instead of leaving it to
-Gradle's single download attempt. The emulator runs the Android version the app targets (API 36,
+`apps/mobile/node_modules/react-native/gradle/libs.versions.toml`) is not on the runner image: the
+workflow installs it with `sdkmanager` before the build, verified and with retries, instead of
+leaving it to Gradle's single download attempt. The emulator is a current phone (the `pixel_8`
+profile: 1080 × 2400 at 420 dpi): on the small default profile, an element drawn under the status
+bar still showed below it, and its flow passed. It runs the Android version the app targets (API 36,
 React Native's `targetSdk`) with the AOSP system image (`target: default`), without Google Play
 services: no flow needs them, and on a fresh Google image they spend the first minutes syncing and
 restarting processes, which cut Maestro's connection to the device mid-flow
