@@ -2,6 +2,7 @@ import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { createRef } from 'react';
 import { AccessibilityInfo, Platform, type TextInput } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppError } from '@/lib/errors';
 import { DEFAULT_PREFERENCES, usePreferences } from '@/store/preferences';
@@ -15,7 +16,7 @@ import { Button } from './Button';
 import { Card } from './Card';
 import { Icon } from './Icon';
 import { Image } from './Image';
-import { OfflineBanner } from './OfflineBanner';
+import { OfflineBanner, OfflineBannerLayout, useOfflineBannerStackOptions } from './OfflineBanner';
 import { PermissionPrompt } from './PermissionPrompt';
 import { Screen } from './Screen';
 import { EmptyState, ErrorState, LoadingState } from './States';
@@ -259,6 +260,79 @@ describe('OfflineBanner', () => {
       onlineManager.setOnline(true);
     });
     expect(screen.queryByText(/You are offline/)).toBeNull();
+  });
+
+  // A phone that draws edge to edge (Android 15+, an iPhone with a notch or a
+  // Dynamic Island): the banner sits at the top of the window, so it pads the
+  // status bar itself, and the headers below it must not pad it again.
+  const NOTCHED = {
+    frame: { x: 0, y: 0, width: 390, height: 844 },
+    insets: { top: 47, right: 12, bottom: 34, left: 12 },
+  };
+
+  function InsetsProbe() {
+    const { top, bottom } = useSafeAreaInsets();
+    return <Text>{`insets ${top} ${bottom}`}</Text>;
+  }
+
+  afterEach(() => {
+    onlineManager.setOnline(true);
+  });
+
+  it('keeps its message below the status bar and clear of the notch', async () => {
+    await renderWithProviders(
+      <SafeAreaProvider initialMetrics={NOTCHED}>
+        <OfflineBanner />
+      </SafeAreaProvider>,
+    );
+    await act(() => {
+      onlineManager.setOnline(false);
+    });
+    const { spacing } = themes.light;
+    expect(screen.getByTestId('offline-banner')).toHaveStyle({
+      paddingTop: NOTCHED.insets.top + spacing.sm,
+      paddingLeft: NOTCHED.insets.left + spacing.lg,
+      paddingRight: NOTCHED.insets.right + spacing.lg,
+    });
+  });
+
+  it('takes the top inset from the screens below it while it shows', async () => {
+    await renderWithProviders(
+      <SafeAreaProvider initialMetrics={NOTCHED}>
+        <OfflineBannerLayout>
+          <InsetsProbe />
+        </OfflineBannerLayout>
+      </SafeAreaProvider>,
+    );
+    expect(screen.getByText('insets 47 34')).toBeOnTheScreen();
+    await act(() => {
+      onlineManager.setOnline(false);
+    });
+    expect(screen.getByText('You are offline. Showing saved data.')).toBeOnTheScreen();
+    expect(screen.getByText('insets 0 34')).toBeOnTheScreen();
+    await act(() => {
+      onlineManager.setOnline(true);
+    });
+    expect(screen.queryByText(/You are offline/)).toBeNull();
+    expect(screen.getByText('insets 47 34')).toBeOnTheScreen();
+  });
+
+  it("keeps Android's native headers from padding the status bar again while it shows", async () => {
+    function StackOptionsProbe() {
+      const options = useOfflineBannerStackOptions();
+      const disabled = options.unstable_nativeProps.headerConfig.disableTopInsetApplication;
+      return <Text>{`header top inset ${disabled ? 'off' : 'on'}`}</Text>;
+    }
+    await renderWithProviders(<StackOptionsProbe />);
+    expect(screen.getByText('header top inset on')).toBeOnTheScreen();
+    await act(() => {
+      onlineManager.setOnline(false);
+    });
+    expect(screen.getByText('header top inset off')).toBeOnTheScreen();
+    await act(() => {
+      onlineManager.setOnline(true);
+    });
+    expect(screen.getByText('header top inset on')).toBeOnTheScreen();
   });
 });
 
