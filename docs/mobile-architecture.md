@@ -123,8 +123,8 @@ and renders a screen from `apps/mobile/src/features/`. Route parameters are inpu
 links can carry anything): `items/[id].tsx` checks the id format before any request.
 
 **Typed routes** (`experiments.typedRoutes`): `router.push('/items/[id]')` with a wrong path or
-missing parameter is a type error. The types are generated in `.expo/types` by `pnpm typecheck` and
-`pnpm start`.
+missing parameter is a type error. The types are generated in `apps/mobile/.expo/types` by
+`pnpm typecheck` and `pnpm start`.
 
 **Errors in a route** are caught by the `ErrorBoundary` exported from
 `apps/mobile/src/app/_layout.tsx`: it reports the error and offers a retry, instead of a white
@@ -344,13 +344,13 @@ capability is classified as in [production-readiness.md](production-readiness.md
 
 **CORE** (in the template, tested):
 
-| Capability                   | Behavior                                                                                                | Where                                  |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Network awareness            | TanStack Query knows when the device is offline and when the app returns to the foreground              | `apps/mobile/src/lib/query/network.ts` |
-| Offline banner               | says the data shown may be stale; announced by screen readers                                           | `OfflineBanner`                        |
-| Paused and refetched queries | queries do not fail offline: they pause, and refetch when the network returns                           | TanStack Query `onlineManager`         |
-| Graceful failures            | a write offline fails at once with "You seem to be offline…", is not retried, keeps what the user typed | `apps/mobile/src/lib/errors.ts`, forms |
-| Offline cold start           | a stored session stays signed in; renewal waits for the network                                         | `apps/mobile/src/auth/session.ts`      |
+| Capability                   | Behavior                                                                                                                                                    | Where                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Network awareness            | TanStack Query knows when the device is offline and when the app returns to the foreground                                                                  | `apps/mobile/src/lib/query/network.ts` |
+| Offline banner               | says the data shown may be stale; announced by screen readers; below the status bar and the notch, and the headers under it do not pad the status bar again | `OfflineBannerLayout`, `OfflineBanner` |
+| Paused and refetched queries | queries do not fail offline: they pause, and refetch when the network returns                                                                               | TanStack Query `onlineManager`         |
+| Graceful failures            | a write offline fails at once with "You seem to be offline…", is not retried, keeps what the user typed                                                     | `apps/mobile/src/lib/errors.ts`, forms |
+| Offline cold start           | a stored session stays signed in; renewal waits for the network                                                                                             | `apps/mobile/src/auth/session.ts`      |
 
 **OPTIONAL / PROJECT-SPECIFIC** (not included: each depends on the product's data and rules):
 
@@ -417,8 +417,9 @@ are the references:
   themed styles once per theme.
 - `components/`: `Text` (variants, tones, heading roles), `Button` (variants, busy, 48 dp targets),
   `TextField`, `Card`, `Icon` (Ionicons, decorative unless labeled), `Screen` (safe areas, keyboard
-  avoidance, scrolling), `LoadingState`, `EmptyState`, `ErrorState`, `OfflineBanner`,
-  `PermissionPrompt`.
+  avoidance, scrolling), `LoadingState`, `EmptyState`, `ErrorState`, `OfflineBanner` (and
+  `OfflineBannerLayout`, which puts a navigator under it: while the banner shows, it takes the top
+  inset, so the headers below read a top inset of 0), `PermissionPrompt`.
 
 Screens use these components and theme values only: no color literals, no raw React Native text or
 touchables (lint rules). A new component goes into `apps/mobile/src/ui/` when a second feature needs
