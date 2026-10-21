@@ -238,13 +238,13 @@ Local requirements that CI (Linux) already meets:
     "manifest 'build.ninja' still dirty after 100 tries". Set the user environment variable
     `pnpm_config_node_linker=hoisted` on that machine and run `pnpm install` again. Nothing changes
     in the repository, and CI keeps checking the isolated layout;
-  - or avoid all of this: build in WSL 2, or with EAS (`eas build --profile e2e --platform
-android`), and run only the emulator and Maestro on Windows.
+  - or avoid all of this: build in WSL 2, or with EAS (`eas build --profile e2e --platform android`
+    in `apps/mobile`), and run only the emulator and Maestro on Windows.
 
 **Locally, iOS** (macOS, Xcode, a simulator): build the `e2e` variant for the simulator, with
 `APP_VARIANT=e2e` and the variables above,
 `pnpm --filter mobile exec expo run:ios --configuration Release`, or
-`eas build --profile e2e --platform ios` and install the result; the simulator reaches the Mac's
+`eas build --profile e2e --platform ios` in `apps/mobile`, and install the result; the simulator reaches the Mac's
 `localhost` directly. Then `pnpm test:e2e:mobile`.
 
 **Writing flows**: target `testID`s (`id:`) and visible text; wait with `extendedWaitUntil`, never

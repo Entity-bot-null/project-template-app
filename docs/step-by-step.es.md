@@ -477,8 +477,8 @@ propios enlaces.
 
 ## Fase 7. EAS y servicios
 
-Los comandos `eas` de esta guía (fases 7 a 11) se ejecutan en `apps/mobile`, donde están
-`eas.json` y la configuración de la app: deja una terminal abierta allí.
+Todos los comandos `eas` de esta guía, de aquí al calendario de mantenimiento, se ejecutan en
+`apps/mobile`, donde están `eas.json` y la configuración de la app: deja una terminal abierta allí.
 
 ### 7.1 El proyecto de EAS
 
