@@ -174,7 +174,7 @@ an Android emulator, and runs the flows on every pull request that touches the a
 logs and a JUnit report are uploaded. The NDK React Native builds with (`ndkVersion` in
 `apps/mobile/node_modules/react-native/gradle/libs.versions.toml`) is not on the runner image: the
 workflow installs it with `sdkmanager` before the build, verified and with retries, instead of
-leaving it to Gradle's single download attempt. The emulator is a current phone (the `pixel_8`
+leaving it to Gradle's single download attempt. The emulator is a current phone (the `pixel_7`
 profile: 1080 × 2400 at 420 dpi): on the small default profile, an element drawn under the status
 bar still showed below it, and its flow passed. It runs the Android version the app targets (API 36,
 React Native's `targetSdk`) with the AOSP system image (`target: default`), without Google Play
