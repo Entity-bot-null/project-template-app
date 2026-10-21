@@ -47,11 +47,15 @@ env:
       id: sign-in-screen
     timeout: 15000
 - assertVisible: Your session has ended. Sign in again to continue.
+# The search was still being typed when the session ended: its last
+# characters can land in the sign-in form, which opened meanwhile.
 - tapOn:
     id: sign-in-email
+- eraseText
 - inputText: member@example.com
 - tapOn:
     id: sign-in-password
+- eraseText
 - inputText: member-password
 - hideKeyboard
 - tapOn:
