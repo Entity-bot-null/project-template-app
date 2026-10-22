@@ -95,6 +95,8 @@ describe('pullableImage', () => {
       'zizmor',
       'semgrep',
       'gitleaks',
+      'terraform',
+      'ubuntu',
       'trivy',
       'postgres',
       'redis',
@@ -142,7 +144,7 @@ describe('buildContexts', () => {
 
   test("the applications' Dockerfiles get a context for their ECR Public base image", () => {
     const { pull: has } = mirrorWith(true);
-    for (const file of ['apps/api/Dockerfile']) {
+    for (const file of ['apps/api/Dockerfile', 'apps/landing/Dockerfile']) {
       const text = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
       const contexts = buildContexts(text, { mirror: MIRROR, has });
       assert.ok(contexts.length > 0, file);

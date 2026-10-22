@@ -192,6 +192,14 @@ services:
       - '127.0.0.1:${OTLP_HTTP_PORT:-4328}:4318'
       - '127.0.0.1:${GRAFANA_PORT:-3011}:3000'
       - '127.0.0.1:${PROMETHEUS_PORT:-9100}:9090'
+    # The dashboards and alert rules of observability/, read-only: Grafana
+    # shows them in the folder "Application", Prometheus evaluates the rules
+    # (docs/observability.md#dashboards-and-alerts-as-code).
+    volumes:
+      - ./observability/prometheus/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
+      - ./observability/prometheus/rules:/otel-lgtm/rules:ro
+      - ./observability/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/application.yaml:ro
+      - ./observability/grafana/dashboards:/otel-lgtm/application-dashboards:ro
 
 volumes:
   db_data:

@@ -24,11 +24,12 @@ import {
 import { startOpenTelemetry } from './telemetry-sdk.js';
 
 // observability/api-metrics.json lists the series the API exports, the ones
-// dashboards and alert rules may read (docs/observability.md#metric-catalog).
-// This spec keeps it true to the code: every metric the process creates is
-// listed under the name Prometheus gives it, with its type, and the
-// application's own metrics (app_*, process_*) are listed with exactly their
-// attributes, no more and no fewer. A metric renamed or removed in the code
+// dashboards and alert rules may read (scripts/check-observability.mjs). It
+// is rewritten from a running backend (docs/observability.md#metric-catalog);
+// this spec keeps it true to the code in between: every metric the process
+// creates is listed under the name Prometheus gives it, with its type, and
+// the application's own metrics (app_*, process_*) are listed with exactly
+// their attributes, no more and no fewer. A metric renamed or removed in the code
 // fails here, before a dashboard or an alert silently reads nothing.
 
 interface CatalogEntry {

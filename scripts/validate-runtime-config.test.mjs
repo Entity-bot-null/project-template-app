@@ -33,6 +33,7 @@ const FINGERPRINT = Array.from({ length: 32 }, (_, index) =>
 /** What the image sets, a deployment's APP_ORIGIN, and what 15-local-resolvers.envsh exports. */
 const VALID = {
   APP_ORIGIN: 'https://app.example.com',
+  APP_RELEASE: 'unversioned',
   APPLE_TEAM_ID: '',
   IOS_BUNDLE_ID: '',
   ANDROID_PACKAGE: '',
@@ -109,9 +110,19 @@ describe('18-validate-runtime-config.sh', () => {
     }
   });
 
+  test('refuses a release that is not a plain build name: it is served inside JSON', () => {
+    // The image's default, a commit SHA, and a version name pass.
+    for (const release of ['unversioned', '97557ea1f0c2', 'v1.0.0+45']) {
+      assert.equal(validate({ APP_RELEASE: release }).status, 0, release);
+    }
+    for (const value of ['', '-rc', 'a b', 'a/b', 'x'.repeat(129)])
+      assertRefused('APP_RELEASE', value);
+  });
+
   test('refuses a value with a newline, even when its first line is valid', () => {
     // grep matches line by line: the first line would carry the rest in.
     assertRefused('APP_ORIGIN', 'https://app.example.com\nevil');
+    assertRefused('APP_RELEASE', 'unversioned\nevil');
     assertRefused('APPLE_TEAM_ID', 'ABCDE12345\nevil', APP_IDENTITY);
     assertRefused('IOS_BUNDLE_ID', 'com.example.app\nevil', APP_IDENTITY);
     assertRefused('ANDROID_PACKAGE', 'com.example.app\revil', APP_IDENTITY);
@@ -121,6 +132,7 @@ describe('18-validate-runtime-config.sh', () => {
   test('refuses quotes, backslashes and $ that would break the JSON or the nginx string', () => {
     for (const character of ['"', "'", '\\', '$']) {
       assertRefused('APP_ORIGIN', `https://app.example.com${character}evil`);
+      assertRefused('APP_RELEASE', `unversioned${character}evil`);
       assertRefused('IOS_BUNDLE_ID', `com.example.app${character}evil`, APP_IDENTITY);
       assertRefused('ANDROID_PACKAGE', `com.example.app${character}evil`, APP_IDENTITY);
     }

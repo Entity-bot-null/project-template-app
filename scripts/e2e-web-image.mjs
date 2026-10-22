@@ -1,12 +1,13 @@
 // The web image for the browser suite (playwright.config.ts starts it, and
-// stops it with the suite): built from apps/landing/Dockerfile, then run on
-// the port and with the app identity the suite passes in its environment
-// (e2e/support/web-image.ts), and an API upstream that answers nothing (the
-// suite checks the pages, the links and their files, not the API). Needs
-// Docker. With TOOL_IMAGE_MIRROR set (CI), the base images come from that
-// mirror, by the same digests, as in .github/workflows/docker-images.yml.
+// stops it with the suite): built from apps/landing/Dockerfile for the
+// release, then run on the port and with the app identity the suite passes in
+// its environment (e2e/support/web-image.ts), and an API upstream that answers
+// nothing (the suite checks the pages, the links and their files, not the
+// API). Needs Docker. With TOOL_IMAGE_MIRROR set (CI), the base images come
+// from that mirror, by the same digests, as in
+// .github/workflows/docker-images.yml.
 //
-//   WEB_IMAGE_PORT=8091 APPLE_TEAM_ID=… … node scripts/e2e-web-image.mjs
+//   WEB_IMAGE_PORT=8091 WEB_IMAGE_RELEASE=e2e APPLE_TEAM_ID=… … node scripts/e2e-web-image.mjs
 import { spawn, spawnSync } from 'node:child_process';
 
 const IMAGE = 'template-app-web:e2e';
@@ -19,8 +20,11 @@ const IDENTITY = [
 ];
 
 const port = process.env.WEB_IMAGE_PORT;
-if (port === undefined || !/^\d+$/.test(port)) {
-  console.error('WEB_IMAGE_PORT is not set: run this through `pnpm test:e2e`.');
+const release = process.env.WEB_IMAGE_RELEASE;
+if (port === undefined || !/^\d+$/.test(port) || release === undefined) {
+  console.error(
+    'WEB_IMAGE_PORT or WEB_IMAGE_RELEASE is not set: run this through `pnpm test:e2e`.',
+  );
   process.exit(2);
 }
 
@@ -35,10 +39,21 @@ const mirrored = process.env.TOOL_IMAGE_MIRROR
       .filter((line) => line !== '')
       .flatMap((context) => ['--build-context', context])
   : [];
-const build = spawnSync('docker', ['build', ...mirrored, '-f', dockerfile, '-t', IMAGE, '.'], {
-  cwd: root,
-  stdio: 'inherit',
-});
+const build = spawnSync(
+  'docker',
+  [
+    'build',
+    ...mirrored,
+    '--build-arg',
+    `APP_RELEASE=${release}`,
+    '-f',
+    dockerfile,
+    '-t',
+    IMAGE,
+    '.',
+  ],
+  { cwd: root, stdio: 'inherit' },
+);
 if (build.status !== 0) {
   console.error('The web image did not build (is Docker running?).');
   process.exit(1);

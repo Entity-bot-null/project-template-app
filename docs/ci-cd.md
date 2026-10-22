@@ -1,8 +1,9 @@
 # CI/CD
 
 The GitHub Actions workflows: what each one checks or ships, how they are protected, and how to set
-up a new repository. What a release is (profiles, versions, updates, rollbacks) is in
-[releases.md](releases.md).
+up a new repository. What a release of the app is (profiles, versions, updates, rollbacks) is in
+[releases.md](releases.md); a deployment of the server side (the API and the web image) is
+[Deployment](#deployment), on the server of [deploy-vps.md](deploy-vps.md).
 
 - [Workflows](#workflows)
 - [Dependency updates](#dependency-updates)
@@ -15,42 +16,48 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 - [Setting up the repository](#setting-up-the-repository)
 - [Images](#images)
 - [Workflow security](#workflow-security)
+- [Infrastructure as code](#infrastructure-as-code)
+- [Deployment](#deployment)
 - [Pinning](#pinning)
 - [Keeping the stack current](#keeping-the-stack-current)
 
 ## Workflows
 
-| Workflow                    | Trigger                                                   | Secrets                           | Does                                                                                                              |
-| --------------------------- | --------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ci.yml`                    | pull request, push to `main`, manual                      | none                              | dependency review (opt-in), the quality gates, "CI passed"                                                        |
-| `conventions.yml`           | pull request, again when its title is edited              | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required                            |
-| `quality-gates.yml`         | called by CI, EAS build and EAS update                    | none                              | the gates below, on a given commit                                                                                |
-| `docker-images.yml`         | called by the quality gates                               | none                              | builds the images (`api`, `api-migrate`, `web`) and scans them with Trivy; never pushes                           |
-| `e2e-android.yml`           | pull request and push touching the app or the API, manual | none                              | release APK of the `e2e` variant, emulator, Maestro flows against the mock API, then against the API with Mailpit |
-| `codeql.yml`                | pull request, push, weekly (opt-in)                       | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                                        |
-| `release.yml`               | push to `main`                                            | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                                         |
-| `main-guard.yml`            | push to `main`                                            | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue                       |
-| `dependabot-auto-merge.yml` | approval of a Dependabot pull request                     | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)                             |
-| `eas-build.yml`             | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                                            |
-| `eas-update.yml`            | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                                             |
-| `eas-rollback.yml`          | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                                                   |
+| Workflow                    | Trigger                                                   | Secrets                           | Does                                                                                                                                                         |
+| --------------------------- | --------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ci.yml`                    | pull request, push to `main`, manual                      | none                              | dependency review (opt-in), the quality gates, "CI passed"                                                                                                   |
+| `conventions.yml`           | pull request, again when its title is edited              | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required                                                                       |
+| `quality-gates.yml`         | called by CI, EAS build, EAS update and Deploy            | none                              | the gates below, on a given commit                                                                                                                           |
+| `docker-images.yml`         | called by the quality gates                               | none                              | builds the images (`api`, `api-migrate`, `web`) and scans them with Trivy; never pushes                                                                      |
+| `e2e-android.yml`           | pull request and push touching the app or the API, manual | none                              | release APK of the `e2e` variant, emulator, Maestro flows against the mock API, then against the API with Mailpit                                            |
+| `codeql.yml`                | pull request, push, weekly (opt-in)                       | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                                                                                   |
+| `release.yml`               | push to `main`                                            | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                                                                                    |
+| `main-guard.yml`            | push to `main`                                            | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue                                                                  |
+| `dependabot-auto-merge.yml` | approval of a Dependabot pull request                     | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)                                                                        |
+| `eas-build.yml`             | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                                                                                       |
+| `eas-update.yml`            | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                                                                                        |
+| `eas-rollback.yml`          | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                                                                                              |
+| `deploy.yml`                | manual, from `main` only                                  | `DEPLOY_*` (environment)          | gates, then the server side to `staging` or `production`: images published and scanned, migration, rollout, smoke test, rollback ([Deployment](#deployment)) |
+| `dast.yml`                  | weekly, manual                                            | none                              | OWASP ZAP on the production images started on the runner, or a passive scan of staging; ADVISORY ([security.md](security.md#dynamic-analysis))               |
 
 The quality gates: the checks `pnpm verify` runs locally, plus the Docker-based ones, the
-repository scripts' tests (`pnpm test:scripts`), the API's integration suite and images, and the
-native projects (`expo prebuild`):
+repository scripts' tests (`pnpm test:scripts`), the API's integration suite and images, the
+infrastructure and observability code, and the native projects (`expo prebuild`):
 
-| Job                                   | Runs                                                                                                                                                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Tool images                           | resolves the pinned PostgreSQL, Redis and Mailpit images of `scripts/tool-images/Dockerfile` (through the mirror when it has them) for the integration job's service containers                                                      |
-| Format, lint, types, workflows        | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` (contract drift included), `pnpm test:scripts` (the migrations' contract steps and the mock API against the contract included), `node scripts/lint-workflows.mjs`                 |
-| Expo doctor                           | `pnpm expo:doctor`: SDK compatibility of dependencies (against the installed SDK's manifest, so the result depends on the lockfile, not on the day Expo publishes a patch), config, duplicate native modules, React Native Directory |
-| Static analysis (Semgrep)             | `node scripts/sast.mjs`                                                                                                                                                                                                              |
-| Unit, component and integration tests | `pnpm test:coverage` with the thresholds of every package (the API's OpenAPI drift spec included); the HTML reports as an artifact                                                                                                   |
-| Integration tests                     | `pnpm test:integration`: the API over HTTP on PostgreSQL 18, with Redis 8 and Mailpit, all service containers; a missing one fails the suite instead of skipping it                                                                  |
-| Security                              | `pnpm security` (audit, dependency policy, secrets in the tree) and gitleaks on the full history                                                                                                                                     |
-| Build, budget and native projects     | `pnpm build` (the API, the landing, and the app's production export), `pnpm perf:check` (the landing's and the app's budgets), `expo prebuild` of both platforms in `apps/mobile`                                                    |
-| End-to-end tests (browser)            | `pnpm test:e2e`: Playwright against the built landing and the web image built from its Dockerfile (base images through the mirror); the report and traces as an artifact on failure ([testing.md](testing.md#browser-end-to-end))    |
-| Images                                | `docker-images.yml`: `apps/api/Dockerfile` (targets `runtime` and `migrate`) and `apps/landing/Dockerfile` built and scanned by Trivy (fixable HIGH and CRITICAL fail); nothing is pushed                                            |
+| Job                                   | Runs                                                                                                                                                                                                                                                                        |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tool images                           | resolves the pinned PostgreSQL, Redis and Mailpit images of `scripts/tool-images/Dockerfile` (through the mirror when it has them) for the integration job's service containers                                                                                             |
+| Format, lint, types, workflows        | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` (contract drift included), `pnpm test:scripts` (the migrations' contract steps and the mock API against the contract included), `node scripts/lint-workflows.mjs`                                                        |
+| Expo doctor                           | `pnpm expo:doctor`: SDK compatibility of dependencies (against the installed SDK's manifest, so the result depends on the lockfile, not on the day Expo publishes a patch), config, duplicate native modules, React Native Directory                                        |
+| Infrastructure as code (Terraform)    | `node scripts/check-iac.mjs` ([Infrastructure as code](#infrastructure-as-code))                                                                                                                                                                                            |
+| Static analysis (Semgrep)             | `node scripts/sast.mjs`                                                                                                                                                                                                                                                     |
+| Observability as code                 | `pnpm observability:check`: the dashboards and alert rules against the metric catalog and the runbooks, then promtool on the configuration, the rules, every dashboard query and the rules' unit tests ([observability.md](observability.md#dashboards-and-alerts-as-code)) |
+| Unit, component and integration tests | `pnpm test:coverage` with the thresholds of every package (the API's OpenAPI drift spec included); the HTML reports as an artifact                                                                                                                                          |
+| Integration tests                     | `pnpm test:integration`: the API over HTTP on PostgreSQL 18, with Redis 8 and Mailpit, all service containers; a missing one fails the suite instead of skipping it                                                                                                         |
+| Security                              | `pnpm security` (audit, dependency policy, secrets in the tree) and gitleaks on the full history                                                                                                                                                                            |
+| Build, budget and native projects     | `pnpm build` (the API, the landing, and the app's production export), `pnpm perf:check` (the landing's and the app's budgets), `expo prebuild` of both platforms in `apps/mobile`                                                                                           |
+| End-to-end tests (browser)            | `pnpm test:e2e`: Playwright against the built landing and the web image built from its Dockerfile (base images through the mirror); the report and traces as an artifact on failure ([testing.md](testing.md#browser-end-to-end))                                           |
+| Images                                | `docker-images.yml`: `apps/api/Dockerfile` (targets `runtime` and `migrate`) and `apps/landing/Dockerfile` built and scanned by Trivy (fixable HIGH and CRITICAL fail); nothing is pushed                                                                                   |
 
 Pull requests from Dependabot run the same gates; they skip only the conventions job (bots name
 branches their own way).
@@ -152,6 +159,11 @@ No pull request can build, sign, submit or publish the app:
    gate.
 8. Signing keys and store credentials live on EAS, never in the repository or in GitHub.
 
+The server side follows the same rules: `deploy.yml` runs only on `workflow_dispatch`, from `main`,
+for a commit on `main`, re-runs every gate on it, and reaches the server only from the `staging`
+and `production` environments, whose `DEPLOY_SSH_KEY` no other workflow can read. The database,
+Redis and JWT secrets never leave the server ([deploy-vps.md](deploy-vps.md#6-the-files-on-the-server)).
+
 ## EAS builds
 
 **EAS build** (`eas-build.yml`): Actions → EAS build → Run workflow (from `main`), with:
@@ -179,15 +191,18 @@ release steps in GitHub Actions so the same gates, reviews and audit trail apply
 
 ## Environments
 
-Two GitHub environments, matching the EAS environments and channels (Settings → Environments).
-For a **private** repository they need GitHub **Team** (organization) or **Pro** (personal), as do
-rulesets (Team) and branch protection; on the Free plan they exist only for public repositories,
-and without them the protections below do not hold.
+Three GitHub environments (Settings → Environments): `preview` and `production` match the EAS
+environments and channels of the app, `staging` and `production` the servers of the API and the
+web image (the `preview` builds talk to the staging server, the `production` builds to the
+production one). For a **private** repository they need GitHub **Team** (organization) or **Pro**
+(personal), as do rulesets (Team) and branch protection; on the Free plan they exist only for
+public repositories, and without them the protections below do not hold.
 
-| Environment  | Deployment branches | Required reviewers                                            | Secrets                                    |
-| ------------ | ------------------- | ------------------------------------------------------------- | ------------------------------------------ |
-| `preview`    | `main` only         | optional                                                      | `EXPO_TOKEN`; `SENTRY_AUTH_TOKEN` optional |
-| `production` | `main` only         | yes (not the person who started the run; prevent self-review) | `EXPO_TOKEN`, `SENTRY_AUTH_TOKEN`          |
+| Environment  | Deployment branches | Required reviewers                                            | Secrets                                                                   |
+| ------------ | ------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `preview`    | `main` only         | optional                                                      | `EXPO_TOKEN`; `SENTRY_AUTH_TOKEN` optional                                |
+| `staging`    | `main` only         | optional                                                      | `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` (with the server target)           |
+| `production` | `main` only         | yes (not the person who started the run; prevent self-review) | `EXPO_TOKEN`, `SENTRY_AUTH_TOKEN`; `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` |
 
 ## Secrets and variables
 
@@ -199,6 +214,13 @@ and without them the protections below do not hold.
 | `SENTRY_ORG`, `SENTRY_PROJECT` | variable (optional)         | repository                           | with `SENTRY_AUTH_TOKEN`, enable the source map upload step                                           |
 | `ENABLE_CODEQL`                | variable (optional, `true`) | repository                           | turn on CodeQL                                                                                        |
 | `ENABLE_DEPENDENCY_REVIEW`     | variable (optional, `true`) | repository                           | turn on dependency review                                                                             |
+| `DEPLOY_TARGET`                | variable (`vps`)            | repository                           | the server target of `deploy.yml`; unset, its generic `release` job fails until implemented           |
+| `IMAGE_PREFIX`                 | variable                    | repository                           | `ghcr.io/<owner>/<repository>`, lowercase: where Deploy pushes the images                             |
+| `DEPLOY_HOST`, `PUBLIC_URL`    | variable                    | `staging`, `production`              | the server's host name and the public origin the smoke test checks                                    |
+| `DEPLOY_USER`, `DEPLOY_PATH`   | variable (optional)         | `staging`, `production`              | default `deploy` and `/srv/app`                                                                       |
+| `DEPLOY_SSH_KEY`               | secret                      | `staging`, `production`              | the deploy user's private key ([deploy-vps.md](deploy-vps.md#4-the-deploy-user-and-its-ssh-key))      |
+| `DEPLOY_KNOWN_HOSTS`           | secret                      | `staging`, `production`              | the server's host key, checked on every connection                                                    |
+| `DAST_STAGING_URL`             | variable (optional)         | repository                           | the staging origin for DAST's passive scan                                                            |
 
 Build-time values of the app itself (API URL, Sentry DSN) are EAS environment variables, not GitHub
 ones ([releases.md](releases.md#environment-variables)).
@@ -214,7 +236,8 @@ Once, after creating the repository from this template (REQUIERE CONFIGURACIÓN)
    `required_approving_review_count` to `0` and `require_code_owner_review` and
    `require_last_push_approval` to `false` before importing `main.json`.
 2. CODEOWNERS: replace the placeholders in `.github/CODEOWNERS` and uncomment.
-3. Environments `preview` and `production` with their secrets ([above](#environments)).
+3. Environments `preview`, `staging` and `production` with their secrets ([above](#environments));
+   the server's part, with the server itself: [deploy-vps.md](deploy-vps.md#7-github-settings).
 4. Optional variables and secrets ([above](#secrets-and-variables)).
 5. Settings → Actions → General: allow GitHub Actions to create pull requests (release-please), and
    keep workflow permissions read-only by default.
@@ -236,13 +259,15 @@ operating system upgrade in the Dockerfile runs again once a day instead of comi
 until the base image changes. The base images come through the mirror by digest where it has them
 (`scripts/tool-image.mjs --build-contexts`). CI never pushes. To publish, set `IMAGE_PREFIX` (for
 example `ghcr.io/owner/repo`), add the registry login step marked in the file (and
-`packages: write` for GHCR), and call it with `push: true`. Pushed images carry their SBOM and SLSA
+`packages: write` for GHCR), and call it with `push: true`; the Deploy workflow's `publish` job
+does exactly that for the server target ([Deployment](#deployment)). Pushed images carry their SBOM and SLSA
 provenance as attestations; signed GitHub attestations are one commented step away
 ([security.md](security.md#artifact-integrity)).
 
 Locally: `docker compose --profile stack up --build` builds the same Dockerfiles, runs the
 migrations and serves everything on `http://localhost:8090` (the API at `/api`), on the compose
-Redis; `pnpm smoke --url http://localhost:8090` checks it
+Redis; `pnpm smoke --url http://localhost:8090` checks it (`--release <APP_RELEASE>` too, when the
+root `.env` sets one)
 ([manual.md](manual.md#55-the-production-like-stack)). Add `--profile observability` (and
 `STACK_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318` in the root `.env`) to see its traces and
 metrics in Grafana.
@@ -268,25 +293,160 @@ in CI):
 - zizmor's exceptions are listed, with their reason, in `.github/zizmor.yml`.
 - shellcheck also checks the Git hooks in `.husky/`.
 
+## Infrastructure as code
+
+`infra/terraform/digitalocean` provisions the server target on DigitalOcean
+([deploy-vps.md](deploy-vps.md#provision-with-terraform-digitalocean)), and `deploy/vps/db-init.sh`
+creates the database and its roles on a server that runs its own
+([deploy-vps.md](deploy-vps.md#5-the-database)). The CI job **Infrastructure as code (Terraform)**,
+and `pnpm iac:check` locally, check both with the pinned images, the configuration mounted
+read-only, without a cloud account or a token:
+
+| Check                                                                                 | Fails on                                                                                |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `terraform fmt -check -recursive`                                                     | a file Terraform would reformat                                                         |
+| `terraform init -backend=false -lockfile=readonly`, `terraform validate`              | a provider whose checksum is not in `.terraform.lock.hcl`; an invalid configuration     |
+| `terraform test` (`tests/*.tftest.hcl`, the DigitalOcean provider mocked)             | the server, firewalls, database or alerts drifting from the guide; a bad input accepted |
+| TFLint, every bundled Terraform rule (`infra/terraform/.tflint.hcl`)                  | any finding, notices included                                                           |
+| Trivy's misconfiguration checks (those bundled with the pinned image)                 | HIGH or CRITICAL, unless an inline `trivy:ignore` gives its reason                      |
+| `cloud-init schema` on the rendered user data, with Ubuntu 24.04's cloud-init         | an invalid key or value                                                                 |
+| shellcheck on the user data's `runcmd`, the fingerprint of `files/docker.asc`         | a shell finding; a key other than Docker's                                              |
+| `database/roles.sql` on PostgreSQL as an administrator that is not a superuser, twice | an error; roles or rights other than the guide's                                        |
+| `deploy/vps/db-init.sh` in PostgreSQL's entrypoint on an empty volume, as mounted     | an error; roles or rights other than the guide's; a weak or wrong password let in       |
+| A backup as `app_backup` (`pg_dump`, the format of the server's nightly backup)       | a dump without the data                                                                 |
+
+A real `terraform plan` or `apply` is never part of CI: it needs an account, a token and the
+state. Run them by hand, per environment. The Terraform and TFLint images are updated by
+Dependabot like every tool image, and the providers by its `terraform` entry (version and
+checksums together); a Terraform minor release also needs `required_version` in `versions.tf`,
+which the gate enforces.
+
+## Deployment
+
+`deploy.yml` is the integration point. Run it from `main` (it refuses any other branch) with the
+environment and the ref to deploy: a branch, a release tag or a commit SHA. The ref is resolved
+once to a commit, which must be on `main` (reviewed and merged code only); the gates and the
+release then use that SHA, never the ref, which could move in between.
+
+Two release paths follow the gates:
+
+- **The reference target, one Linux server with Docker** (repository variable
+  `DEPLOY_TARGET=vps`, [deploy-vps.md](deploy-vps.md), [ADR 0009](adr/0009-postgresql-and-redis-on-the-server.md)), implemented: `publish` pushes the three
+  images to ghcr.io once per commit, scans the digests it pushed and records them in the run
+  (production reuses the digests staging recorded, and scans them again), and `release-vps`, in the
+  GitHub environment,
+  checks that the server's copy of `deploy/vps` matches the release, runs `deploy.sh` on the
+  server over SSH with the recorded digests (pull by digest, migrate, roll out, back to the running
+  release when the rollout fails), runs the smoke test and calls `rollback.sh` when it fails.
+- **Any other platform:** the `release` job fails on purpose until it is implemented for it
+  (REQUIERE CONFIGURACIÓN), in the order below.
+
+The pipeline from a merged commit to production, and who does each step:
+
+| Step                          | VPS target (`DEPLOY_TARGET=vps`)                                   | Any other platform (REQUIERE CONFIGURACIÓN)         |
+| ----------------------------- | ------------------------------------------------------------------ | --------------------------------------------------- |
+| 1. Build                      | Gates (`pnpm build`, the three images)                             | the same                                            |
+| 2. Test                       | Gates (unit, component, integration, E2E, coverage)                | the same                                            |
+| 3. Security gates             | Gates (audit, dependency policy, secrets, SAST, Trivy)             | the same                                            |
+| 4. Publish the images         | `publish`: ghcr.io, once per commit, scanned and recorded          | `docker-images.yml` with `push: true`               |
+| 5. Deploy by immutable digest | `release-vps` hands the recorded `<image>@<digest>` to `deploy.sh` | the release job                                     |
+| 6. Migrate (expand/contract)  | `deploy.sh` runs the `api-migrate` image                           | the release job runs the `api-migrate` image        |
+| 7. Deploy the API             | `deploy.sh`, waiting for readiness                                 | the release job                                     |
+| 8. Deploy the web image       | `deploy.sh`                                                        | the release job                                     |
+| 9. Smoke test                 | `scripts/smoke-test.mjs` in `release-vps`                          | `scripts/smoke-test.mjs` in the release job         |
+| 10. Rollback on failure       | `deploy.sh` on a failed rollout, `rollback.sh` on a failed smoke   | the release job, or by hand ([Rollback](#rollback)) |
+
+Steps 1 to 3 run on the exact commit being deployed (the `gates` job of `deploy.yml`). For any
+other platform, implement the release job in this order (the VPS target follows it too):
+
+1. **Images, once per commit.** Push them (`docker-images.yml` with `push: true`, tags
+   `<IMAGE_PREFIX>/<image>:<sha>`), take each digest from the build's output, scan that digest and
+   record it. Production must run the digests staging verified, not a rebuild (a rebuild picks up
+   newer base image patches and is a different artifact): reuse the digests staging recorded. Never
+   look a digest up from the tag: any workflow of the repository with `packages: write`, on any
+   branch, can push `<image>:<sha>`, and a lookup after the approval wait would ship whatever it
+   points to then. The VPS jobs do this with an artifact per image, trusted only from a run of
+   `deploy.yml` from a commit on `main` (`scripts/recorded-images.mjs`). Deploy `<image>@<digest>`
+   from here on; verify its attestation first where signed attestations are enabled
+   (docs/security.md#artifact-integrity).
+2. **Record the digests running now**, before changing anything: they are the rollback target.
+3. **Migrate:** run the `api-migrate` image against the environment's database
+   (`prisma migrate deploy`). If it fails, stop here: the running version keeps serving
+   (docs/incident-response.md#10-failed-database-migration).
+4. **Roll out `api`, then `web`**, letting the platform wait for readiness
+   (`GET /api/health/ready` on the API itself; the web server does not expose it).
+5. **Smoke test:**
+   `node scripts/smoke-test.mjs --url <public URL> --api <API URL inside the platform> --release <sha>`
+   checks the public side (web server, `/release.json` naming the expected release, the landing
+   in both languages with its links and share picture on the deployment's origin and its security
+   headers, the not-found page, the open-in-app page at the app's links, the app's link files, the
+   API through the proxy, probes not public) and the API's liveness and readiness. Read-only: it
+   signs nobody in. Once the app's identity is set, add `--require-app-links`.
+6. **On failure, roll back** to the digests recorded in step 2.
+
+Staging first: deploy to `staging`, verify (the DAST baseline can run against it), then deploy the
+same commit to `production`. Before the first production release, go through
+[production-readiness.md](production-readiness.md).
+
+### Compatibility between versions
+
+During a rollout the old and the new API run side by side against the same database, and a
+rollback runs the old version against the new schema. So every release must be:
+
+- **backward compatible with the schema before it:** the new code works before its migration's
+  contract step (it only adds, docs/database.md#expand-and-contract);
+- **forward compatible with the schema after it:** the previous code keeps working on the migrated
+  schema (it ignores new tables and nullable columns; nothing it reads was removed or renamed);
+- **compatible on the wire with every app version still installed**, not only the previous
+  release: an app is updated by its users, on their schedule, so new response fields are additive,
+  new request fields optional, and a removal waits until no supported version uses it (the
+  minimum supported version, [releases.md](releases.md#minimum-supported-version)); the contract
+  diff shows each change in review ([api-conventions.md](api-conventions.md)). An OTA update can
+  reach the installs of a runtime version in a day; a store release takes weeks to reach most of
+  them.
+
+A change that cannot meet these (a rename, a type change, a new required field) is split across
+releases: expand, migrate the readers and writers, contract. Nothing at run time tells a contract
+step that came too early (readiness and the smoke test read no table), so the migration that
+contracts says why it is safe, `-- contract: <reason>` above the statement, and
+`scripts/check-migrations.mjs` refuses one without it (docs/database.md#expand-and-contract).
+
+### Rollback
+
+| What failed                                   | Rollback                                                                                                                                                                                                                                                    |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The application (errors, latency, a bug)      | Redeploy the previous digests of `api` and `web` (step 2). The platform's own "previous revision" does the same when it points at those digests. No migration is reversed: the previous version runs on the new schema.                                     |
+| An image (it does not start, fails readiness) | The same: the previous digests. Never rebuild an old commit for a rollback: it would be a new, unverified artifact.                                                                                                                                         |
+| The migration                                 | Nothing to roll back in the application: the rollout had not started. Repair the database and resolve the migration (docs/incident-response.md#10-failed-database-migration); if a destructive statement removed data, restore (docs/disaster-recovery.md). |
+| A release whose contract step already ran     | The previous version may need what was removed: roll forward with a fix instead, or restore. That is why contract steps ship one release after the code stopped using what they remove.                                                                     |
+
+Running **Deploy** with an earlier release tag also rolls back, through every gate on that old
+commit: slower, it rebuilds the images unless an earlier run recorded them (the VPS target keeps
+its records 90 days; an image still in the registry is not enough, by design), and a gate can fail
+on an advisory published since that release. Keep it for planned rollbacks; in an incident,
+redeploy the recorded digests. Never roll back by reversing a migration in production.
+
 ## Pinning
 
-| What                                                                                   | Pinned by                                                         | Updated by                                                                                  |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| GitHub Actions                                                                         | commit SHA (tag in a comment)                                     | Dependabot (`github-actions`)                                                               |
-| Runner image                                                                           | `runs-on: ubuntu-24.04` in every workflow                         | by hand, the next LTS ([Ubuntu](#ubuntu))                                                   |
-| Tool images (actionlint, zizmor, Semgrep, gitleaks, Trivy, PostgreSQL, Redis, Mailpit) | tag and digest in `scripts/tool-images/Dockerfile`                | Dependabot (`docker`); PostgreSQL and Redis majors by hand ([below](#postgresql-and-redis)) |
-| The API's base image (Node.js)                                                         | tag and digest in `apps/api/Dockerfile`                           | Dependabot (`docker`); the Node.js major by hand                                            |
-| Development services (PostgreSQL, Redis, Mailpit)                                      | tag and digest in `docker-compose.yml`, the same as CI's          | Dependabot (`docker-compose`); majors by hand                                               |
-| npm dependencies                                                                       | `pnpm-lock.yaml`; seven-day release age                           | Dependabot (`npm`), SDK packages through SDK upgrades                                       |
-| pnpm                                                                                   | `packageManager` in `package.json`; `apps/mobile/eas.json` `pnpm` | by hand, both together                                                                      |
-| Node.js                                                                                | one exact version: `.nvmrc` (CI), `apps/mobile/eas.json` `node`   | by hand, both together                                                                      |
-| EAS CLI                                                                                | exact version (`EAS_CLI_VERSION`) in the EAS workflows            | by hand, at or above `apps/mobile/eas.json` `cli.version`                                   |
-| Maestro                                                                                | version and SHA-256 in `e2e-android.yml`                          | by hand (release page), keeping the seven-day rule                                          |
-| JDK (E2E build)                                                                        | `java-version: '17'` (React Native's supported JDK)               | by hand, with React Native's requirements                                                   |
-| Android NDK (E2E build)                                                                | `ndkVersion` of React Native's version catalog                    | with React Native (read by `e2e-android.yml`)                                               |
-| Android emulator (E2E)                                                                 | `api-level` in `e2e-android.yml`                                  | by hand, to the `targetSdk` of React Native's catalog                                       |
-| ccache (E2E build)                                                                     | Ubuntu's package (`apt-get`, signed archive)                      | the runner image's Ubuntu release                                                           |
-| Gradle's JVM memory (Android builds)                                                   | `GRADLE_JVM_PROPERTIES` in `apps/mobile/app.config.ts`            | by hand, when a build runs out of memory                                                    |
+| What                                                                                                                             | Pinned by                                                          | Updated by                                                                                  |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| GitHub Actions                                                                                                                   | commit SHA (tag in a comment)                                      | Dependabot (`github-actions`)                                                               |
+| Runner image                                                                                                                     | `runs-on: ubuntu-24.04` in every workflow                          | by hand, the next LTS ([Ubuntu](#ubuntu))                                                   |
+| Tool images (actionlint, zizmor, Semgrep, gitleaks, Terraform, TFLint, Ubuntu, Trivy, PostgreSQL, Redis, Mailpit, ZAP, promtool) | tag and digest in `scripts/tool-images/Dockerfile`                 | Dependabot (`docker`); PostgreSQL and Redis majors by hand ([below](#postgresql-and-redis)) |
+| The API's base image (Node.js)                                                                                                   | tag and digest in `apps/api/Dockerfile`                            | Dependabot (`docker`); the Node.js major by hand                                            |
+| Development services (PostgreSQL, Redis, Mailpit)                                                                                | tag and digest in `docker-compose.yml`, the same as CI's           | Dependabot (`docker-compose`); majors by hand                                               |
+| The server's images (Caddy, PostgreSQL, Redis)                                                                                   | tag and digest in `deploy/vps/compose.yaml`                        | Dependabot (`docker-compose`); majors by hand                                               |
+| Terraform providers (`infra/terraform`)                                                                                          | exact version in `versions.tf`, checksums in `.terraform.lock.hcl` | Dependabot (`terraform`), version and checksums together                                    |
+| npm dependencies                                                                                                                 | `pnpm-lock.yaml`; seven-day release age                            | Dependabot (`npm`), SDK packages through SDK upgrades                                       |
+| pnpm                                                                                                                             | `packageManager` in `package.json`; `apps/mobile/eas.json` `pnpm`  | by hand, both together                                                                      |
+| Node.js                                                                                                                          | one exact version: `.nvmrc` (CI), `apps/mobile/eas.json` `node`    | by hand, both together                                                                      |
+| EAS CLI                                                                                                                          | exact version (`EAS_CLI_VERSION`) in the EAS workflows             | by hand, at or above `apps/mobile/eas.json` `cli.version`                                   |
+| Maestro                                                                                                                          | version and SHA-256 in `e2e-android.yml`                           | by hand (release page), keeping the seven-day rule                                          |
+| JDK (E2E build)                                                                                                                  | `java-version: '17'` (React Native's supported JDK)                | by hand, with React Native's requirements                                                   |
+| Android NDK (E2E build)                                                                                                          | `ndkVersion` of React Native's version catalog                     | with React Native (read by `e2e-android.yml`)                                               |
+| Android emulator (E2E)                                                                                                           | `api-level` in `e2e-android.yml`                                   | by hand, to the `targetSdk` of React Native's catalog                                       |
+| ccache (E2E build)                                                                                                               | Ubuntu's package (`apt-get`, signed archive)                       | the runner image's Ubuntu release                                                           |
+| Gradle's JVM memory (Android builds)                                                                                             | `GRADLE_JVM_PROPERTIES` in `apps/mobile/app.config.ts`             | by hand, when a build runs out of memory                                                    |
 
 **EAS CLI's dependencies.** The EAS workflows run `pnpm dlx "eas-cli@$EAS_CLI_VERSION"` in
 `apps/mobile`, inside the workspace, so the root's `pnpm-workspace.yaml` applies. The CLI's version is exact; its dependencies have no lockfile and resolve on
@@ -324,35 +484,49 @@ its pull request:
 | Tool images                                | tag and digest together                                               | PostgreSQL and Redis majors ([PostgreSQL and Redis](#postgresql-and-redis))              |
 | The API's images and `docker-compose.yml`  | tag and digest together, Node.js minors                               | the Node.js major ([Node.js](#nodejs)); PostgreSQL and Redis majors                      |
 | EAS CLI, Maestro, JDK, emulator            | nothing                                                               | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
+| Terraform providers, Terraform             | the providers' version and checksums together (`terraform`)           | Terraform's own minor: `required_version` in `versions.tf`, with the tool image          |
 | Ubuntu (the runners)                       | nothing                                                               | [Ubuntu](#ubuntu)                                                                        |
 
 ### Ubuntu
 
-Every job runs on Ubuntu 24.04 LTS: `runs-on: ubuntu-24.04` in every workflow, never
-`ubuntu-latest`. GitHub moves that label to a new release on its own schedule (Ubuntu 26.04, from
-October 2026), which would change the system of every job without a commit. An Ubuntu tool image
-(`scripts/tool-images/Dockerfile`, once a project adds one) follows the same LTS: Dependabot
-proposes only its new digests, since it would read an interim release (24.10, whose package archive
-closes when its nine months of support end) as a minor update. The next LTS moves the runners and
-that image together, in one pull request with the full CI and E2E (Android), once what the jobs
-install on the runner (`apt-get`: ccache) and the Android emulator support it.
+CI's runners and the servers run the same Ubuntu LTS, 24.04: `runs-on: ubuntu-24.04` in every
+workflow, never `ubuntu-latest`, the servers' release ([deploy-vps.md](deploy-vps.md#1-what-you-need);
+`droplet_image` in `infra/terraform/digitalocean`), and the `ubuntu` tool image of the cloud-init
+check. GitHub moves `ubuntu-latest` to a new release on its own schedule (Ubuntu 26.04, from
+October 2026), which would change the system of every job without a commit. Dependabot proposes
+only the `ubuntu` image's new digests, since it would read an interim release (24.10, whose
+package archive closes when its nine months of support end) as a minor update. The next LTS moves
+the runners, the servers and that image together, in one pull request with the full CI and E2E
+(Android), once what the jobs install on the runner (`apt-get`: ccache; Playwright's browser
+dependencies) and the Android emulator support it, and the servers' guides have been followed on
+it.
 
 ### PostgreSQL and Redis
 
-The development services (`docker-compose.yml`) and CI's integration job (the tool images) run the
-same images, pinned by tag and digest; Dependabot proposes their new digests and minors, never a
-major. A major moves by hand, the two files together, in one pull request with the full CI:
+The development services (`docker-compose.yml`), CI's integration job (the tool images) and the
+server (`deploy/vps/compose.yaml`) run the same images, pinned by tag and digest; Dependabot
+proposes their new digests and minors, never a major. A major moves by hand, the three files
+together, in one pull request with the full CI:
 
 1. Read the release notes (removed settings, changed defaults).
-2. `docker-compose.yml` and `scripts/tool-images/Dockerfile`: the new tag and digest (the same
-   digest in both: one from Docker Hub, the other from ECR Public's mirror of Docker's official
-   images).
-3. PostgreSQL's data directory does not start under the next major: dump the development database
+2. `docker-compose.yml`, `deploy/vps/compose.yaml` (`db`, `backup`, `redis`) and
+   `scripts/tool-images/Dockerfile`: the new tag and digest (the same digest in all: Docker Hub's,
+   and ECR Public's mirror of Docker's official images in the tool images).
+3. PostgreSQL in production: the managed database's major upgrade, by the provider's procedure,
+   then `postgres_version` in `infra/terraform/digitalocean` to match (its validation lists the
+   accepted majors), and a restore drill afterwards
+   ([disaster-recovery.md](disaster-recovery.md#checklist)). On the server's own database, a dump
+   and restore, since a data directory does not start under the next major: a backup at once
+   (`backup.sh now`) copied off the server, the volume `app_db_data` removed, the release with the
+   new image deployed (an empty database, its roles, every table), then that backup restored into
+   it with the site stopped ([disaster-recovery.md](disaster-recovery.md#the-servers-own-database)).
+   Rehearse it on staging first.
+4. PostgreSQL's data directory does not start under the next major: dump the development database
    (`docker compose exec db pg_dump -U app app > dump.sql`), `docker compose down -v` (removes the
    volume), `pnpm services:up`, restore it (`docker compose exec -T db psql -U app app < dump.sql`),
    or start empty and run `pnpm db:migrate` and `pnpm db:seed`. Redis keeps nothing the API cannot
    rebuild: its volume can go.
-4. `pnpm test:integration` locally, then CI.
+5. `pnpm test:integration` and `pnpm iac:check` locally, then CI.
 
 ### Node.js
 

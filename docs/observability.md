@@ -3,29 +3,31 @@
 What the API tells you about itself, what is on by default, what each project turns on, and how
 the signals answer the questions of an incident. The app reports its own crashes and errors
 ([mobile-architecture.md](mobile-architecture.md#observability)); [The app](#the-app) says how a
-report from a phone leads to the API's logs. Dashboards and alert rules are not part of this
-repository: they are built in the chosen backend, on the series of the
-[metric catalog](#metric-catalog).
+report from a phone leads to the API's logs. The dashboards, the SLOs and the alert rules ship as
+code in `observability/`, checked in CI and tied to no vendor
+([Dashboards and alerts as code](#dashboards-and-alerts-as-code)); loading them into a backend and
+routing their notifications is each project's.
 
 ## What is included
 
-| Capability                                                                                 | Class                  | On by default | Needs                                                             |
-| ------------------------------------------------------------------------------------------ | ---------------------- | ------------- | ----------------------------------------------------------------- |
-| Structured logs (JSON in production) with automatic redaction                              | CORE                   | yes           | nothing                                                           |
-| Request ids on every response, log line, error report and outgoing call                    | CORE                   | yes           | nothing                                                           |
-| Deployment identity (environment, release) on every log line and report                    | CORE                   | yes           | the image build (release) and `APP_ENVIRONMENT`                   |
-| Liveness and readiness probes (database, Redis when configured, email)                     | CORE                   | yes           | nothing                                                           |
-| Graceful shutdown (drain, close, flush)                                                    | CORE                   | yes           | nothing                                                           |
-| Error classification (application, database, dependency, unavailable) and the error metric | CORE                   | yes           | nothing                                                           |
-| Slow query log (statement only)                                                            | CORE                   | yes (500 ms)  | nothing                                                           |
-| Shared client for external services (timeouts, retries, correlation)                       | CORE                   | yes           | nothing                                                           |
-| Metric catalog checked against the code (`observability/api-metrics.json`)                 | CORE                   | yes           | nothing                                                           |
-| Error tracking of the API (Sentry)                                                         | OPTIONAL               | no            | REQUIRES CONFIGURATION: a Sentry project                          |
-| Tracing and metrics (OpenTelemetry, OTLP)                                                  | OPTIONAL               | no            | REQUIRES CONFIGURATION: a collector or provider                   |
-| Crash and error reporting of the app (Sentry for React Native)                             | OPTIONAL               | no            | REQUIRES CONFIGURATION: a Sentry project ([The app](#the-app))    |
-| Local observability backend (Grafana, Prometheus, Tempo, Loki)                             | OPTIONAL (development) | no            | Docker                                                            |
-| Uptime monitoring                                                                          | REQUIRES CONFIGURATION | no            | an external uptime service                                        |
-| Dashboards, alert rules and alert routing                                                  | REQUIRES CONFIGURATION | no            | a backend that reads the metrics; none ships with this repository |
+| Capability                                                                                 | Class                  | On by default | Needs                                                                          |
+| ------------------------------------------------------------------------------------------ | ---------------------- | ------------- | ------------------------------------------------------------------------------ |
+| Structured logs (JSON in production) with automatic redaction                              | CORE                   | yes           | nothing                                                                        |
+| Request ids on every response, log line, error report and outgoing call                    | CORE                   | yes           | nothing                                                                        |
+| Deployment identity (environment, release) on every log line and report                    | CORE                   | yes           | the image build (release) and `APP_ENVIRONMENT`                                |
+| Liveness and readiness probes (database, Redis when configured, email)                     | CORE                   | yes           | nothing                                                                        |
+| Graceful shutdown (drain, close, flush)                                                    | CORE                   | yes           | nothing                                                                        |
+| Error classification (application, database, dependency, unavailable) and the error metric | CORE                   | yes           | nothing                                                                        |
+| Slow query log (statement only)                                                            | CORE                   | yes (500 ms)  | nothing                                                                        |
+| Shared client for external services (timeouts, retries, correlation)                       | CORE                   | yes           | nothing                                                                        |
+| Metric catalog checked against the code (`observability/api-metrics.json`)                 | CORE                   | yes           | nothing                                                                        |
+| Dashboards, SLOs and alert rules as code, with unit tests (`observability/`)               | CORE                   | yes (checked) | a Prometheus-compatible backend to load them                                   |
+| Error tracking of the API (Sentry)                                                         | OPTIONAL               | no            | REQUIRES CONFIGURATION: a Sentry project                                       |
+| Tracing and metrics (OpenTelemetry, OTLP)                                                  | OPTIONAL               | no            | REQUIRES CONFIGURATION: a collector or provider                                |
+| Crash and error reporting of the app (Sentry for React Native)                             | OPTIONAL               | no            | REQUIRES CONFIGURATION: a Sentry project ([The app](#the-app))                 |
+| Local observability backend (Grafana, Prometheus, Tempo, Loki)                             | OPTIONAL (development) | no            | Docker                                                                         |
+| Uptime monitoring                                                                          | REQUIRES CONFIGURATION | no            | an external uptime service                                                     |
+| Loading the dashboards and rules, and alert routing                                        | REQUIRES CONFIGURATION | no            | the chosen backend ([Use them with your backend](#use-them-with-your-backend)) |
 
 Nothing optional is needed to run, test or deploy the template: without `SENTRY_DSN` and
 `OTEL_EXPORTER_OTLP_ENDPOINT` the API does not even load the SDKs, and without
@@ -294,20 +296,134 @@ API ──OTLP──► managed provider (Grafana Cloud, Honeycomb, Datadog, New
 
 `docker compose --profile observability up -d` starts `grafana/otel-lgtm` (collector, Prometheus,
 Tempo, Loki, Grafana in one image, development only), published on loopback: OTLP/HTTP on 4328,
-Grafana on 3011, Prometheus on 9100. Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4328` in
-`apps/api/.env`, restart `pnpm dev`, send a few requests, and open Grafana at
-http://localhost:3011:
+Grafana on 3011, Prometheus on 9100, with the dashboards and rules of `observability/` mounted
+read-only ([Dashboards and alerts as code](#dashboards-and-alerts-as-code)). Set
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4328` in `apps/api/.env`, restart `pnpm dev`, use the
+app against it (or send a few requests), and open Grafana at http://localhost:3011:
 
+- Dashboards → Application: "API service" and "API SLOs";
+- Alerting → Alert rules: the Prometheus rules, under data source-managed, evaluated every 30
+  seconds (nothing is notified: routing is not configured locally);
 - Explore → Prometheus for metrics (the series of the [metric catalog](#metric-catalog));
 - Explore → Tempo for traces; a request id leads to its trace with the TraceQL query
   `{ span.app.request_id = "<id>" }`;
 - Prometheus itself on http://localhost:9100.
 
-Nothing from this repository is mounted into the image: no dashboards, no rules. The API pushes
-metrics every minute (`OTEL_METRIC_EXPORT_INTERVAL`): set 5000 locally to see series sooner. The
-production-like stack (`--profile stack`) sends to it with
+Grafana reloads a changed dashboard file within 30 seconds; Prometheus reads the rule files when it
+starts, so after changing them run `docker compose --profile observability restart otel-lgtm`. The
+API pushes metrics every minute (`OTEL_METRIC_EXPORT_INTERVAL`): set 5000 locally to see panels
+fill sooner. The production-like stack (`--profile stack`) sends to it with
 `STACK_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318` in the root `.env`. Never deploy this
 service: its Grafana has anonymous admin access.
+
+## Dashboards and alerts as code
+
+The dashboards, the SLOs and the alert rules are files in `observability/`, reviewed and tested
+like code, and tied to no vendor: Grafana dashboards that read any Prometheus-compatible data
+source, and Prometheus rule files that Prometheus, Grafana Mimir and Grafana Cloud load unchanged.
+
+| File                                                | What                                                                                                                                                                                               |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `observability/grafana/dashboards/api-service.json` | "API service": rate, errors and latency per route, 5xx by origin, readiness, Node.js runtime, database, cache, Redis, external calls, degraded features, email, installed apps refused as outdated |
+| `observability/grafana/dashboards/api-slo.json`     | "API SLOs": objective, SLI and error budget over 30 days, burn rate per alert window, the SLO alerts                                                                                               |
+| `observability/prometheus/rules/api-slo.yaml`       | the availability and latency SLOs: recording rules and multiwindow burn-rate alerts ([alerting.md](alerting.md#slis-and-slos))                                                                     |
+| `observability/prometheus/rules/api-alerts.yaml`    | symptom alerts ([below](#alerts))                                                                                                                                                                  |
+| `observability/prometheus/tests/*.test.yaml`        | unit tests of the rules with synthetic series (`promtool test rules`)                                                                                                                              |
+| `observability/prometheus/prometheus.yaml`          | the local backend's Prometheus configuration, which loads the rules                                                                                                                                |
+| `observability/grafana/dashboards.yaml`             | the local backend's dashboard provider (folder "Application")                                                                                                                                      |
+| `observability/api-metrics.json`                    | the series the API exports ([Metric catalog](#metric-catalog))                                                                                                                                     |
+
+**Rules of the files**, checked by `pnpm observability:check` (CI job "Observability as code";
+needs Docker, and the part that does not also runs in `pnpm test:scripts`):
+
+- every query reads its data source through the dashboard's `datasource` variable, never a fixed
+  uid, so the same JSON imports into any Grafana; the other variables are `job`
+  (`OTEL_SERVICE_NAME`) and `environment` (`APP_ENVIRONMENT`);
+- every metric a dashboard or rule reads is in the catalog or written by a recording rule: a
+  renamed metric fails the check instead of leaving an empty panel or an alert that never fires;
+- every alert has a `severity` label (`critical` pages, `warning` goes to the team's channel), a
+  `runbook_url` to a section of [incident-response.md](incident-response.md) that exists, the
+  `dashboard_uid` to open first, a summary and a description, and a unit test that makes it fire;
+- promtool, pinned in `scripts/tool-images/Dockerfile`, checks the configuration and the rules,
+  parses every dashboard query (each one compiled into a recording rule) and runs the unit tests.
+
+`runbook_url` is a path in this repository: make it a link in the notification template of your
+routing (the repository's URL in front). The rules group by `job` and
+`deployment_environment_name`, so two services, or staging and production, can share a backend
+without mixing; that needs `deployment.environment.name` kept as a label (Prometheus:
+`otlp.promote_resource_attributes`, as `observability/prometheus/prometheus.yaml` does), or one
+backend per environment.
+
+### Alerts
+
+Thresholds are starting points ([alerting.md](alerting.md#alert-catalog)); a change comes with its
+unit test.
+
+| Alert                           | Severity | Fires when                                                                                             | Runbook                                                                                              |
+| ------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `ApiAvailabilityBudgetFastBurn` | critical | 5xx burn rate above 14.4 over 1 hour and over 5 minutes, at least 100 requests in the hour             | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
+| `ApiAvailabilityBudgetSlowBurn` | warning  | burn rate above 6 over 6 hours and 30 minutes, or above 1 over 3 days and 6 hours                      | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
+| `ApiLatencyBudgetFastBurn`      | critical | the same burn rates, counting responses slower than 500 ms (authentication excluded)                   | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiLatencyBudgetSlowBurn`      | warning  | as the availability slow burn, for the latency SLO                                                     | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiReadinessFailing`           | critical | an instance's readiness answered 503 in every 2-minute window for 2 minutes                            | [2. Readiness failing](incident-response.md#2-readiness-failing)                                     |
+| `ApiDatabaseErrors`             | critical | 5xx with origin `database` for 2 minutes                                                               | [3. Database unavailable](incident-response.md#3-database-unavailable)                               |
+| `ApiRouteErrorRatioHigh`        | warning  | a route's 5xx above 5 % for 10 minutes, with at least 20 requests                                      | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
+| `ApiRouteLatencyHigh`           | warning  | a route's p95 above 500 ms for 15 minutes (authentication excluded)                                    | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiDegradedMode`               | warning  | a feature served by its fallback for 5 minutes (Redis or the cache store down)                         | [4. Redis unavailable](incident-response.md#4-redis-unavailable)                                     |
+| `ApiDependencyFailing`          | warning  | over 5 % of a dependency's calls failing for 10 minutes, with at least 20 calls                        | [12. External dependency outage](incident-response.md#12-external-dependency-outage)                 |
+| `ApiDatabasePoolSaturated`      | warning  | requests waiting for a database connection for 5 minutes                                               | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiEventLoopDelayHigh`         | warning  | event loop p99 above 200 ms for 15 minutes                                                             | [7. Memory or CPU pressure](incident-response.md#7-memory-or-cpu-pressure)                           |
+| `ApiMetricsAbsent`              | warning  | no metrics from the API for 10 minutes (the dead man's switch: every other alert is blind)             | [1. API down](incident-response.md#1-api-down)                                                       |
+| `ApiMailBacklog`                | warning  | the oldest message in the outbox has waited more than 15 minutes, for 10 minutes                       | [16. Email not delivered](incident-response.md#16-email-not-delivered)                               |
+| `ApiMailDeliveryFailed`         | warning  | a message given up on (refused for good, or out of attempts) in the last 30 minutes                    | [16. Email not delivered](incident-response.md#16-email-not-delivered)                               |
+| `ApiClientsRefusedAsOutdated`   | warning  | over 20 % of the requests refused with 426 for one platform, at least 20 in 15 minutes, for 30 minutes | [15. Installed apps refused as outdated](incident-response.md#15-installed-apps-refused-as-outdated) |
+
+Health probes are not in the HTTP metrics: `ApiReadinessFailing` counts the 503s the error filter
+records (`app_server_errors_total{error_origin="unavailable", http_route="/api/health/ready"}`),
+so something must probe readiness (the orchestrator, or an internal uptime check). On the VPS
+target nothing does between deployments: the container health check probes liveness, and the edge
+answers 404 to `/api/health/` from outside. There, `ApiReadinessFailing` stays silent until an
+internal check polls readiness; a database outage still shows as `ApiDatabaseErrors`, the SLO
+alerts and the uptime check. `ApiMetricsAbsent` names the job `api`: edit it if
+`OTEL_SERVICE_NAME` differs.
+
+A refused install stops calling the API once it shows the update screen, so after a minimum is
+raised for a version the store offers, the share of 426 stays small: `ApiClientsRefusedAsOutdated`
+fires when most installs of a platform are refused, which is what a minimum above the store's
+version does ([releases.md](releases.md#minimum-supported-version)). The app's own crashes are not
+in these rules: they come from its Sentry project and the stores
+([alerting.md](alerting.md#alert-catalog)).
+
+### Use them with your backend
+
+The files stay the same; only how they are loaded changes (REQUIRES CONFIGURATION):
+
+- **Grafana Cloud** (or self-hosted Grafana Mimir): send the API's OTLP to the stack
+  ([OpenTelemetry](#opentelemetry)). Dashboards: Dashboards → New → Import, one JSON file at a
+  time, choosing the stack's Prometheus data source for `datasource`; or from a pipeline, Grafana's
+  HTTP API (`POST /api/dashboards/db` with `{"dashboard": <file>, "overwrite": true}`). Rules, with
+  [mimirtool](https://grafana.com/docs/mimir/latest/manage/tools/mimirtool/): each file becomes a
+  namespace named after it, evaluated by the stack's ruler, listed in Alerting → Alert rules as
+  data source-managed:
+
+  ```sh
+  mimirtool rules check observability/prometheus/rules/*.yaml   # offline
+  mimirtool rules load observability/prometheus/rules/*.yaml \
+    --address=<the stack's Prometheus URL> --id=<its instance id> --key=<token with rules:write>
+  ```
+
+- **Grafana and Prometheus, self-hosted:** the dashboards through a file provider like
+  `observability/grafana/dashboards.yaml` (or imported as above); the rule files in Prometheus'
+  `rule_files` (`promtool check config` before reloading); an Alertmanager for the routing.
+- **The data source's scrape interval**, in every case: the API pushes its metrics every
+  `OTEL_METRIC_EXPORT_INTERVAL` (60 s), and the panels' `$__rate_interval` is derived from the
+  Prometheus data source's scrape interval (15 s unless set). Set it to 60 s (the data source's
+  settings, "Scrape interval"), or the rate panels can show gaps or nothing over short ranges. The
+  2-minute rules (`ApiReadinessFailing`, `ApiDatabaseErrors`) need two exports in their window:
+  keep `OTEL_METRIC_EXPORT_INTERVAL` at 60000 or below.
+- **Routing**, in every case: `severity="critical"` to the on-call person's pager,
+  `severity="warning"` to the team's channel, per
+  [alerting.md](alerting.md#escalation-requiere-configuración).
 
 ## Metrics
 
@@ -331,9 +447,10 @@ underscores and adds unit suffixes, `http_server_request_duration_seconds`):
 | CPU and memory           | `process.cpu.time`, `process.memory.usage`                                                                                                                                                                                                                                                     | `rate(process_cpu_time_seconds_total[5m])` against the container's CPU limit                                                                                             |
 
 `app.client.outdated` counts only requests that say they come from the app (`X-App-Platform`); the
-app in this repository does not send that header nor `X-App-Version`: adding them is the app's part
-of the minimum supported version ([releases.md](releases.md#minimum-supported-version),
-[ADR 0010](adr/0010-minimum-supported-app-version.md)). `app.account.deletions` counts the
+app in this repository sends that header and `X-App-Version` on every request
+([releases.md](releases.md#minimum-supported-version),
+[ADR 0010](adr/0010-minimum-supported-app-version.md)), and `ApiClientsRefusedAsOutdated` watches
+the share of them refused ([Alerts](#alerts)). `app.account.deletions` counts the
 deletions an owner made from the app ([ADR 0012](adr/0012-account-deletion.md)), never who.
 
 Percentiles are computed by the backend from histogram buckets; the API exports the buckets, not
@@ -365,9 +482,9 @@ attributes only: never user ids, emails or raw paths as attribute values; then a
 `observability/api-metrics.json` lists the series the API exports, named as Prometheus stores them
 (dots become underscores; the unit and `_total` become suffixes; a histogram is `<name>_bucket`,
 `_count` and `_sum`), with their type and attribute labels. Resource labels (`job`, `instance`...)
-are on every series and not listed. It is the list to build dashboards and alert rules from, in the
-backend the project chooses: none ship with this repository, and no script checks queries against
-it.
+are on every series and not listed. Dashboards and rules may read these and the series recording
+rules write, nothing else: `pnpm observability:check` refuses any other name
+([Dashboards and alerts as code](#dashboards-and-alerts-as-code)).
 
 `apps/api/src/observability/metrics-catalog.spec.ts` (a unit spec: `pnpm test`, and CI's unit job)
 keeps it true to the code. It starts the SDK with in-memory exporters, records every application
@@ -390,12 +507,14 @@ the spec, so their entries are not checked by it.
    sorted. `pnpm --filter api test` passes when the three agree.
 2. A renamed or removed metric, or a changed attribute: change the catalog with the code; the spec
    fails until both agree.
-3. After upgrading an instrumentation (`@opentelemetry/*`, node-redis), compare the catalog with
+3. After upgrading an instrumentation (`@opentelemetry/*`, node-redis), rewrite the catalog from
    real series: start the [local backend](#local-backend), run the API against it with traffic
-   that exercises them (requests, database queries, Redis when configured), read the names and
-   labels from Prometheus (`curl -s http://localhost:9100/api/v1/label/__name__/values`, and
-   `/api/v1/series?match[]=<name>` for a metric's labels), update the entries that changed, and
-   review the diff.
+   that exercises every metric (requests, database queries, Redis, email), then
+   `node scripts/check-observability.mjs --update-catalog http://localhost:9100` and review the
+   diff (by hand, Prometheus lists them too:
+   `curl -s http://localhost:9100/api/v1/label/__name__/values`, and
+   `/api/v1/series?match[]=<name>` for a metric's labels). `pnpm observability:check` then says
+   whether a dashboard or rule reads a name that changed.
 
 ## Database
 
@@ -429,16 +548,29 @@ keys come from env through the `headers` option and are never logged.
 REQUIRES CONFIGURATION: any external uptime service works (status page tools, the cloud
 provider's synthetic checks, a self-hosted prober); none is assumed.
 
-| Check                                                                       | From                                                                       | Detects                                                         |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `GET https://<public API URL>/api/auth/capabilities`, expect 200 within 5 s | outside, several regions, every 1 min                                      | API unreachable, timeouts, TLS/DNS problems, the proxy in front |
-| `GET http://<api>:3000/api/health/ready`, expect 200                        | inside the platform (the orchestrator, or a prober on the private network) | readiness failure, database down, required Redis down           |
+| Check                                                                                                                 | From                                                                       | Detects                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `GET https://<public URL>/healthz`, expect 200 within 5 s                                                             | outside, several regions, every 1 min                                      | the web tier down, timeouts, TLS/DNS problems, the certificate                                                   |
+| `GET https://<public URL>/api/auth/capabilities`, expect 200 within 5 s                                               | outside, several regions, every 1 min                                      | API unreachable through the web server                                                                           |
+| `GET https://<public URL>/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`, expect 200 JSON | outside, every 5 min                                                       | the app's links opening the browser ([incident-response.md](incident-response.md#18-app-links-open-the-browser)) |
+| `GET http://<api>:3000/api/health/ready`, expect 200                                                                  | inside the platform (the orchestrator, or a prober on the private network) | readiness failure, database down, required Redis down                                                            |
 
 `/api/auth/capabilities` is public and reads only the configuration, never the database; a prober
 sends no `X-App-Platform`, so the minimum version check never refuses it, and one check a minute is
-far below the per-address rate limit (`RATE_LIMIT_MAX`, 100 a minute). Alert after two or three
-consecutive failures from more than one location (one failed probe is noise). The readiness probe
-must stay off the public internet.
+far below the per-address rate limit (`RATE_LIMIT_MAX`, 100 a minute). The link files answer 404
+until the app's identity is set ([environment.md](environment.md#web-variables)): add their check
+once it is. Alert after two or three consecutive failures from more than one location (one failed
+probe is noise). The readiness probe must stay off the public internet. On DigitalOcean, Terraform
+creates the `/healthz` check and its alerts ([deploy-vps.md](deploy-vps.md#provision-with-terraform-digitalocean)).
+
+## Alerting
+
+The rules ship in `observability/prometheus/rules` ([Dashboards and alerts as
+code](#dashboards-and-alerts-as-code)); loading them and routing their notifications is REQUIRES
+CONFIGURATION in the chosen backend. The SLIs, SLOs and error budget, the burn-rate alerts, the
+CRITICAL and WARNING catalog with thresholds, evaluation windows and escalation, the app's
+stability alerts, and the log patterns that alert without metrics: [alerting.md](alerting.md). What
+to do when an alert fires: [incident-response.md](incident-response.md).
 
 ## The app
 

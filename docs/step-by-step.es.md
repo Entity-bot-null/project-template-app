@@ -17,28 +17,29 @@ Cómo usarla:
 - Lo que va entre `<ángulos>` es un valor que sustituyes; apunta los tuyos en la
   [hoja de trabajo](#la-hoja-de-trabajo).
 - Algunas cuentas tardan días en aprobarse (Apple, Google): empieza primero por la fase 0 y después
-  trabaja en las fases 1–6 mientras esperas.
+  trabaja en las fases 1–7 mientras esperas.
 
 ## La línea de tiempo
 
-| Fase                                                                                        | Con qué terminas                                                                   | Tiempo                          |
-| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------- |
-| [0. Información, decisiones y cuentas](#fase-0-información-decisiones-y-cuentas)            | la hoja de trabajo rellena; las cuentas de las tiendas solicitadas                 | 2 h, más **días** de aprobación |
-| [1. Tu equipo](#fase-1-tu-equipo)                                                           | Node, pnpm, Android Studio (y Xcode en un Mac), Maestro, EAS CLI                   | 1–2 h                           |
-| [2. Crea el proyecto](#fase-2-crea-el-proyecto)                                             | tu copia con la identidad de tu app                                                | 20 min                          |
-| [3. Ejecútala en un emulador](#fase-3-ejecútala-en-un-emulador)                             | la app funcionando contra la API mock                                              | 30–45 min                       |
-| [4. Comprueba que pasan todos los gates](#fase-4-comprueba-que-pasan-todos-los-gates)       | las mismas comprobaciones que CI, en verde en local                                | 30–60 min                       |
-| [5. Súbela a GitHub](#fase-5-súbela-a-github)                                               | el repositorio protegido, CI en verde en un pull request                           | 1 h                             |
-| [6. Hazla tuya](#fase-6-hazla-tuya)                                                         | tu backend, tu marca y tus funcionalidades                                         | de días a semanas               |
-| [7. EAS y servicios](#fase-7-eas-y-servicios)                                               | el proyecto de EAS, su configuración y las credenciales de firma                   | 1–2 h                           |
-| [8. Primeros builds en dispositivos reales](#fase-8-primeros-builds-en-dispositivos-reales) | builds de desarrollo y de preview instalados en teléfonos                          | 1–2 h                           |
-| [9. Las fichas en las tiendas](#fase-9-las-fichas-en-las-tiendas)                           | la app en Play Console y en App Store Connect, lista para recibir builds           | medio día                       |
-| [10. La primera publicación en las tiendas](#fase-10-la-primera-publicación-en-las-tiendas) | la versión 1 en pruebas internas, después pública                                  | 1–2 días, más la revisión       |
-| [11. Actualizaciones OTA](#fase-11-actualizaciones-ota)                                     | un arreglo de JavaScript publicado sin pasar por las tiendas; un rollback ensayado | 1 h                             |
-| [12. Monitorización](#fase-12-monitorización)                                               | crashes y errores reportados, alguien pendiente de ellos                           | 1 h                             |
-| [13. Antes de los usuarios reales](#fase-13-antes-de-los-usuarios-reales)                   | la checklist final aprobada                                                        | medio día                       |
-| [14. El ciclo diario](#fase-14-el-ciclo-diario)                                             | cómo llega cada cambio a los usuarios                                              | cada día                        |
-| [15. El calendario de mantenimiento](#fase-15-el-calendario-de-mantenimiento)               | qué hacer cada semana, cada release y cada trimestre                               | recurrente                      |
+| Fase                                                                                        | Con qué terminas                                                                                                 | Tiempo                          |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| [0. Información, decisiones y cuentas](#fase-0-información-decisiones-y-cuentas)            | la hoja de trabajo rellena; las cuentas de las tiendas solicitadas                                               | 2 h, más **días** de aprobación |
+| [1. Tu equipo](#fase-1-tu-equipo)                                                           | Node, pnpm, Android Studio (y Xcode en un Mac), Maestro, EAS CLI                                                 | 1–2 h                           |
+| [2. Crea el proyecto](#fase-2-crea-el-proyecto)                                             | tu copia con la identidad de tu app                                                                              | 20 min                          |
+| [3. Ejecútala en un emulador](#fase-3-ejecútala-en-un-emulador)                             | la app funcionando contra la API mock                                                                            | 30–45 min                       |
+| [4. Comprueba que pasan todos los gates](#fase-4-comprueba-que-pasan-todos-los-gates)       | las mismas comprobaciones que CI, en verde en local                                                              | 30–60 min                       |
+| [5. Súbela a GitHub](#fase-5-súbela-a-github)                                               | el repositorio protegido, CI en verde en un pull request                                                         | 1 h                             |
+| [6. Hazla tuya](#fase-6-hazla-tuya)                                                         | tu backend, tu marca y tus funcionalidades                                                                       | de días a semanas               |
+| [7. El servidor: la API y el sitio público](#fase-7-el-servidor-la-api-y-el-sitio-público)  | servidores de staging y producción con la API y la landing, desplegados por el workflow; el primer administrador | 2–3 h por entorno               |
+| [8. EAS y servicios](#fase-8-eas-y-servicios)                                               | el proyecto de EAS, su configuración y las credenciales de firma                                                 | 1–2 h                           |
+| [9. Primeros builds en dispositivos reales](#fase-9-primeros-builds-en-dispositivos-reales) | builds de desarrollo y de preview instalados en teléfonos                                                        | 1–2 h                           |
+| [10. Las fichas en las tiendas](#fase-10-las-fichas-en-las-tiendas)                         | la app en Play Console y en App Store Connect, lista para recibir builds                                         | medio día                       |
+| [11. La primera publicación en las tiendas](#fase-11-la-primera-publicación-en-las-tiendas) | la versión 1 en pruebas internas, después pública                                                                | 1–2 días, más la revisión       |
+| [12. Actualizaciones OTA](#fase-12-actualizaciones-ota)                                     | un arreglo de JavaScript publicado sin pasar por las tiendas; un rollback ensayado                               | 1 h                             |
+| [13. Monitorización](#fase-13-monitorización)                                               | crashes y errores reportados, alguien pendiente de ellos                                                         | 1 h                             |
+| [14. Antes de los usuarios reales](#fase-14-antes-de-los-usuarios-reales)                   | la checklist final aprobada                                                                                      | medio día                       |
+| [15. El ciclo diario](#fase-15-el-ciclo-diario)                                             | cómo llega cada cambio a los usuarios                                                                            | cada día                        |
+| [16. El calendario de mantenimiento](#fase-16-el-calendario-de-mantenimiento)               | qué hacer cada semana, cada release y cada trimestre                                                             | recurrente                      |
 
 ---
 
@@ -197,7 +198,7 @@ Abre `apps/mobile/app.config.ts` y cambia el bloque `APP`:
 | `slug`                  | un id corto en minúsculas (`acme-portal`) |
 | `identifier`            | tu identificador (`com.acme.portal`)      |
 | `scheme`                | tu esquema de URL (`acmeportal`)          |
-| `easProjectId`, `owner` | déjalos para la fase 7                    |
+| `easProjectId`, `owner` | déjalos para la fase 8                    |
 | `linkDomain`            | déjalo vacío hasta la fase 6              |
 | `colors`                | déjalo para la fase 6 (marca)             |
 
@@ -464,13 +465,13 @@ gh pr checks --watch
 con **Squash and merge**. Un cambio `docs` o `chore` no publica nada, así que aún no aparece ningún
 pull request de release: el workflow **Release** abre uno cuando el primer `feat` o `fix` llega a
 `main`, y lanza el CI y **Conventions** en él (los dos en verde en ese pull request unos minutos
-después). Déjalo abierto hasta la fase 10.
+después). Déjalo abierto hasta la fase 11.
 
 ---
 
 ## Fase 6. Hazla tuya
 
-Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diario).
+Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-15-el-ciclo-diario).
 
 ### 6.1 Tu backend
 
@@ -478,13 +479,13 @@ La API incluida es el backend de la app: tus funcionalidades le añaden módulos
 sigue (`pnpm contract`, [openapi/README.md](../openapi/README.md)).
 
 1. Ponla a funcionar donde la alcancen tus usuarios, detrás de HTTPS, con su configuración de
-   producción ([environment.md](environment.md), [security.md](security.md#https)): primero
-   staging. **REQUIERE CONFIGURACIÓN**.
+   producción: el servidor de la [fase 7](#fase-7-el-servidor-la-api-y-el-sitio-público), primero
+   staging (puedes hacerlo ahora y volver), o tu propia plataforma ([deploy-vps.md](deploy-vps.md)
+   dice qué tiene que hacer cualquier destino). **REQUIERE CONFIGURACIÓN**.
 2. Apunta tu `apps/mobile/.env` local a staging
-   (`EXPO_PUBLIC_API_URL=https://staging-api.acme.com`) y prueba la app contra ella; conserva la API
-   mock para los flujos end-to-end.
-3. Crea allí el primer administrador
-   ([manual.es.md](manual.es.md#56-cuentas-y-administradores)).
+   (`EXPO_PUBLIC_API_URL=https://staging.acme.com`: la imagen web reenvía `/api` a la API) y prueba
+   la app contra ella; conserva la API mock para los flujos end-to-end.
+3. Crea allí el primer administrador (7.10).
 
 **Otro backend en su lugar:** pon su documento OpenAPI en `openapi/openapi.json`, haz que
 `pnpm contract` solo regenere los tipos de la app (`pnpm --filter mobile api:types`) y quita
@@ -552,12 +553,420 @@ propios enlaces.
 
 ---
 
-## Fase 7. EAS y servicios
+## Fase 7. El servidor: la API y el sitio público
+
+La parte de servidor de la app, la API y la imagen web (la landing, los enlaces de la app y sus
+ficheros), va en un servidor Linux por entorno y la despliega el workflow **Deploy**
+([deploy-vps.md](deploy-vps.md) explica cada pieza). Haz del 7.0 al 7.7 dos veces: una para
+**staging** y otra para **producción**. Los comandos usan `app.acme.com`; usa el dominio del entorno
+que estás configurando: el de producción es el dominio de los enlaces de la app (`APP.linkDomain`,
+fase 2.2), el de staging otro (`staging.acme.com`).
+
+Los pasos 7.1 a 7.5 construyen el servidor y la base de datos a mano, con cualquier proveedor. En
+DigitalOcean, Terraform puede construir el mismo servidor y una base de datos gestionada: haz el
+7.0, sáltate del 7.1 al 7.5 y sigue en el 7.6.
+
+### 7.0 En DigitalOcean, del 7.1 al 7.5 con Terraform (opcional)
+
+Qué crea Terraform, cuánto cuesta y por qué:
+[deploy-vps.md](deploy-vps.md#provision-with-terraform-digitalocean). Necesitas Terraform 1.16.5 o un
+1.16 posterior ([developer.hashicorp.com/terraform/install](https://developer.hashicorp.com/terraform/install);
+`terraform version` imprime `Terraform v1.16.` y un número de parche de 5 o más) y un token de la API
+de DigitalOcean con permiso de escritura (**API → Tokens**).
+
+En tu equipo, la clave de despliegue de este entorno (como en el 7.4) y después el fichero de
+ajustes:
+
+```
+ssh-keygen -t ed25519 -N "" -C "github-deploy-production" -f deploy_production
+cd infra/terraform/digitalocean
+cp terraform.tfvars.example production.tfvars
+```
+
+Edita `production.tfvars`: `project_name`, `environment`, `domain`, tu clave pública SSH
+(`admin_ssh_public_key`, el contenido de tu `~/.ssh/id_ed25519.pub`), el contenido de
+`deploy_production.pub` (`deploy_ssh_public_key`) y `alert_emails` (miembros verificados de tu
+equipo de DigitalOcean). Deja `admin_cidrs = ["0.0.0.0/0"]`: los runners de GitHub se conectan por
+SSH desde direcciones que cambian. Después (pega el token cuando `read` espere, y pulsa Enter):
+
+```
+read -rs DIGITALOCEAN_TOKEN && export DIGITALOCEAN_TOKEN
+terraform init
+terraform workspace new production
+terraform plan -var-file=production.tfvars -out=production.tfplan
+terraform apply production.tfplan
+rm production.tfplan
+ssh "$(terraform output -raw ssh_admin)" cloud-init status --wait
+```
+
+La primera conexión SSH pregunta si confías en la clave del servidor: compara su huella con la que
+muestra el servidor en la **Droplet Console** de DigitalOcean (entra como `ops` y ejecuta
+`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`). Después apunta el dominio al servidor, salvo
+que lo haya hecho `manage_dns = true`: el registro que muestra `terraform output dns_record`, en
+tu proveedor de DNS. Por último, los roles de la base de datos y la clave del servidor para GitHub:
+
+```
+cd ../../..
+pnpm iac:database
+ssh-keyscan -t ed25519 app.acme.com > known_hosts_production
+```
+
+**Comprobación:** `cloud-init status --wait` termina con `status: done`; `pnpm iac:database` termina
+con `Done: the database app (owner app_migrator) and the role app_runtime.`;
+`ssh -i deploy_production deploy@app.acme.com 'docker ps'` imprime una tabla vacía (solo las
+cabeceras); `ssh-keygen -lf known_hosts_production` muestra la huella que comparaste.
+
+**Si falla:**
+
+| Mensaje                                              | Causa y solución                                                                                                                                                                                                                          |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `401`, `Unable to authenticate you`                  | `DIGITALOCEAN_TOKEN` no está exportado en esta terminal, o el token no puede escribir                                                                                                                                                     |
+| `Invalid value for variable`                         | el valor que nombra en `production.tfvars`; `variables.tf` dice qué acepta cada uno                                                                                                                                                       |
+| `SSH Key is already in use on your account`          | esta clave de despliegue ya está en DigitalOcean (otro entorno, un intento anterior): una clave de despliegue por entorno, o borra la antigua allí (**Settings → Security**)                                                              |
+| `Provider produced inconsistent result after apply`  | la nueva IP reservada tardó en aparecer en la API de DigitalOcean: `terraform import -var-file=production.tfvars digitalocean_reserved_ip.app <dirección>` (la dirección en **Networking → Reserved IPs**), después plan y apply de nuevo |
+| `The workspace (...) is not the environment (...)`   | `terraform workspace select production`                                                                                                                                                                                                   |
+| `status: error`                                      | `/var/log/cloud-init-output.log` en el servidor dice qué comando falló                                                                                                                                                                    |
+| `pnpm iac:database`: `Permission denied (publickey)` | tu clave SSH no es la de `admin_ssh_public_key`                                                                                                                                                                                           |
+
+### 7.1 Crea el servidor
+
+En la consola de tu proveedor: un servidor con **Ubuntu 24.04 LTS**, 2 vCPU y 4 GB de RAM o más,
+una IPv4 pública y tu clave pública SSH personal para el primer acceso. Si el proveedor tiene
+firewall, permite TCP 22, 80 y 443, y UDP 443.
+
+**Comprobación:** `ssh root@<IP del servidor>` (o el usuario que indique el proveedor) abre una shell
+en el servidor.
+
+### 7.2 Apunta el dominio al servidor
+
+En tu proveedor de DNS: un registro **A** `app.acme.com` → la IPv4 del servidor. Ningún registro
+**AAAA**: el despliegue sirve solo IPv4 ([deploy-vps.md](deploy-vps.md#2-create-the-server) explica
+por qué).
+
+**Comprobación**, después de unos minutos: `nslookup app.acme.com` responde con la dirección del
+servidor.
+
+### 7.3 Instala Docker y cierra el firewall
+
+Conectado al servidor, copia estas líneas, un bloque cada vez:
+
+```
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+```
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 443/udp
+sudo ufw --force enable
+sudo apt-get install -y unattended-upgrades
+sudo dpkg-reconfigure --priority=low unattended-upgrades
+```
+
+**Comprobación:** `docker compose version` imprime `Docker Compose version v2` o posterior;
+`sudo ufw status` lista OpenSSH, 80 y 443 como `ALLOW`.
+
+### 7.4 Crea el usuario de despliegue
+
+En el servidor:
+
+```
+sudo adduser --disabled-password --gecos "" deploy
+sudo usermod -aG docker deploy
+sudo install -d -m 755 -o deploy -g deploy /srv/app
+sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+```
+
+En **tu equipo**, una clave para que GitHub se conecte (una por entorno; sin frase de contraseña):
+
+```
+ssh-keygen -t ed25519 -N "" -C "github-deploy-production" -f deploy_production
+scp deploy_production.pub <tu usuario>@app.acme.com:/tmp/deploy.pub
+ssh <tu usuario>@app.acme.com 'sudo install -m 600 -o deploy -g deploy /tmp/deploy.pub /home/deploy/.ssh/authorized_keys && rm /tmp/deploy.pub'
+ssh-keyscan -t ed25519 app.acme.com > known_hosts_production
+```
+
+**Comprobación:** `ssh -i deploy_production deploy@app.acme.com 'docker ps'` imprime una tabla vacía
+(solo las cabeceras). Compara la clave de `known_hosts_production` con la clave de host que muestra
+la consola de tu proveedor (o ejecuta `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` en el
+servidor y `ssh-keygen -lf known_hosts_production` en tu equipo: las huellas tienen que coincidir).
+
+### 7.5 Crea la base de datos
+
+**En el servidor** (por defecto): aquí no hay nada que hacer. El 7.6 deja `COMPOSE_PROFILES=db` en
+`server.env`, y el primer despliegue arranca PostgreSQL allí y crea la base de datos `app` y sus
+roles, con las contraseñas que genera el 7.6 ([deploy-vps.md](deploy-vps.md#on-this-server)).
+
+**Una base de datos gestionada:** en la consola de tu proveedor, un **PostgreSQL 16 o posterior**
+gestionado: en la misma región que el servidor, con **backups automáticos** y **point-in-time
+recovery** activados, **protección contra borrado** (deletion protection) activada, y acceso solo
+desde la IP del servidor (o una red privada). Apunta su nombre de host.
+
+Genera dos contraseñas (`openssl rand -hex 24`, dos veces) y guárdalas en el gestor de contraseñas.
+Después, conectado como el administrador del proveedor
+(`psql "<cadena de conexión del administrador>"`):
+
+```sql
+CREATE ROLE app_migrator LOGIN PASSWORD '<contraseña de app_migrator>';
+GRANT app_migrator TO CURRENT_USER;
+CREATE DATABASE app OWNER app_migrator;
+CREATE ROLE app_runtime LOGIN PASSWORD '<contraseña de app_runtime>' CONNECTION LIMIT 50;
+```
+
+Después, conectado **como `app_migrator`** a la base de datos `app`
+(`psql "postgresql://app_migrator:<contraseña de app_migrator>@<host>:5432/app?sslmode=require"`):
+
+```sql
+GRANT CONNECT ON DATABASE app TO app_runtime;
+GRANT USAGE ON SCHEMA public TO app_runtime;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;
+```
+
+**Comprobación:** cada sentencia responde `CREATE ROLE`, `GRANT ROLE`, `CREATE DATABASE`, `GRANT` o
+`ALTER DEFAULT PRIVILEGES`, sin errores. Sin `GRANT app_migrator TO CURRENT_USER`, PostgreSQL 16 y
+posteriores rechazan `CREATE DATABASE` (`must be able to SET ROLE "app_migrator"`): los
+administradores de los proveedores no son superusuarios. El migrador será el propietario del
+esquema y quien lo cambie; la API se conecta como `app_runtime`, que solo lee y escribe datos.
+
+### 7.6 Copia los ficheros de despliegue al servidor
+
+Desde la carpeta del proyecto en tu equipo:
+
+```
+scp deploy/vps/* deploy@app.acme.com:/srv/app/
+```
+
+Más adelante, cuando una release cambie alguno de estos ficheros (Dependabot actualiza las imágenes
+de Caddy, PostgreSQL y Redis en `deploy/vps`), el workflow Deploy se detiene en **Check the server's
+deploy files** hasta que los vuelvas a copiar
+([deploy-vps.md](deploy-vps.md#update-the-server-files)).
+
+En el servidor, como `deploy` (`ssh -i deploy_production deploy@app.acme.com`), cada fichero
+desde su ejemplo (con una base de datos gestionada, sáltate `db.env` y `backup.env`):
+
+```
+cd /srv/app
+chmod 755 deploy.sh rollback.sh db-init.sh backup.sh
+cp server.env.example server.env
+cp api.env.example api.env
+cp migrate.env.example migrate.env
+cp web.env.example web.env
+cp redis.env.example redis.env
+cp db.env.example db.env
+cp backup.env.example backup.env
+chmod 600 *.env
+```
+
+Después, los secretos: se generan en el servidor y se escriben en cada fichero que los necesita, sin
+aparecer nunca en pantalla (con una base de datos gestionada, quita las líneas de `db.env` y
+`backup.env`):
+
+```
+migrator=$(openssl rand -hex 24) runtime=$(openssl rand -hex 24) backup=$(openssl rand -hex 24) redis=$(openssl rand -hex 24)
+sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 24)|; s|^APP_MIGRATOR_PASSWORD=.*|APP_MIGRATOR_PASSWORD=$migrator|; s|^APP_RUNTIME_PASSWORD=.*|APP_RUNTIME_PASSWORD=$runtime|; s|^APP_BACKUP_PASSWORD=.*|APP_BACKUP_PASSWORD=$backup|" db.env
+sed -i "s|^PGPASSWORD=.*|PGPASSWORD=$backup|" backup.env
+sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$redis|" redis.env
+sed -i "s|<APP_RUNTIME_PASSWORD>|$runtime|; s|<REDIS_PASSWORD>|$redis|; s|^JWT_ACCESS_SECRET=.*|JWT_ACCESS_SECRET=$(openssl rand -hex 32)|" api.env
+sed -i "s|<APP_MIGRATOR_PASSWORD>|$migrator|" migrate.env
+unset migrator runtime backup redis
+```
+
+Edita cada fichero (`nano <fichero>`, guarda con `Ctrl+O`, sal con `Ctrl+X`):
+
+| Fichero       | Define                                                                                                                                                                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `server.env`  | `APP_DOMAIN=app.acme.com`; deja `COMPOSE_PROFILES=db` (la base de datos en el servidor), o borra esa línea (una base de datos gestionada)                                                                                                        |
+| `api.env`     | `APP_ENVIRONMENT=production` (o `staging`), `APP_ORIGIN=https://app.acme.com`; con una base de datos gestionada, también `DATABASE_URL=postgresql://app_runtime:<contraseña de app_runtime>@<host de la base de datos>:5432/app?sslmode=require` |
+| `migrate.env` | nada, con la base de datos en el servidor; con una gestionada, `DATABASE_URL=postgresql://app_migrator:<contraseña de app_migrator>@<host de la base de datos>:5432/app?sslmode=require`                                                         |
+| `web.env`     | nada todavía: la identidad de la app llega en las fases 8 y 10 (abajo)                                                                                                                                                                           |
+
+Con Terraform (7.0), los dos valores de `DATABASE_URL` ya están completos: en
+`infra/terraform/digitalocean` en tu equipo, `terraform output -raw database_runtime_url`
+(`api.env`) y `terraform output -raw database_migrator_url` (`migrate.env`).
+
+Con una base de datos gestionada en DigitalOcean o Amazon RDS, cuyos certificados vienen de la CA
+propia del proveedor, termina las dos URL con `?sslmode=require&uselibpqcompat=true` (las salidas de
+Terraform ya lo hacen): si no, la API rechaza el certificado (un error de certificado como
+`self-signed certificate in certificate chain`,
+[deploy-vps.md](deploy-vps.md#6-the-files-on-the-server)).
+
+**Correo** (opcional, pero el registro, la recuperación de contraseña, las invitaciones y los
+cambios de email de la app lo necesitan): en `api.env`,
+`MAIL_SMTP_URL=smtps://<usuario>:<contraseña, codificada con %>@<host del proveedor>:465` y
+`MAIL_FROM="Acme <no-reply@acme.com>"` de tu proveedor de correo (Amazon SES, Postmark, Resend,
+Brevo...), y en el proveedor, SPF, DKIM y DMARC para `acme.com` ([manual](manual.es.md#53-correo)).
+Tras el primer despliegue (7.8),
+`docker compose --env-file server.env --env-file release.env run --rm -T api node dist/infrastructure/mail/mail.cli.js test --to <tú>`
+debe imprimir `Delivered`. Si termina en `connection` o se agota el tiempo, puede que el servidor no
+tenga permitido enviar SMTP (DigitalOcean bloquea los puertos 25, 465 y 587 en muchas cuentas): usa
+el puerto 2525 del proveedor (`smtp://<usuario>:<contraseña>@<host del proveedor>:2525`, STARTTLS) o
+pide al soporte de DigitalOcean que lo desbloquee.
+
+**La identidad de la app** (`web.env`), cuando la tengas: el Team ID de Apple y el identificador del
+bundle (fase 8.3, cuando EAS registra la app), y el application id de Android con la huella SHA-256
+de la clave de firma de Google (fase 10, cuando Play App Signing la custodia): descomenta las cuatro
+líneas de `web.env`, rellénalas y vuelve a crear el contenedor web
+(`docker compose --env-file server.env --env-file release.env up -d --wait web`). Hasta entonces,
+los enlaces de los correos abren la página open-in-app en vez de la app
+([deploy-vps.md](deploy-vps.md#6-the-files-on-the-server)).
+
+**Comprobación:** `ls -l /srv/app` muestra cada fichero `.env` como `-rw-------` (solo `deploy` puede
+leerlos), y `grep -nE '^[^#].*(<|example\.com)|^[A-Z_]+=$' *.env` no imprime nada (no queda ningún
+marcador, dominio de ejemplo ni valor vacío).
+
+### 7.7 Dale a GitHub los datos del servidor
+
+Una vez para el repositorio:
+
+```
+gh variable set DEPLOY_TARGET --body vps
+gh variable set IMAGE_PREFIX --body ghcr.io/<owner>/<repo>
+```
+
+(`IMAGE_PREFIX` en minúsculas: `ghcr.io/acme/acme-app`.)
+
+Los entornos `staging` y `production` (Settings → Environments → New environment; ramas de
+despliegue: solo `main`; producción con revisores obligatorios, como ya tiene `production` para
+EAS, [ci-cd.md](ci-cd.md#environments)). Para el entorno que estás configurando (aquí `production`;
+`staging` la otra vez):
+
+```
+gh variable set DEPLOY_HOST --env production --body app.acme.com
+gh variable set PUBLIC_URL --env production --body https://app.acme.com
+gh secret set DEPLOY_SSH_KEY --env production < deploy_production
+gh secret set DEPLOY_KNOWN_HOSTS --env production < known_hosts_production
+```
+
+Guarda `deploy_production` en el gestor de contraseñas, y después bórralo de tu equipo junto con
+`known_hosts_production`.
+
+**Comprobación:** **Settings → Environments → production** lista las variables `DEPLOY_HOST`,
+`PUBLIC_URL` y los secretos `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` (junto a `EXPO_TOKEN`);
+**Settings → Secrets and variables → Actions → Variables** lista `DEPLOY_TARGET` e `IMAGE_PREFIX`.
+
+Ahora repite el 7.0 o del 7.1 al 7.5, y después el 7.6 y el 7.7, para el otro entorno.
+
+### 7.8 Despliega en staging
+
+```
+gh workflow run deploy.yml --ref main -f environment=staging -f ref=main
+gh run watch
+```
+
+Tarda 15–25 minutos la primera vez. Los jobs, en orden: Resolve the commit → Gates → Publish
+api / api-migrate / web → Release to staging (server).
+
+**Comprobación:** la ejecución termina en verde; su resumen lista los tres digests de las imágenes; el
+último paso imprime `Smoke test passed (public URL only).`; https://staging.acme.com abre la landing
+con un certificado válido (el candado), y https://staging.acme.com/release.json nombra el commit
+desplegado.
+
+**Si falla:**
+
+| Paso que falla                                                  | Causa y arreglo                                                                                                                                                                                                                       |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gates                                                           | lo mismo que un CI en rojo: abre el log del job que falla                                                                                                                                                                             |
+| Publish: "The registry is ghcr.io"                              | `IMAGE_PREFIX` tiene que ser `ghcr.io/<owner>/<repo>` en minúsculas (7.7)                                                                                                                                                             |
+| Publish: "Scan the pushed image"                                | un aviso HIGH o CRITICAL con arreglo en la imagen publicada, como en el escaneo de imágenes de los gates: actualiza la imagen base o la dependencia ([security.md](security.md#container-images))                                     |
+| Environment settings                                            | falta una variable o un secreto del entorno (7.7)                                                                                                                                                                                     |
+| Deploy on the server: `Permission denied (publickey)`           | la clave pública no está en `/home/deploy/.ssh/authorized_keys`, o `DEPLOY_SSH_KEY` tiene la clave privada equivocada (7.4)                                                                                                           |
+| `Host key verification failed`                                  | `DEPLOY_KNOWN_HOSTS` no coincide con el servidor (7.4)                                                                                                                                                                                |
+| Check the server's deploy files: "Server files out of date"     | una release cambió un fichero de `deploy/vps`: vuelve a copiarlos ([deploy-vps.md](deploy-vps.md#update-the-server-files))                                                                                                            |
+| `server.env is missing` (o `redis.env`, `db.env`, `backup.env`) | el 7.6 no se hizo, o no entero, en ese servidor                                                                                                                                                                                       |
+| `the data services did not start`                               | PostgreSQL o Redis no arrancaron: sus logs en el servidor (`docker logs app-db-1`, `docker logs app-redis-1`) dicen la causa, normalmente una contraseña del 7.6 ([troubleshooting.md](troubleshooting.md#deployment-and-operations)) |
+| The migration failed                                            | `migrate.env`: contraseña o host equivocados, o la base de datos no es accesible desde el servidor (7.5)                                                                                                                              |
+| The rollout failed                                              | el log del paso termina con las últimas líneas de log de los contenedores nuevos, y después la release anterior vuelve a arrancar; normalmente es `api.env` (`DATABASE_URL`, `JWT_ACCESS_SECRET`)                                     |
+| Smoke test, errores de certificado                              | el DNS todavía no apunta al servidor, o los puertos 80/443 están cerrados (7.2, 7.3)                                                                                                                                                  |
+
+### 7.9 Míralo
+
+Abre https://staging.acme.com: la landing, en inglés, y en español en `/es/`;
+https://staging.acme.com/app/reset-password muestra la página open-in-app. Apunta tu
+`apps/mobile/.env` local a él (`EXPO_PUBLIC_API_URL=https://staging.acme.com` y después
+`pnpm start`): nadie puede iniciar sesión todavía, las bases de datos de producción no tienen
+cuentas.
+
+### 7.10 Crea el primer administrador
+
+En el servidor, como `deploy`:
+
+```
+cd /srv/app
+read -rs PASSWORD
+```
+
+Escribe la contraseña (15 caracteres o más, unas cuantas palabras funcionan bien; no se muestra
+nada), pulsa Enter y después:
+
+```
+printf '%s' "$PASSWORD" | docker compose --env-file server.env --env-file release.env \
+  run --rm -T api node dist/users/create-user.cli.js \
+  --email <email del primer administrador> --name "<Nombre>" --role admin
+unset PASSWORD
+```
+
+**Comprobación:** imprime `Created the admin account <email> (<id>).`; inicia sesión desde la app con
+ese email y esa contraseña; Ajustes muestra **Administration**, desde donde se invita por email al
+resto del equipo.
+
+### 7.11 Ensaya un rollback (staging)
+
+Vuelve a desplegar staging con cualquier commit posterior de `main` (el 7.8 con `-f ref=main` tras
+el siguiente merge): el build del 7.8 pasa a ser la release anterior, la que un rollback vuelve a
+poner. En el servidor de staging:
+
+```
+cd /srv/app
+./rollback.sh
+```
+
+**Comprobación:** imprime `rollback: running <commit del 7.8>`; https://staging.acme.com/release.json
+nombra ese commit; el sitio y la app siguen funcionando.
+
+Después devuelve staging con el workflow, como cualquier despliegue:
+
+```
+gh workflow run deploy.yml --ref main -f environment=staging -f ref=main
+gh run watch
+```
+
+**Comprobación:** la ejecución termina en verde y `release.json` vuelve a nombrar el commit más
+reciente. Hacer un rollback (una vuelta atrás) ya es algo que has hecho, no algo que has leído.
+
+### 7.12 Producción
+
+El mismo commit que ejecuta staging, ahora en producción (la ejecución espera a un revisor: ábrela
+en GitHub → **Review deployments** → **Approve and deploy**):
+
+```
+gh workflow run deploy.yml --ref main -f environment=production -f ref=<el commit o tag de staging>
+gh run watch
+```
+
+Después crea allí el primer administrador (7.10). A partir de la primera publicación en las
+tiendas, despliega su tag en staging y luego en producción antes de construir la app (fase 11.1).
+
+**Comprobación:** la ejecución termina en verde; producción no construye nada (su resumen lista los
+tres digests de la ejecución de staging, "built and scanned by run <su id>"); https://app.acme.com
+abre la landing, y https://app.acme.com/release.json nombra el mismo commit que staging.
+
+---
+
+## Fase 8. EAS y servicios
 
 Todos los comandos `eas` de esta guía, de aquí al calendario de mantenimiento, se ejecutan en
 `apps/mobile`, donde están `eas.json` y la configuración de la app: deja una terminal abierta allí.
 
-### 7.1 El proyecto de EAS
+### 8.1 El proyecto de EAS
 
 ```
 cd apps/mobile
@@ -576,23 +985,24 @@ owner: '<tu cuenta u organización de Expo>',
 **Comprobación:** `node scripts/check-eas-project.mjs` (en `apps/mobile`) imprime
 `EAS project <id>`. Haz commit mediante un pull request (`chore: link the EAS project`).
 
-### 7.2 Las variables de entorno de EAS
+### 8.2 Las variables de entorno de EAS
 
-Para cada entorno de EAS (`development`, `preview`, `production`), la URL pública de la API (la API
-de staging para `development` y `preview`):
+Para cada entorno de EAS (`development`, `preview`, `production`), la URL pública de la API: los
+servidores de la fase 7, staging para `development` y `preview` (la imagen web reenvía `/api` a la
+API, así que la URL es el origen del sitio):
 
 ```
-eas env:create --environment production --name EXPO_PUBLIC_API_URL --value https://api.acme.com --visibility plaintext
-eas env:create --environment preview --name EXPO_PUBLIC_API_URL --value https://staging-api.acme.com --visibility plaintext
-eas env:create --environment development --name EXPO_PUBLIC_API_URL --value https://staging-api.acme.com --visibility plaintext
+eas env:create --environment production --name EXPO_PUBLIC_API_URL --value https://app.acme.com --visibility plaintext
+eas env:create --environment preview --name EXPO_PUBLIC_API_URL --value https://staging.acme.com --visibility plaintext
+eas env:create --environment development --name EXPO_PUBLIC_API_URL --value https://staging.acme.com --visibility plaintext
 ```
 
-Con Sentry (7.4), también por entorno: `EXPO_PUBLIC_SENTRY_DSN` (plaintext), `SENTRY_ORG` y
+Con Sentry (8.4), también por entorno: `EXPO_PUBLIC_SENTRY_DSN` (plaintext), `SENTRY_ORG` y
 `SENTRY_PROJECT` (plaintext), `SENTRY_AUTH_TOKEN` (`--visibility secret`).
 
 **Comprobación:** `eas env:list --environment production` lista las variables.
 
-### 7.3 Credenciales de firma
+### 8.3 Credenciales de firma
 
 EAS las crea y las guarda; nada va al repositorio. De forma interactiva, una vez por plataforma:
 
@@ -623,7 +1033,7 @@ Imprime un enlace o un código QR: ábrelo en el iPhone e instala el perfil que 
 **Comprobación:** `eas credentials -p android` y `-p ios` muestran credenciales para cada perfil;
 `eas device:list` lista los iPhones registrados.
 
-### 7.4 Servicios de push y de reporte de errores (opcional)
+### 8.4 Servicios de push y de reporte de errores (opcional)
 
 - **Push en Android:** consola de Firebase → tu proyecto → añade una app Android con tu
   identificador → descarga `google-services.json` (nunca lo hagas commit). Guárdalo como variable de
@@ -640,11 +1050,11 @@ Imprime un enlace o un código QR: ábrelo en el iPhone e instala el perfil que 
   `gh variable set SENTRY_ORG --body <org>`, `gh variable set SENTRY_PROJECT --body <proyecto>`, y
   `gh secret set SENTRY_AUTH_TOKEN --env production` (y `--env preview`).
 
-### 7.5 El token para GitHub
+### 8.5 El token para GitHub
 
 expo.dev → tu cuenta u organización → **Settings → Access tokens**: crea un token (para una
 organización, mejor un **robot user** con el rol Developer que un token personal; cuando el canal
-de producción esté protegido, 10.4, el de `production` necesita el rol Release Manager). Después:
+de producción esté protegido, 11.4, el de `production` necesita el rol Release Manager). Después:
 
 ```
 gh secret set EXPO_TOKEN --env preview
@@ -655,9 +1065,9 @@ gh secret set EXPO_TOKEN --env production
 
 ---
 
-## Fase 8. Primeros builds en dispositivos reales
+## Fase 9. Primeros builds en dispositivos reales
 
-### 8.1 Un build de desarrollo para tu teléfono
+### 9.1 Un build de desarrollo para tu teléfono
 
 ```
 eas build --profile development --platform android
@@ -670,7 +1080,7 @@ desarrollo de tu equipo (en la misma red Wi-Fi).
 
 **Comprobación:** la app se abre en el teléfono, y el menú de desarrollo aparece cuando lo agitas.
 
-### 8.2 Un build de preview para los testers
+### 9.2 Un build de preview para los testers
 
 GitHub → **Actions → EAS build → Run workflow** (desde `main`): perfil `preview`, plataforma `all`,
 ref `main`. O bien:
@@ -692,16 +1102,16 @@ Pruébala con la checklist de
 
 | Mensaje                                           | Arreglo                          |
 | ------------------------------------------------- | -------------------------------- |
-| `No EAS project`                                  | falta el commit de 7.1 en `main` |
-| `Invalid app configuration: EXPO_PUBLIC_API_URL…` | 7.2 para ese entorno             |
-| errores de credenciales                           | 7.3 para ese perfil              |
-| `EXPO_TOKEN` vacío o no autorizado                | 7.5 para ese entorno             |
+| `No EAS project`                                  | falta el commit de 8.1 en `main` |
+| `Invalid app configuration: EXPO_PUBLIC_API_URL…` | 8.2 para ese entorno             |
+| errores de credenciales                           | 8.3 para ese perfil              |
+| `EXPO_TOKEN` vacío o no autorizado                | 8.5 para ese entorno             |
 
 ---
 
-## Fase 9. Las fichas en las tiendas
+## Fase 10. Las fichas en las tiendas
 
-### 9.1 Google Play
+### 10.1 Google Play
 
 1. Play Console → **Create app**: nombre, idioma por defecto, App, Free o Paid, acepta las
    declaraciones.
@@ -726,10 +1136,10 @@ Pruébala con la checklist de
 **Comprobación:** el Dashboard muestra hechas las tareas de configuración;
 `eas credentials -p android` muestra la clave de envío.
 
-### 9.2 App Store
+### 10.2 App Store
 
 1. App Store Connect → **Apps → + → New App**: iOS, nombre, idioma principal, el bundle id
-   registrado en 7.3 (tu identificador, sin sufijo), un SKU.
+   registrado en 8.3 (tu identificador, sin sufijo), un SKU.
 2. **App Information**: categoría, derechos de contenido, clasificación por edad. **Pricing and
    Availability**. **App Privacy**: los tipos de datos (de 0.1) y la URL de la política de
    privacidad.
@@ -756,9 +1166,9 @@ la clave de API; `apps/mobile/eas.json` tiene el `ascAppId`.
 
 ---
 
-## Fase 10. La primera publicación en las tiendas
+## Fase 11. La primera publicación en las tiendas
 
-### 10.1 Crea la versión
+### 11.1 Crea la versión
 
 Mergea el pull request de release, "chore(main): release <versión>". La versión sale de los commits
 desde el `0.1.0` de la plantilla: el primer `fix` la convierte en 0.1.1, el primer `feat` en 0.2.0.
@@ -766,7 +1176,19 @@ Para empezar en 1.0.0, mergea antes un pull request añadiendo el pie `Release-A
 mensaje de commit en el diálogo de **Squash and merge**. El workflow **Release** crea el tag de la
 versión (`v<versión>`).
 
-### 10.2 La primera subida de Android es manual (regla de Google)
+Después, la parte de servidor de ese tag, antes que la app: el build de producción habla con la API
+de producción, que ya tiene que servir el contrato de la release (7.8, 7.12):
+
+```
+gh workflow run deploy.yml --ref main -f environment=staging -f ref=v<versión>
+gh run watch
+gh workflow run deploy.yml --ref main -f environment=production -f ref=v<versión>
+```
+
+**Comprobación:** las dos ejecuciones terminan en verde, y https://app.acme.com/release.json nombra
+el commit del tag.
+
+### 11.2 La primera subida de Android es manual (regla de Google)
 
 Compila sin enviar:
 
@@ -780,7 +1202,7 @@ descarga el `.aab`. Play Console → **Testing → Internal testing → Create n
 Añade los emails de tus testers en la pestaña **Testers** y comparte el enlace de inscripción
 (opt-in).
 
-### 10.3 Cada build posterior: envío automático
+### 11.3 Cada build posterior: envío automático
 
 ```
 gh workflow run eas-build.yml --ref main -f profile=production -f platform=all -f ref=<tag> -f submit=true
@@ -795,7 +1217,7 @@ Para la primera versión, ejecútalo para iOS: `-f platform=ios -f submit=true`.
 **Comprobación:** el build aparece en Internal testing de Play Console y en TestFlight; los testers
 lo instalan y funciona contra la API de producción.
 
-### 10.4 Protege el canal de actualizaciones de producción
+### 11.4 Protege el canal de actualizaciones de producción
 
 El primer build de producción creó el canal `production`. Permite publicar en él solo a un
 Release Manager o superior, si la cuenta tiene canales protegidos (una beta privada del plan
@@ -807,10 +1229,10 @@ eas channel:protect
 ```
 
 (elige `production`). **Comprobación:** `eas channel:view production` lo muestra protegido. Desde
-ahora el `EXPO_TOKEN` del entorno `production` debe ser de un Release Manager (7.5): con el rol
+ahora el `EXPO_TOKEN` del entorno `production` debe ser de un Release Manager (8.5): con el rol
 Developer, los workflows EAS update y EAS rollback ya no pueden publicar en producción.
 
-### 10.5 Hazla pública
+### 11.5 Hazla pública
 
 - **Google Play:** desde Internal testing, **promociona** la release a pruebas cerradas (Closed
   testing; cuentas personales: los 12 testers durante 14 días de 0.2), y después a **Production**
@@ -826,9 +1248,9 @@ instalación desde la tienda, muestra tu versión y tu build.
 
 ---
 
-## Fase 11. Actualizaciones OTA
+## Fase 12. Actualizaciones OTA
 
-### 11.1 Publica un cambio de JavaScript
+### 12.1 Publica un cambio de JavaScript
 
 1. Un cambio de JavaScript pequeño y visible (un texto) mediante un pull request, mergeado.
 2. Primero, en preview:
@@ -851,7 +1273,7 @@ instalación desde la tienda, muestra tu versión y tu build.
 Solo JavaScript y assets se pueden publicar así; un cambio nativo necesita un build nuevo
 ([releases.md](releases.md#what-can-ship-as-an-ota-update)).
 
-### 11.2 Ensaya un rollback (preview)
+### 12.2 Ensaya un rollback (preview)
 
 ```
 eas update:list --branch preview
@@ -868,7 +1290,7 @@ anterior en Settings → About.
 
 ---
 
-## Fase 12. Monitorización
+## Fase 13. Monitorización
 
 1. **Sentry:** reglas de alerta para issues nuevos y para un pico de errores; comprueba que le llega
    un error de prueba (desde un build de preview).
@@ -876,13 +1298,21 @@ anterior en Settings → About.
    y ANRs/hangs por versión.
 3. **EAS:** después de cada actualización, `eas update:insights` (arranques, crashes y tamaño de un
    grupo de actualizaciones) o la página **Updates** del proyecto en expo.dev.
-4. Quién mira, con qué frecuencia, y quién responde a las reseñas de las tiendas.
+4. **El servidor:** las comprobaciones de disponibilidad de
+   [observability.md](observability.md#uptime-monitoring) (`/healthz`, la API, los ficheros de
+   enlaces de la app; con Terraform, la primera ya existe), los dashboards y las reglas de alerta de
+   `observability/` cargados en tu backend
+   ([observability.md](observability.md#use-them-with-your-backend)), sus notificaciones enrutadas
+   por severidad ([alerting.md](alerting.md)) y la tabla de contactos de
+   [incident-response.md](incident-response.md#roles-and-contacts) rellena.
+5. Quién mira, con qué frecuencia, y quién responde a las reseñas de las tiendas.
 
-**Comprobación:** alguien del equipo recibe las alertas de Sentry.
+**Comprobación:** alguien del equipo recibe las alertas de Sentry y las del servidor (para la API de
+staging unos minutos: salta la comprobación de disponibilidad).
 
 ---
 
-## Fase 13. Antes de los usuarios reales
+## Fase 14. Antes de los usuarios reales
 
 - [ ] [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md) se cumple en cada funcionalidad publicada.
 - [ ] Probada en un teléfono Android pequeño/antiguo y en un iPhone reciente, con el tamaño de letra
@@ -894,8 +1324,12 @@ anterior en Settings → About.
 - [ ] La cuenta de prueba de los revisores funciona en producción.
 - [ ] Los cambios de backend que necesita la app están en producción y son compatibles con todas las
       versiones que siguen instaladas.
+- [ ] El servidor de producción: una restauración ensayada
+      ([disaster-recovery.md](disaster-recovery.md#restore-testing)), sus backups copiados fuera de
+      él, un rollback ensayado en staging (7.11) y
+      `pnpm smoke --url https://app.acme.com --require-app-links` pasando.
 - [ ] Los builds y las actualizaciones de producción requieren un revisor (entorno de GitHub) y el
-      canal de producción está protegido donde la cuenta lo permite (10.4).
+      canal de producción está protegido donde la cuenta lo permite (11.4).
 - [ ] El objetivo de sesiones sin crashes, acordado (por ejemplo, el 99.5 % de las sesiones) y
       vigilado.
 - [ ] [production-readiness.md](production-readiness.md) firmado, con
@@ -904,7 +1338,7 @@ anterior en Settings → About.
 
 ---
 
-## Fase 14. El ciclo diario
+## Fase 15. El ciclo diario
 
 | Paso                                              | Haz                                                                                                                                                                                 | Comprobación                                         |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
@@ -920,7 +1354,7 @@ anterior en Settings → About.
 
 ---
 
-## Fase 15. El calendario de mantenimiento
+## Fase 16. El calendario de mantenimiento
 
 | Cuándo                              | Qué hacer                                                                                                                                                                                                                                                                                 |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -930,7 +1364,9 @@ anterior en Settings → About.
 | Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro, Node.js y pnpm, y TypeScript ([ci-cd.md](ci-cd.md#keeping-the-stack-current)); la caducidad de `EXPO_TOKEN`, y la de `RELEASE_PLEASE_TOKEN` si lo configuraste. |
 | Cada año                            | Renueva la membresía de Apple Developer y el certificado de distribución (`eas credentials -p ios`) antes de que caduquen.                                                                                                                                                                |
 | Cada agosto                         | La fecha límite de Google Play para el target API level: publica antes un build con un SDK de Expo actual.                                                                                                                                                                                |
-| Una major de PostgreSQL o Redis     | A mano, junto con `docker-compose.yml` y las imágenes de CI; los datos de PostgreSQL se exportan y se restauran entre majors ([ci-cd.md](ci-cd.md#keeping-the-stack-current)).                                                                                                            |
+| Una major de PostgreSQL o Redis     | A mano, junto con `docker-compose.yml`, el `deploy/vps/compose.yaml` del servidor y las imágenes de CI; los datos de PostgreSQL se exportan y se restauran entre majors ([ci-cd.md](ci-cd.md#postgresql-and-redis)).                                                                      |
+| Cada mes (el servidor)              | Borra las imágenes viejas y reinicia cuando haga falta ([deploy-vps.md](deploy-vps.md#keep-the-server-healthy)).                                                                                                                                                                          |
+| Cada trimestre (el servidor)        | Un simulacro de restauración ([disaster-recovery.md](disaster-recovery.md#restore-testing)), una alerta de prueba por el enrutado, comprobar la copia de los backups fuera del servidor.                                                                                                  |
 
 ---
 
@@ -938,7 +1374,8 @@ anterior en Settings → About.
 
 | Situación                                               | Dónde                                                                                                                                            |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Un mensaje de error                                     | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end)                                                                   |
+| Un mensaje de error                                     | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end), los del servidor: [troubleshooting.md](troubleshooting.md)       |
+| El servidor, sus backups, un incidente                  | [deploy-vps.md](deploy-vps.md), [disaster-recovery.md](disaster-recovery.md), [incident-response.md](incident-response.md)                       |
 | Cómo funciona algo                                      | [manual.es.md](manual.es.md)                                                                                                                     |
 | La API: módulos, convenciones, datos, errores           | [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [database.md](database.md), [error-handling.md](error-handling.md) |
 | Builds, versiones, tiendas y actualizaciones en detalle | [releases.md](releases.md)                                                                                                                       |

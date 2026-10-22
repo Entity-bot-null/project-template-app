@@ -14,7 +14,7 @@ import { type Prisma, PrismaClient } from './generated/client.js';
 // The boot does not wait for the database to come up: an API started during a
 // database outage (or before the database, in a fresh stack) runs, answers
 // readiness with 503 and serves as soon as the database answers, instead of
-// crash-looping (docs/database.md#connections). It checks
+// crash-looping (docs/incident-response.md#3-database-unavailable). It checks
 // once and says so in the log: with the pg adapter, $connect() only creates
 // the pool, and nothing would otherwise reach the database before the first
 // request.

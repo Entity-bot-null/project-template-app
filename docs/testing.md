@@ -30,6 +30,10 @@ how to run every level, end-to-end on a device included.
 | Web image       | node:test, the real shell scripts        | the image's settings checks, its link files, its routes against the apps they serve                                                       | `scripts/validate-runtime-config.test.mjs`, `scripts/app-links.test.mjs`, `scripts/web-server-routes.test.mjs`               |
 | Browser         | Playwright (Chromium)                    | the built landing as visitors and search engines see it; the web image's app links and their files                                        | `e2e/` ([below](#browser-end-to-end))                                                                                        |
 | Smoke           | `pnpm smoke` (read-only)                 | a deployment, or the stack, answers as it should: pages, links, files, the API through the web server, the probes                         | `scripts/smoke-test.mjs` ([below](#smoke-test))                                                                              |
+| Deployment      | node:test, the real shell scripts        | `deploy.sh` and `rollback.sh` against a stand-in for Docker; the server's files against the apps they configure                           | `scripts/deploy-vps.test.mjs` ([deploy-vps.md](deploy-vps.md#how-it-works))                                                  |
+| Infrastructure  | `pnpm iac:check` (Docker)                | Terraform's own tests (provider mocked), TFLint, Trivy, cloud-init, the database roles on a real PostgreSQL                               | `infra/terraform/digitalocean/tests/`, `scripts/check-iac.mjs` ([ci-cd.md](ci-cd.md#infrastructure-as-code))                 |
+| Alert rules     | promtool (`pnpm observability:check`)    | every alert fires on the series it is for, and not on the ones it must ignore; dashboards read only real metrics                          | `observability/prometheus/tests/` ([observability.md](observability.md#dashboards-and-alerts-as-code))                       |
+| DAST            | OWASP ZAP (advisory, weekly)             | the production images, started on the runner, answer no attack the rules fail on                                                          | `.github/workflows/dast.yml`, `.zap/rules.tsv` ([security.md](security.md#dynamic-analysis))                                 |
 
 The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
 End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
@@ -48,6 +52,8 @@ pnpm test:e2e:mobile:stack                          # Maestro flows against the 
 pnpm test:scripts                                   # the repository scripts' own tests (node --test), the mock API against the contract
 pnpm test:e2e                                       # Playwright: the built landing, and the web image (Docker) (see Browser end-to-end)
 pnpm smoke --url http://localhost:8090              # the smoke test, here against the local stack (see Smoke test)
+pnpm iac:check                                      # Terraform, TFLint, Trivy, cloud-init, the database roles (Docker)
+pnpm observability:check                            # the dashboards and alert rules, and the rules' unit tests (Docker)
 pnpm test:integration                               # the API on PostgreSQL, Redis and Mailpit (pnpm services:up first)
 pnpm --filter api test:watch                        # the API's unit tests, re-run on change
 pnpm --filter api exec vitest run src/items         # the API's unit tests under a folder
@@ -393,8 +399,10 @@ traces of a failure.
 
 ## Smoke test
 
-`pnpm smoke --url <public URL> --api <API URL>` checks a deployment, a restored one, or the local
-stack (`pnpm smoke --url http://localhost:8090`): the web server's health, the landing and its links
+`pnpm smoke --url <public URL> --api <API URL> [--release <commit SHA>]` checks a deployment, a
+restored one, or the local stack (`pnpm smoke --url http://localhost:8090`): the web server's
+health, the release it serves (`/release.json`; `--release` makes another one a failure, as the
+Deploy workflow runs it), the landing and its links
 on the deployment's origin, the share picture, both languages, the not-found page, an app link
 answered with the open-in-app page without a redirect, the two link files (JSON claiming `/app/*`,
 or 404 while the app's identity is not set; `--require-app-links` makes that a failure), the API
