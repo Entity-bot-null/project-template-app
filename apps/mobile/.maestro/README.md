@@ -19,11 +19,14 @@ them, locally and in CI: [docs/testing.md](../../../docs/testing.md#end-to-end).
     07-deep-links.yaml
     08-sign-out.yaml
   stack/             the suite against the real API: its own config.yaml
-    01-sign-up.yaml
-    02-change-email.yaml
-    03-password-recovery.yaml
-    04-delete-account.yaml
+    account-journeys.yaml            the one flow: runs the journeys below in order, on one account
+    journeys/
+      01-sign-up.yaml
+      02-change-email.yaml
+      03-password-recovery.yaml
+      04-delete-account.yaml
     helpers/open-emailed-link.yaml   waits for a link in Mailpit, then opens it (runFlow)
+    helpers/wait-for-mail-window.yaml  waits out the API's one message a minute per address
   scripts/
     mock-api.js      makes the mock API fail on demand (runScript)
     mailpit-link.js  the newest link the API emailed to an address (runScript)

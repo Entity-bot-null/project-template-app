@@ -374,8 +374,8 @@ adb reverse tcp:4010 tcp:3010
 pnpm test:e2e:mobile:stack
 ```
 
-**Comprobación:** `4/4 Flows Passed` (alta, cambio de correo, recuperación de contraseña, borrado
-de cuenta).
+**Comprobación:** `1/1 Flow Passed`: los recorridos de cuenta (alta, cambio de correo, recuperación
+de contraseña, borrado de cuenta).
 
 `apps/mobile/android/` contiene ahora la variante `e2e`: ejecuta `pnpm prebuild` antes de volver a
 `pnpm android`.

@@ -1,0 +1,21 @@
+# The API sends an address one message a minute at most, and holds back the
+# rest (MAIL_PER_ADDRESS_PER_MINUTE, apps/api/src/infrastructure/mail): before
+# asking for another message to the same address, waits until a minute has
+# passed since its last one (output.lastMailAt, set by open-emailed-link.yaml).
+# A wait for the server's limit, not for the screen: nothing on the device
+# tells when it ends. Not a journey of its own: run by the others (runFlow).
+appId: ${APP_ID}
+env:
+  APP_ID: com.example.templateapp.e2e
+---
+- repeat:
+    times: 70
+    while:
+      true: ${Date.now() - output.lastMailAt < 61000}
+    commands:
+      # A second at a time: a wait for an element that never appears.
+      - extendedWaitUntil:
+          visible:
+            id: mailpit-never-shown
+          timeout: 1000
+          optional: true

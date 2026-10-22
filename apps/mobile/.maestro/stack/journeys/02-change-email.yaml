@@ -2,7 +2,6 @@
 # link sent to the new address. Every session of the account ends; the user
 # signs in again with the new address.
 appId: ${APP_ID}
-name: Change of email
 env:
   # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
   APP_ID: com.example.templateapp.e2e
@@ -33,7 +32,7 @@ env:
 - tapOn: Done
 
 - runFlow:
-    file: helpers/open-emailed-link.yaml
+    file: ../helpers/open-emailed-link.yaml
     env:
       TO: ${output.newEmail}
       SCREEN: confirm-email-change

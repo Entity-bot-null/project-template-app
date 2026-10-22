@@ -25,4 +25,6 @@ env:
           timeout: 1000
           optional: true
 - assertTrue: ${output.link != null}
+# When the address got its last message, for wait-for-mail-window.yaml.
+- evalScript: ${output.lastMailAt = Date.now()}
 - openLink: ${output.link}

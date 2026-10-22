@@ -1,0 +1,16 @@
+# The account journeys that need email, against the real API, one after the
+# other on one account: each continues where the previous one ended. One flow
+# with the journeys as subflows (journeys/), because Maestro keeps the values
+# a flow sets (output.email, output.password) only within one flow and the
+# flows it runs.
+appId: ${APP_ID}
+name: Account journeys against the API
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+  SCHEME: templateapp-e2e
+---
+- runFlow: journeys/01-sign-up.yaml
+- runFlow: journeys/02-change-email.yaml
+- runFlow: journeys/03-password-recovery.yaml
+- runFlow: journeys/04-delete-account.yaml

@@ -206,10 +206,12 @@ previous one's state like a user's first session):
 | `07-deep-links`               | an accepted link opens its screen; an unknown route or a refused id lands on home; a link that starts the app opens its screen with the list below it                                               |
 | `08-sign-out`                 | sign-out with confirmation, still signed out after a restart, and a link into the app lands on sign-in                                                                                              |
 
-The stack suite's flows (run in order by `apps/mobile/.maestro/stack/config.yaml`, after the mock
-suite, from a clean install; every run signs up a new address):
+The stack suite is one flow, `apps/mobile/.maestro/stack/account-journeys.yaml`, run after the mock
+suite: it starts from a clean install, signs up a new address on every run, and runs the journeys
+of `stack/journeys/` in order on that account as subflows (Maestro keeps the values a flow sets,
+such as the address and the password, only within one flow and the flows it runs):
 
-| Flow                   | Covers                                                                                                                        |
+| Journey                | Covers                                                                                                                        |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | `01-sign-up`           | sign-up from the sign-in screen, the link from the email opened on the phone, the password chosen then, the account signed in |
 | `02-change-email`      | a change of email from Settings, confirmed from the link to the new address; every session ends; sign-in with the new address |
@@ -220,7 +222,10 @@ suite, from a clean install; every run signs up a new address):
 Mailpit's API (`http://localhost:8045`, `MAILPIT_URL`) and hands the flow its link, rewritten to the
 e2e variant's scheme (the e2e build claims no https domain; the token travels in the fragment
 either way). `stack/helpers/open-emailed-link.yaml` looks once a second, for up to 30 seconds: the
-API's outbox sends within a few.
+API's outbox sends within a few. The API sends an address one message a minute at most and
+holds back the rest: before asking for another message to an address that just got one,
+`stack/helpers/wait-for-mail-window.yaml` waits out that minute (a wait for the server's limit,
+which nothing on the device shows).
 
 **Failures on demand.** The mock API fails when a flow asks it to, through control endpoints outside
 the contract (listed at the top of `apps/mobile/scripts/mock-api.mjs`), which

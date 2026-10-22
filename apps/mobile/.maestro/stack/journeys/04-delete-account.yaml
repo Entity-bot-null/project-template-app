@@ -1,7 +1,6 @@
 # Account deletion from Settings, as both stores require: the password, a
 # destructive confirmation, back to sign-in, and the account is gone.
 appId: ${APP_ID}
-name: Account deletion
 env:
   # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
   APP_ID: com.example.templateapp.e2e

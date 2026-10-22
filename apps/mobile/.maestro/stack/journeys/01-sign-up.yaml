@@ -1,7 +1,6 @@
 # A new account from a clean install: sign-up, the link from the email opened
 # on the phone, the password chosen at sign-up, and the app signed in.
 appId: ${APP_ID}
-name: Sign-up with an emailed link
 env:
   # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
   APP_ID: com.example.templateapp.e2e
@@ -44,7 +43,7 @@ env:
     timeout: 15000
 
 - runFlow:
-    file: helpers/open-emailed-link.yaml
+    file: ../helpers/open-emailed-link.yaml
     env:
       TO: ${output.email}
       SCREEN: confirm-sign-up
