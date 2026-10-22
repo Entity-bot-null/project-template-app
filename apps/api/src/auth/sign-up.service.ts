@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Inject,
@@ -8,6 +7,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { fieldError } from '../common/errors/validation-failed.exception.js';
 import { errorSummary } from '../common/logging/error-summary.js';
 import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
 import type { SignUpConfirmationPayload } from '../infrastructure/mail/templates/sign-up-confirmation.template.js';
@@ -15,8 +15,8 @@ import { Prisma } from '../prisma/generated/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { hashAccountToken } from './account-tokens.js';
 import { normalizeEmail, SIGN_UP_ENABLED, SIGN_UP_MAX_FAILED_ATTEMPTS } from './auth.constants.js';
-import { AuthService, type SignInResult } from './auth.service.js';
-import type { AuthUser, SignUpDto } from './dto/auth.schemas.js';
+import { AuthService } from './auth.service.js';
+import type { AuthSession, AuthUser, SignUpDto } from './dto/auth.schemas.js';
 import { checkPassword, hashPassword } from './password.js';
 import { passwordProblem } from './password-policy.js';
 import { SessionsService } from './sessions.service.js';
@@ -70,7 +70,7 @@ export class SignUpService {
     if (!this.available) throw new ForbiddenException(SIGN_UP_CLOSED);
     const address = normalizeEmail(email);
     const problem = passwordProblem(password, { email: address, name });
-    if (problem !== undefined) throw new BadRequestException(`password: ${problem}`);
+    if (problem !== undefined) throw fieldError('password', problem);
     const work: Promise<void> = this.register(address, name, password)
       .catch((error: unknown) => {
         this.logger.error(`Could not record a sign-up: ${errorSummary(error)}`);
@@ -91,14 +91,8 @@ export class SignUpService {
    * chosen with it, and signs the person in. A wrong password counts against
    * the sign-up (dropped after SIGN_UP_MAX_FAILED_ATTEMPTS); the link then
    * stops working. Two confirmations of one link: the second finds it gone.
-   * Like a sign-in, a session this browser already had (previousToken) ends.
    */
-  async confirm(
-    token: string,
-    password: string,
-    previousToken?: string,
-    now = Date.now(),
-  ): Promise<SignInResult> {
+  async confirm(token: string, password: string, now = Date.now()): Promise<AuthSession> {
     if (!this.available) throw new ForbiddenException(SIGN_UP_CLOSED);
     const tokenHash = hashAccountToken(token);
     const signUp = await this.prisma.signUp.findUnique({
@@ -149,9 +143,7 @@ export class SignUpService {
       throw error;
     }
     this.logger.log(`Account ${user.id} created by sign-up`);
-    if (previousToken !== undefined) await this.sessions.retire(previousToken, 'sign-in');
-    const refresh = await this.sessions.create(user.id, signUp.passwordHash);
-    return { session: await this.auth.sessionFor(user, refresh.securityVersion), refresh };
+    return this.auth.sessionFor(user, await this.sessions.create(user.id, signUp.passwordHash));
   }
 
   private async register(email: string, name: string, password: string): Promise<void> {

@@ -4,14 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { ACCESS_TOKEN_TTL_SEC, normalizeEmail } from './auth.constants.js';
 import type { AccessTokenPayload, AuthSession, AuthUser } from './dto/auth.schemas.js';
 import { checkPassword, dummyPasswordHash } from './password.js';
-import { type IssuedSession, SessionsService } from './sessions.service.js';
-
-export interface SignInResult {
-  /** The response body. */
-  session: AuthSession;
-  /** The refresh token, for the cookie only. */
-  refresh: IssuedSession;
-}
+import { SessionsService, type StartedSession } from './sessions.service.js';
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -31,10 +24,9 @@ export class AuthService implements OnModuleInit {
 
   // One answer for an unknown email and a wrong password, in the same time
   // (an unknown email is checked against a dummy hash): the response never
-  // reveals whether an account exists. A session this browser already had is
-  // ended first: one family per browser, and a stale token presented here
-  // after its rotation is reported as theft like at refresh.
-  async signIn(email: string, password: string, previousToken?: string): Promise<SignInResult> {
+  // reveals whether an account exists. Every sign-in starts its own family: a
+  // device that had a session ends it with a logout first.
+  async signIn(email: string, password: string): Promise<AuthSession> {
     const user = await this.prisma.user.findUnique({
       where: { email: normalizeEmail(email) },
       select: { id: true, email: true, name: true, role: true, passwordHash: true },
@@ -42,29 +34,33 @@ export class AuthService implements OnModuleInit {
     const valid = await checkPassword(user?.passwordHash ?? (await dummyPasswordHash()), password);
     if (!user || !valid) throw new UnauthorizedException('Invalid email or password');
     const { passwordHash, ...authUser } = user;
-    if (previousToken !== undefined) await this.sessions.retire(previousToken, 'sign-in');
-    const refresh = await this.sessions.create(authUser.id, passwordHash);
-    return { session: await this.sessionFor(authUser, refresh.securityVersion), refresh };
+    return this.sessionFor(authUser, await this.sessions.create(authUser.id, passwordHash));
   }
 
-  async refresh(token: string): Promise<SignInResult> {
-    const { user, securityVersion, session } = await this.sessions.rotate(token);
-    return { session: await this.sessionFor(user, securityVersion), refresh: session };
+  async refresh(token: string): Promise<AuthSession> {
+    const { user, session } = await this.sessions.rotate(token);
+    return this.sessionFor(user, session);
   }
 
   logout(token: string): Promise<void> {
-    return this.sessions.retire(token, 'logout');
+    return this.sessions.retire(token);
   }
 
   // The access token carries the id, the role and the securityVersion, read
   // fresh from the database at sign-in and at every refresh: a role change
   // applies at the next refresh, at most ACCESS_TOKEN_TTL_SEC later; a new
   // password at once (the guard compares the securityVersion). Also used by
-  // the account flows that start a session (a password change).
-  async sessionFor(user: AuthUser, securityVersion: number): Promise<AuthSession> {
-    const payload: AccessTokenPayload = { sub: user.id, role: user.role, sv: securityVersion };
+  // the account flows that start a session (a sign-up's confirmation, an
+  // accepted invitation, a password change).
+  async sessionFor(user: AuthUser, session: StartedSession): Promise<AuthSession> {
+    const payload: AccessTokenPayload = {
+      sub: user.id,
+      role: user.role,
+      sv: session.securityVersion,
+    };
     return {
       accessToken: await this.jwt.signAsync(payload),
+      refreshToken: session.token,
       expiresIn: ACCESS_TOKEN_TTL_SEC,
       user,
     };

@@ -38,6 +38,12 @@ const urlPath = z
     'must be "/" or a path such as /app, without a trailing slash',
   );
 
+// An app version as the stores and the app report it: major.minor.patch.
+const appVersion = z
+  .string()
+  .trim()
+  .regex(/^\d{1,9}\.\d{1,9}\.\d{1,9}$/, 'must be a version such as 1.4.0 (major.minor.patch)');
+
 // Express "trust proxy": a hop count, or addresses/subnets/names.
 const trustProxy = z
   .string()
@@ -118,7 +124,8 @@ const mailFrom = z
 export const EnvSchema = z
   .object({
     // No default: an unset NODE_ENV must stop the boot, not silently run a
-    // production server with development settings (no Secure cookies, Swagger UI).
+    // production server with development settings (Swagger UI, mail and Redis
+    // without TLS, text logs).
     NODE_ENV: z.enum(['development', 'test', 'production']),
     // Interface to listen on. Default: IPv4 loopback outside production (a
     // development API with public seed accounts never reaches the network);
@@ -135,29 +142,31 @@ export const EnvSchema = z
     // (docs/security.md#secret-rotation). Never used to sign.
     JWT_ACCESS_SECRET_PREVIOUS: optional(signingSecret),
 
-    // Browser origins allowed to call the API cross-origin with credentials.
-    // Empty (default): no CORS headers at all, same-origin only.
+    // Browser origins allowed to call the API cross-origin. Empty (default):
+    // no CORS headers at all. The mobile app is no browser and needs none, nor
+    // does a page served from the API's own origin.
     CORS_ORIGINS: originList,
-    // The origin the web app is served from, e.g. https://app.example.com.
-    // The CSRF guard accepts it from browsers that send no Fetch Metadata;
-    // behind a proxy that does not pass the client's Host (the web image),
-    // nothing else tells the API its public origin.
+    // The public origin of the app's links, e.g. https://app.example.com (the
+    // link domain the app claims): links in emails point to it, as universal
+    // links and App Links the app opens. The CSRF guard accepts it from
+    // browsers that send no Fetch Metadata; behind a proxy that does not pass
+    // the client's Host, nothing else tells the API its public origin.
     APP_ORIGIN: optional(origin),
-    // Where the web app is served under APP_ORIGIN: links in emails are
-    // APP_ORIGIN + APP_BASE_PATH + the screen. The web image serves the app
-    // at /app/ (apps/web: Vite's base, the router's basename, nginx): change
-    // them together. "/" for an app served at the root of its origin.
+    // Where the app's links live under APP_ORIGIN: links in emails are
+    // APP_ORIGIN + APP_BASE_PATH + the screen (+ #token=...). The app claims
+    // /app/* (apps/mobile/app.config.ts, and the association files of its link
+    // domain): change them together.
     APP_BASE_PATH: emptyAsUnset(urlPath.default('/app')),
     // Which proxy hops may set X-Forwarded-For (client IP for rate limits and
     // logs). Required in production, where the right value depends on the
     // topology and a wrong one lets clients choose their own IP; loopback
     // only elsewhere.
     TRUST_PROXY: optional(trustProxy),
-    AUTH_COOKIE_SAMESITE: z.enum(['strict', 'lax', 'none']).default('strict'),
 
-    // Per client IP and per route, over a sliding window. Sign-in and refresh
-    // also have tighter limits of their own (auth.constants.ts), counted on
-    // top of this one: whichever runs out first blocks.
+    // Per route, over a sliding window: per signed-in user (a valid access
+    // token), per client IP otherwise. Sign-in and refresh also have tighter
+    // limits of their own (auth.constants.ts), per account and client IP,
+    // counted on top of this one: whichever runs out first blocks.
     RATE_LIMIT_MAX: emptyAsUnset(z.coerce.number().int().positive().default(100)),
     RATE_LIMIT_WINDOW_SEC: emptyAsUnset(z.coerce.number().int().positive().default(60)),
 
@@ -270,23 +279,20 @@ export const EnvSchema = z
     // account by confirming their address. Off by default: accounts are then
     // created by an operator (user:create). Requires email.
     SIGN_UP_ENABLED: flag.default(false),
+
+    // The oldest app version the API serves, per platform: an older one gets
+    // 426 Upgrade Required (common/http/app-version.middleware.ts,
+    // docs/releases.md#minimum-supported-version). Unset: any version.
+    MOBILE_MIN_VERSION_IOS: optional(appVersion),
+    MOBILE_MIN_VERSION_ANDROID: optional(appVersion),
   })
   .superRefine((values, ctx) => {
-    // Browsers drop SameSite=None cookies that are not Secure, and cookies
-    // are Secure in production only.
-    if (values.AUTH_COOKIE_SAMESITE === 'none' && values.NODE_ENV !== 'production') {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['AUTH_COOKIE_SAMESITE'],
-        message: 'none requires Secure cookies, which are only set in production',
-      });
-    }
     if (values.TRUST_PROXY === undefined && values.NODE_ENV === 'production') {
       ctx.addIssue({
         code: 'custom',
         path: ['TRUST_PROXY'],
         message:
-          'required in production: the number of proxy hops in front of the API, e.g. 1 behind the web image',
+          'required in production: the number of proxy hops in front of the API, e.g. 1 behind one reverse proxy',
       });
     }
     if (values.JWT_ACCESS_SECRET_PREVIOUS === values.JWT_ACCESS_SECRET) {

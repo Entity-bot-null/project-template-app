@@ -24,6 +24,20 @@ const expoConfig = requireFromMobile('eslint-config-expo/flat.js');
 
 const MOBILE = 'apps/mobile';
 
+// SQL injection: the tagged templates ($queryRaw`...${value}`) parameterize
+// every value; the *Unsafe variants do not. Banned in the API, its scripts
+// and tests included.
+const RAW_SQL_BAN = [
+  {
+    property: '$queryRawUnsafe',
+    message: 'Use the $queryRaw tagged template (docs/security.md#sql-injection).',
+  },
+  {
+    property: '$executeRawUnsafe',
+    message: 'Use the $executeRaw tagged template (docs/security.md#sql-injection).',
+  },
+];
+
 /**
  * A shared configuration applied to the app only: each block's file patterns
  * moved under apps/mobile (all of the app for a block without them), and the
@@ -149,6 +163,8 @@ export default defineConfig([
     // Written by `expo customize tsconfig.json` (types:generate).
     '**/expo-env.d.ts',
     'apps/mobile/src/api/schema.d.ts',
+    // The API's Prisma client, written by `prisma generate`.
+    'apps/api/src/prisma/generated/**',
   ]),
 
   // The repository tooling (scripts/, the root configuration files): plain
@@ -200,9 +216,9 @@ export default defineConfig([
     },
   },
 
-  // TypeScript: strict, type-aware.
+  // The app's TypeScript: strict, type-aware.
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['apps/mobile/**/*.{ts,tsx}'],
     extends: [tsConfigs.strictTypeChecked, tsConfigs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -368,6 +384,124 @@ export default defineConfig([
   {
     files: ['apps/mobile/app.config.ts'],
     rules: { 'no-restricted-properties': 'off' },
+  },
+
+  // The API (apps/api): the rules it has in the web template, where it comes
+  // from (docs/adr/0002-pnpm-monorepo.md). Strict, type-aware TypeScript.
+  {
+    files: ['apps/api/**/*.ts'],
+    extends: [js.configs.recommended, tsConfigs.strictTypeChecked, tsConfigs.stylisticTypeChecked],
+    languageOptions: {
+      globals: globals.node,
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    rules: {
+      eqeqeq: ['error', 'smart'],
+      'no-console': 'error',
+      'no-eval': 'error',
+      'no-new-func': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      // Nest modules are empty classes that carry decorators.
+      '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
+      // Configuration is parsed and validated once (apps/api/src/env); the
+      // rest of the code imports the result instead of reading raw strings.
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'process',
+          property: 'env',
+          message: 'Import the validated `env` (apps/api/src/env/env.ts) instead.',
+        },
+        ...RAW_SQL_BAN,
+      ],
+      // Optional infrastructure stays behind its adapters, so a project that
+      // does not configure it never depends on it (docs/architecture.md).
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: ['@redis/client', 'redis', 'ioredis'].map((name) => ({
+            name,
+            message:
+              'Use CacheService, LockService or IdempotencyService; only src/infrastructure talks to Redis (docs/architecture.md#redis).',
+          })),
+          patterns: [
+            {
+              group: ['**/infrastructure/redis/redis.service*'],
+              importNames: ['RedisService'],
+              message:
+                'Feature code uses the adapters (CacheService, LockService, IdempotencyService), not raw Redis commands (docs/architecture.md#redis).',
+            },
+            {
+              group: ['@sentry/*'],
+              message:
+                'Report through errorTracker() (src/observability/error-tracker.ts): Sentry stays optional and swappable.',
+            },
+            {
+              group: [
+                '@opentelemetry/sdk-*',
+                '@opentelemetry/exporter-*',
+                '@opentelemetry/instrumentation*',
+                '@opentelemetry/resources',
+              ],
+              message:
+                'The OpenTelemetry SDK loads only when telemetry is on (src/observability/telemetry-sdk.ts). Use @opentelemetry/api or src/observability/metrics.ts.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // The adapters those imports are reserved for, the readiness probe, and the
+  // specs and test helper that read metrics from an in-memory SDK.
+  {
+    files: [
+      'apps/api/src/infrastructure/**',
+      'apps/api/src/health/**',
+      'apps/api/src/observability/sentry*.ts',
+      'apps/api/src/observability/telemetry-sdk.ts',
+      'apps/api/src/observability/telemetry.spec.ts',
+      'apps/api/src/observability/metrics-catalog.spec.ts',
+      'apps/api/test/metrics.ts',
+    ],
+    rules: { 'no-restricted-imports': 'off' },
+  },
+  // The API's tests: mocks and fixtures need some latitude.
+  {
+    files: ['apps/api/**/*.spec.ts', 'apps/api/test/**'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
+  // The API's command-line entry points, test helpers and configuration: the
+  // only API files that may read process.env or print to the console. The raw
+  // SQL ban stays.
+  {
+    files: [
+      'apps/api/src/env/env.ts',
+      'apps/api/src/openapi/export.ts',
+      'apps/api/src/seed/run.ts',
+      'apps/api/src/users/create-user.cli.ts',
+      'apps/api/src/infrastructure/mail/mail.cli.ts',
+      'apps/api/test/**',
+      'apps/api/*.config.ts',
+    ],
+    rules: {
+      'no-restricted-properties': ['error', ...RAW_SQL_BAN],
+      'no-console': 'off',
+    },
+  },
+  // The API's Node.js scripts: plain JavaScript, no type information.
+  {
+    files: ['apps/api/scripts/**/*.mjs'],
+    extends: [js.configs.recommended, tsConfigs.disableTypeChecked],
+    languageOptions: { globals: globals.node },
+    rules: { 'no-restricted-properties': ['error', ...RAW_SQL_BAN] },
   },
 
   prettier,

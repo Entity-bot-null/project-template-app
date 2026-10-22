@@ -94,7 +94,7 @@ describe.skipIf(skipWithoutMailpit)('password reset (PostgreSQL + Mailpit)', () 
     await request(t.server).get('/api/users/me').set(bearer(before.accessToken)).expect(401);
     await request(t.server)
       .post('/api/auth/refresh')
-      .set('Cookie', before.refreshCookie)
+      .send({ refreshToken: before.refreshToken })
       .expect(401);
     await request(t.server)
       .post('/api/auth/sign-in')
@@ -203,15 +203,14 @@ describe.skipIf(skipWithoutMailpit)('password reset (PostgreSQL + Mailpit)', () 
     await confirm(token).expect(204);
   });
 
-  it('limits requests per address of the client', async () => {
+  it('limits requests per address asked for: one person running out blocks nobody else', async () => {
+    const ask = (email: string) =>
+      request(t.server).post('/api/auth/password-resets').send({ email });
     const statuses = [];
-    for (let i = 0; i < 6; i++) {
-      const res = await request(t.server)
-        .post('/api/auth/password-resets')
-        .send({ email: `nobody-${String(i)}@example.test` });
-      statuses.push(res.status);
-    }
+    for (let i = 0; i < 6; i++) statuses.push((await ask('nobody@example.test')).status);
     expect(statuses).toEqual([204, 204, 204, 204, 204, 429]);
+    // The same client IP, another address (phones behind a carrier NAT).
+    await ask('somebody-else@example.test').expect(204);
   });
 
   it('says what it offers, and answers 503 for a reset when email is off', async () => {

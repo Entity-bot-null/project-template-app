@@ -34,6 +34,7 @@ const registry = (limited: boolean): MailTemplates => ({
   email_change_existing: template(limited),
   email_changed: template(limited),
   invitation: template(limited),
+  account_deleted: template(limited),
 });
 
 function txWith({ minute = 0, day = 0, created = 1 } = {}) {

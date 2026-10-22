@@ -6,7 +6,7 @@ import {
   REFRESH_REUSE_LEEWAY_SEC,
   REFRESH_TOKEN_TTL_SEC,
 } from './auth.constants.js';
-import { hashRefreshToken, RefreshRaceLostException, SessionsService } from './sessions.service.js';
+import { hashRefreshToken, SessionsService } from './sessions.service.js';
 
 const USER = {
   id: '0190b6a1-0000-7000-8000-000000000001',
@@ -27,6 +27,8 @@ interface Row {
   expiresAt: Date;
   revokedAt: Date | null;
   rotated: boolean;
+  superseded: boolean;
+  replacedById: string | null;
 }
 
 interface Where {
@@ -51,7 +53,13 @@ function fakePrisma(rows: Row[], storedPasswordHash = PASSWORD_HASH) {
   const session = {
     findUnique: vi.fn(({ where }: { where: Where }) => {
       const row = rows.find((candidate) => matches(candidate, where));
-      return Promise.resolve(row ? { ...row, user: { ...USER, securityVersion: 4 } } : null);
+      if (!row) return Promise.resolve(null);
+      const successor = rows.find((candidate) => candidate.id === row.replacedById);
+      return Promise.resolve({
+        ...row,
+        user: { ...USER, securityVersion: 4 },
+        replacedBy: successor ? { id: successor.id, revokedAt: successor.revokedAt } : null,
+      });
     }),
     update: vi.fn(({ where, data }: { where: Where; data: Partial<Row> }) => {
       const row = rows.find((candidate) => matches(candidate, where));
@@ -64,11 +72,24 @@ function fakePrisma(rows: Row[], storedPasswordHash = PASSWORD_HASH) {
       for (const row of hit) Object.assign(row, data);
       return Promise.resolve({ count: hit.length });
     }),
-    create: vi.fn(({ data }: { data: Omit<Row, 'id' | 'revokedAt' | 'rotated'> }) => {
-      const row = { ...data, id: `s${rows.length + 1}`, revokedAt: null, rotated: false };
-      rows.push(row);
-      return Promise.resolve(row);
-    }),
+    create: vi.fn(
+      ({
+        data,
+      }: {
+        data: Omit<Row, 'id' | 'revokedAt' | 'rotated' | 'superseded' | 'replacedById'>;
+      }) => {
+        const row: Row = {
+          ...data,
+          id: `s${rows.length + 1}`,
+          revokedAt: null,
+          rotated: false,
+          superseded: false,
+          replacedById: null,
+        };
+        rows.push(row);
+        return Promise.resolve(row);
+      },
+    ),
     deleteMany: vi.fn(),
   };
   const user = {
@@ -96,14 +117,20 @@ function rowFor(token: string, overrides: Partial<Row> = {}): Row {
     expiresAt: new Date(Date.now() + 60_000),
     revokedAt: null,
     rotated: false,
+    superseded: false,
+    replacedById: null,
     ...overrides,
   };
 }
 
-const rotatedAgo = (sec: number) => ({
-  revokedAt: new Date(Date.now() - sec * 1000),
-  rotated: true,
-});
+/** `token`, rotated `sec` seconds ago into `successor` (a row of its own). */
+function rotatedInto(token: string, sec: number, successor: Row): Row {
+  return rowFor(token, {
+    revokedAt: new Date(Date.now() - sec * 1000),
+    rotated: true,
+    replacedById: successor.id,
+  });
+}
 
 describe('SessionsService', () => {
   it('starts a family on sign-in and stores only the hash of the token', async () => {
@@ -137,18 +164,22 @@ describe('SessionsService', () => {
   it('rotates a valid token within its family, under the user lock', async () => {
     const rows = [rowFor('old')];
     const { prisma, $queryRaw } = fakePrisma(rows);
-    const { user, securityVersion, session } = await new SessionsService(prisma).rotate('old');
+    const { user, session } = await new SessionsService(prisma).rotate('old');
 
-    // The public user, and the version apart: it never reaches a response body.
+    // The public user; the version only for the access token.
     expect(user).toEqual(USER);
-    expect(securityVersion).toBe(4);
-    expect(session.token).not.toBe('old');
-    expect(rows[0]).toMatchObject({ rotated: true, revokedAt: expect.any(Date) as Date });
+    expect(session.securityVersion).toBe(4);
+    expect(session.token).toMatch(/^[\w-]{43}$/);
     expect(rows[1]).toMatchObject({
       tokenHash: hashRefreshToken(session.token),
       familyId: FAMILY,
       familyExpiresAt: rows[0]?.familyExpiresAt,
       revokedAt: null,
+    });
+    expect(rows[0]).toMatchObject({
+      rotated: true,
+      revokedAt: expect.any(Date) as Date,
+      replacedById: rows[1]?.id,
     });
     expect($queryRaw).toHaveBeenCalled();
   });
@@ -179,71 +210,135 @@ describe('SessionsService', () => {
     expect(rows[1]?.revokedAt).toBeNull();
   });
 
-  it('treats a token rotated seconds ago as a lost race, not a theft', async () => {
-    vi.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
-    const rows = [rowFor('old', rotatedAgo(1)), rowFor('current')];
-    const { prisma } = fakePrisma(rows);
-    await expect(new SessionsService(prisma).rotate('old')).rejects.toThrow(
-      RefreshRaceLostException,
-    );
-    expect(rows[1]?.revokedAt).toBeNull();
+  describe('a token presented again (docs/adr/0007)', () => {
+    it('within the reuse window, its successor unused: a retried renewal gets a new pair', async () => {
+      vi.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+      const lost = rowFor('lost');
+      const old = rotatedInto('old', 1, lost);
+      const firstRotation = old.revokedAt;
+      const rows = [lost, old];
+      const { prisma } = fakePrisma(rows);
+      const { session } = await new SessionsService(prisma).rotate('old');
+
+      const created = rows[2];
+      expect(created).toMatchObject({
+        tokenHash: hashRefreshToken(session.token),
+        familyId: FAMILY,
+        revokedAt: null,
+      });
+      // The successor whose answer was lost: revoked, and marked so a late
+      // use of it reads as reuse.
+      expect(lost).toMatchObject({ revokedAt: expect.any(Date) as Date, superseded: true });
+      // The retried token now points at the new successor; the window keeps
+      // the first rotation's time, so retries never stretch it.
+      expect(old).toMatchObject({ replacedById: created?.id, revokedAt: firstRotation });
+    });
+
+    it('retried again within the window: each retry replaces the previous answer', async () => {
+      vi.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+      const lost = rowFor('lost');
+      const rows = [lost, rotatedInto('old', 1, lost)];
+      const { prisma } = fakePrisma(rows);
+      const service = new SessionsService(prisma);
+      const second = await service.rotate('old');
+      const third = await service.rotate('old');
+
+      expect(
+        rows.find((row) => row.tokenHash === hashRefreshToken(second.session.token)),
+      ).toMatchObject({
+        superseded: true,
+      });
+      expect(
+        rows.find((row) => row.tokenHash === hashRefreshToken(third.session.token)),
+      ).toMatchObject({
+        superseded: false,
+        revokedAt: null,
+      });
+    });
+
+    it('past the window: theft, the whole family (and only it) ends, named in the log', async () => {
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const current = rowFor('current');
+      const rows = [
+        current,
+        rotatedInto('stolen', REFRESH_REUSE_LEEWAY_SEC + 5, current),
+        rowFor('other device', { familyId: OTHER_FAMILY }),
+      ];
+      const { prisma } = fakePrisma(rows);
+      await expect(new SessionsService(prisma).rotate('stolen')).rejects.toThrow(
+        'Invalid or expired session',
+      );
+      expect(current.revokedAt).toBeInstanceOf(Date);
+      expect(rows[2]?.revokedAt).toBeNull();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining(USER.id));
+    });
+
+    it('within the window but its successor already used: another client holds the family, which ends', async () => {
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const latest = rowFor('latest');
+      const used = rotatedInto('used', 0, latest);
+      const rows = [latest, used, rotatedInto('old', 1, used)];
+      const { prisma } = fakePrisma(rows);
+      await expect(new SessionsService(prisma).rotate('old')).rejects.toThrow(
+        'Invalid or expired session',
+      );
+      expect(latest.revokedAt).toBeInstanceOf(Date);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('(at refresh)'));
+    });
+
+    it('a superseded successor presented later: two clients hold the family, which ends', async () => {
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+      const current = rowFor('current');
+      const rows = [
+        current,
+        rowFor('superseded', { revokedAt: new Date(Date.now() - 1000), superseded: true }),
+      ];
+      const { prisma } = fakePrisma(rows);
+      await expect(new SessionsService(prisma).rotate('superseded')).rejects.toThrow(
+        'Invalid or expired session',
+      );
+      expect(current.revokedAt).toBeInstanceOf(Date);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining(USER.id));
+    });
   });
 
-  it('ends the whole family, and only it, when an old rotated token is replayed', async () => {
+  it('ends the family of the token presented at logout, whatever its state', async () => {
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const current = rowFor('current');
     const rows = [
-      rowFor('stolen', rotatedAgo(REFRESH_REUSE_LEEWAY_SEC + 5)),
-      rowFor('current'),
+      current,
+      rotatedInto('previous', 1, current),
       rowFor('other device', { familyId: OTHER_FAMILY }),
     ];
     const { prisma } = fakePrisma(rows);
-    await expect(new SessionsService(prisma).rotate('stolen')).rejects.toThrow(
-      'Invalid or expired session',
-    );
-    expect(rows[1]?.revokedAt).toBeInstanceOf(Date);
+    await new SessionsService(prisma).retire('previous');
+    expect(current.revokedAt).toBeInstanceOf(Date);
     expect(rows[2]?.revokedAt).toBeNull();
-    // Named in the log, so the incident can be investigated.
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining(USER.id));
-  });
-
-  it('retires the family of the presented token, whatever its state', async () => {
-    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-    const rows = [
-      rowFor('previous', rotatedAgo(1)),
-      rowFor('current'),
-      rowFor('other device', { familyId: OTHER_FAMILY }),
-    ];
-    const { prisma } = fakePrisma(rows);
-    await new SessionsService(prisma).retire('previous', 'sign-in');
-    expect(rows[1]?.revokedAt).toBeInstanceOf(Date);
-    expect(rows[2]?.revokedAt).toBeNull();
-    // Within the leeway: a client race, not a theft.
+    // Within the window: a renewal's lost answer, not a theft.
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it('reports a long-rotated token presented at logout as theft', async () => {
+  it('reports a token rotated long ago, or superseded, presented at logout as theft', async () => {
     const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-    const rows = [rowFor('stolen', rotatedAgo(REFRESH_REUSE_LEEWAY_SEC + 5)), rowFor('current')];
-    const { prisma } = fakePrisma(rows);
-    await new SessionsService(prisma).retire('stolen', 'logout');
-    expect(rows[1]?.revokedAt).toBeInstanceOf(Date);
+    const current = rowFor('current');
+    const { prisma } = fakePrisma([
+      current,
+      rotatedInto('stolen', REFRESH_REUSE_LEEWAY_SEC + 5, current),
+      rowFor('superseded', { familyId: OTHER_FAMILY, revokedAt: new Date(), superseded: true }),
+    ]);
+    const service = new SessionsService(prisma);
+    await service.retire('stolen');
+    expect(current.revokedAt).toBeInstanceOf(Date);
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('(at logout)'));
+    warn.mockClear();
+    await service.retire('superseded');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('(at logout)'));
-  });
-
-  it('reports a long-rotated token presented at sign-in as theft, at sign-in', async () => {
-    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-    const rows = [rowFor('stolen', rotatedAgo(REFRESH_REUSE_LEEWAY_SEC + 5)), rowFor('current')];
-    const { prisma } = fakePrisma(rows);
-    await new SessionsService(prisma).retire('stolen', 'sign-in');
-    expect(rows[1]?.revokedAt).toBeInstanceOf(Date);
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('(at sign-in)'));
-    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('(at logout)'));
   });
 
   it('ignores an unknown token at logout', async () => {
     const rows = [rowFor('mine')];
     const { prisma } = fakePrisma(rows);
-    await expect(new SessionsService(prisma).retire('unknown', 'logout')).resolves.toBeUndefined();
+    await expect(new SessionsService(prisma).retire('unknown')).resolves.toBeUndefined();
     expect(rows[0]?.revokedAt).toBeNull();
   });
 

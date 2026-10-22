@@ -1,5 +1,5 @@
-# The build context is the repository root (both Dockerfiles need the
-# workspace files). An allowlist: only the workspace manifests, the lockfile
+# The build context is the repository root (the Dockerfiles under apps/ need
+# the workspace files). An allowlist: only the workspace manifests, the lockfile
 # and apps/ reach the builder, minus the files below. Anything else placed
 # under apps/ (a database dump, say) would still reach the build stage and its
 # cache: keep such files out of the repository tree. The final images get only
@@ -33,4 +33,10 @@
 **/id_ecdsa*
 **/id_ed25519*
 **/*.dump
+# The mobile app's generated native projects and local state: never part of
+# a server image.
+apps/mobile/android
+apps/mobile/ios
+**/.expo
+apps/mobile/.maestro/results
 apps/api/src/prisma/generated

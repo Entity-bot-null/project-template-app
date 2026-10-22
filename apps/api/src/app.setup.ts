@@ -1,8 +1,8 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
+import { appVersionGate } from './common/http/app-version.middleware.js';
 import { jsonOnly } from './common/http/json-only.middleware.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 import { requestContext } from './common/logging/request-context.middleware.js';
@@ -29,13 +29,18 @@ export function configureApp(app: NestExpressApplication): void {
     res.setHeader('Cache-Control', 'no-store');
     next();
   });
+  // App versions older than MOBILE_MIN_VERSION_<PLATFORM> get 426 before any
+  // other check (docs/adr/0010-minimum-supported-app-version.md).
+  app.use(
+    appVersionGate({ ios: env.MOBILE_MIN_VERSION_IOS, android: env.MOBILE_MIN_VERSION_ANDROID }),
+  );
+  // Browsers only: the app is not subject to CORS. Without cookies, no
+  // credentials mode: a bearer token is a header the page sets itself.
   if (env.CORS_ORIGINS.length > 0) {
-    app.enableCors({ origin: env.CORS_ORIGINS, credentials: true });
+    app.enableCors({ origin: env.CORS_ORIGINS });
   }
   // JSON bodies only: form posts are refused before parsing (CSRF defense in depth).
   app.use(jsonOnly);
-  // The refresh token travels in an httpOnly cookie (auth.constants.ts).
-  app.use(cookieParser());
   app.enableShutdownHooks();
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());

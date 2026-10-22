@@ -6,8 +6,8 @@ import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
 import { buildOpenApiDocument, OPENAPI_JSON_PATH } from './openapi.js';
 
-// `pnpm contract` (repository root) runs this, then regenerates the web
-// client types from the result. Writes openapi/openapi.json, or the path
+// `pnpm contract` (repository root) runs this, then regenerates the app's
+// client types from the result (apps/mobile/src/api/schema.d.ts). Writes openapi/openapi.json, or the path
 // given as first argument. The app is created but never initialized, so no
 // database connection is opened: only the environment must be valid.
 const target = process.argv[2] === undefined ? OPENAPI_JSON_PATH : resolve(process.argv[2]);

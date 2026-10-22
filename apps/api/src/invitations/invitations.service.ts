@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   HttpException,
   HttpStatus,
@@ -8,10 +7,11 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { fieldError } from '../common/errors/validation-failed.exception.js';
 import { hashAccountToken } from '../auth/account-tokens.js';
 import { normalizeEmail } from '../auth/auth.constants.js';
-import { AuthService, type SignInResult } from '../auth/auth.service.js';
-import type { AuthUser } from '../auth/dto/auth.schemas.js';
+import { AuthService } from '../auth/auth.service.js';
+import type { AuthSession, AuthUser } from '../auth/dto/auth.schemas.js';
 import { hashPassword } from '../auth/password.js';
 import { passwordProblem } from '../auth/password-policy.js';
 import { SessionsService } from '../auth/sessions.service.js';
@@ -126,16 +126,14 @@ export class InvitationsService {
   /**
    * Creates the account of an invitation with its link's token, the name and
    * the password the person chooses (the policy first: a refused password
-   * keeps the link), with the invitation's role, and signs it in. Like a
-   * sign-in, a session this browser already had (previousToken) ends.
+   * keeps the link), with the invitation's role, and signs it in.
    */
   async accept(
     token: string,
     name: string,
     password: string,
-    previousToken?: string,
     now = Date.now(),
-  ): Promise<SignInResult> {
+  ): Promise<AuthSession> {
     const tokenHash = hashAccountToken(token);
     const invitation = await this.prisma.invitation.findUnique({
       where: { tokenHash },
@@ -145,7 +143,7 @@ export class InvitationsService {
       throw new NotFoundException(INVALID_INVITATION);
     }
     const problem = passwordProblem(password, { email: invitation.email, name });
-    if (problem !== undefined) throw new BadRequestException(`password: ${problem}`);
+    if (problem !== undefined) throw fieldError('password', problem);
     // Hashed before the transaction, which holds the invitation's lock meanwhile.
     const passwordHash = await hashPassword(password);
 
@@ -182,9 +180,7 @@ export class InvitationsService {
       throw error;
     }
     this.logger.log(`Account ${user.id} (${user.role}) created from invitation ${invitation.id}`);
-    if (previousToken !== undefined) await this.sessions.retire(previousToken, 'sign-in');
-    const refresh = await this.sessions.create(user.id, passwordHash);
-    return { session: await this.auth.sessionFor(user, refresh.securityVersion), refresh };
+    return this.auth.sessionFor(user, await this.sessions.create(user.id, passwordHash));
   }
 }
 

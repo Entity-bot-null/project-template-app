@@ -83,6 +83,8 @@ updates:
       prefix: chore
       include: scope
 
+  # The workflows, and the composite action they share (.github/actions/setup):
+  # '/' alone covers .github/workflows and a root action.yml only.
   - package-ecosystem: github-actions
     directories:
       - /
@@ -97,6 +99,23 @@ updates:
     commit-message:
       prefix: ci
 
+  # The base images of the server images (apps/api/Dockerfile).
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      # The Node.js major follows .nvmrc and engines, by hand, together with
+      # the build: a major can drop what the images rely on (Node.js 25 no
+      # longer bundles corepack, which installs pnpm here).
+      - dependency-name: docker/library/node
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: build
+
   # The tool images CI runs (scripts/tool-images/Dockerfile): tag and digest
   # updated together. Outside .github/ on purpose: Dependabot may open pull
   # requests that change files there only for GitHub Actions, and refused
@@ -108,6 +127,13 @@ updates:
     cooldown:
       default-days: 7
     ignore:
+      # A PostgreSQL or Redis major moves by hand, with docker-compose.yml and,
+      # for PostgreSQL, the database's data (docs/ci-cd.md#keeping-the-stack-current):
+      # CI tests the version that runs.
+      - dependency-name: docker/library/postgres
+        update-types: [version-update:semver-major]
+      - dependency-name: docker/library/redis
+        update-types: [version-update:semver-major]
       # An Ubuntu image (the cloud-init check of the server deployment, when a
       # project adds it) follows the servers' LTS: only new digests of it.
       # Dependabot reads an interim release (24.10, whose archive closes when
@@ -121,3 +147,23 @@ updates:
         patterns: ['*']
     commit-message:
       prefix: ci
+
+  # docker-compose.yml: the development services and the production-like
+  # stack's images.
+  - package-ecosystem: docker-compose
+    directories:
+      - /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    ignore:
+      # Majors by hand, with the CI images above: a PostgreSQL data directory
+      # (the development volume) does not start under the next major; it is
+      # dumped and restored (docs/ci-cd.md#keeping-the-stack-current).
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+      - dependency-name: redis
+        update-types: [version-update:semver-major]
+    commit-message:
+      prefix: build

@@ -24,7 +24,7 @@ describe('EnvSchema', () => {
       PORT: 3000,
       CORS_ORIGINS: [],
       TRUST_PROXY: 'loopback',
-      AUTH_COOKIE_SAMESITE: 'strict',
+      APP_BASE_PATH: '/app',
       RATE_LIMIT_MAX: 100,
       RATE_LIMIT_WINDOW_SEC: 60,
       LOG_LEVEL: 'log',
@@ -162,9 +162,32 @@ describe('EnvSchema', () => {
     }
   });
 
-  it('allows SameSite=None only in production, where cookies are Secure', () => {
-    expect(issuePaths({ ...base, AUTH_COOKIE_SAMESITE: 'none' })).toEqual(['AUTH_COOKIE_SAMESITE']);
-    expect(issuePaths({ ...production, AUTH_COOKIE_SAMESITE: 'none' })).toEqual([]);
+  it('serves every app version unless told the oldest one per platform, as major.minor.patch', () => {
+    const parsed = EnvSchema.parse(base);
+    expect(parsed.MOBILE_MIN_VERSION_IOS).toBeUndefined();
+    expect(parsed.MOBILE_MIN_VERSION_ANDROID).toBeUndefined();
+    expect(EnvSchema.parse({ ...base, MOBILE_MIN_VERSION_IOS: '' }).MOBILE_MIN_VERSION_IOS).toBe(
+      undefined,
+    );
+    const set = EnvSchema.parse({
+      ...base,
+      MOBILE_MIN_VERSION_IOS: ' 2.4.0 ',
+      MOBILE_MIN_VERSION_ANDROID: '10.0.12',
+    });
+    expect([set.MOBILE_MIN_VERSION_IOS, set.MOBILE_MIN_VERSION_ANDROID]).toEqual([
+      '2.4.0',
+      '10.0.12',
+    ]);
+    for (const version of ['2', '2.4', 'v2.4.0', '2.4.0-beta', '2.4.0.1', 'latest']) {
+      expect(issuePaths({ ...base, MOBILE_MIN_VERSION_ANDROID: version }), version).toEqual([
+        'MOBILE_MIN_VERSION_ANDROID',
+      ]);
+    }
+  });
+
+  it('no longer reads the cookie setting of the web template: the app gets its tokens in the body', () => {
+    const parsed = EnvSchema.parse({ ...base, AUTH_COOKIE_SAMESITE: 'none' });
+    expect(parsed).not.toHaveProperty('AUTH_COOKIE_SAMESITE');
   });
 
   it('tells staging from production through APP_ENVIRONMENT, and checks the release name', () => {

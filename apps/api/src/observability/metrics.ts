@@ -117,24 +117,20 @@ const mailOutboxGauges = lazy<[ObservableGauge, ObservableGauge]>(() => {
   return [waiting, oldest];
 });
 
-// Web Vitals the web app reports (telemetry/web-vitals.ts). The buckets hold
-// every rating threshold of web.dev, so the share of good page loads and the
-// p75 compared with a threshold are exact.
-const webVitalDuration = lazy<Histogram>(() =>
-  meter().createHistogram('app.web_vitals.duration', {
-    description: 'Web Vitals of page loads measured in the browser: LCP, INP, FCP, TTFB',
-    unit: 's',
-    advice: {
-      explicitBucketBoundaries: [0.05, 0.1, 0.2, 0.5, 0.8, 1, 1.8, 2.5, 3, 4, 6, 10],
-    },
+// Requests from app versions older than the minimum (common/http/
+// app-version.middleware.ts), by platform: how many installs an update
+// screen is stopping, after MOBILE_MIN_VERSION_* is raised.
+const outdatedClients = lazy<Counter>(() =>
+  meter().createCounter('app.client.outdated', {
+    description: 'Requests refused with 426: the app version is older than the minimum served',
   }),
 );
 
-const webVitalLayoutShift = lazy<Histogram>(() =>
-  meter().createHistogram('app.web_vitals.cls', {
-    description: 'Cumulative layout shift of page loads measured in the browser',
-    unit: '1',
-    advice: { explicitBucketBoundaries: [0.01, 0.05, 0.1, 0.15, 0.25, 0.5, 1] },
+// Accounts deleted by their owners (account/account.service.ts): no
+// attributes, never a user.
+const accountDeletions = lazy<Counter>(() =>
+  meter().createCounter('app.account.deletions', {
+    description: 'Accounts deleted by their owner from the app',
   }),
 );
 
@@ -194,25 +190,10 @@ export function observeMailOutbox(read: () => MailOutboxGaugeValues | undefined)
   mailOutboxGauges();
 }
 
-export type WebVitalRating = 'good' | 'needs-improvement' | 'poor';
+export function recordAccountDeletion(): void {
+  accountDeletions().add(1);
+}
 
-/**
- * One Web Vital of a page load: seconds for the timings, the score for CLS.
- * Every attribute comes from a closed list (telemetry/web-vitals.schemas.ts).
- */
-export function recordWebVital(
-  name: 'CLS' | 'FCP' | 'INP' | 'LCP' | 'TTFB',
-  value: number,
-  page: { rating: WebVitalRating; navigationType: string; route: string },
-): void {
-  const attributes: Attributes = {
-    'web_vital.rating': page.rating,
-    'web_vital.navigation_type': page.navigationType,
-    'page.route': page.route,
-  };
-  if (name === 'CLS') {
-    webVitalLayoutShift().record(value, attributes);
-  } else {
-    webVitalDuration().record(value, { ...attributes, 'web_vital.name': name });
-  }
+export function recordOutdatedClient(platform: 'ios' | 'android'): void {
+  outdatedClients().add(1, { 'app.platform': platform });
 }

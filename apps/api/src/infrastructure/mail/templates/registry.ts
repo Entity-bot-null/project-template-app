@@ -1,6 +1,7 @@
 import type { MailKind, Prisma } from '../../../prisma/generated/client.js';
 import type { ClaimedMessage, MailOptions } from '../mail.types.js';
 import type { RenderedMail } from './layout.js';
+import { accountDeletedTemplate } from './account-deleted.template.js';
 import { emailChangeConfirmationTemplate } from './email-change-confirmation.template.js';
 import { emailChangeExistingTemplate } from './email-change-existing.template.js';
 import { emailChangedTemplate } from './email-changed.template.js';
@@ -18,7 +19,7 @@ export interface ComposeContext {
   /** The product's name, as messages call it (productName). */
   product: string;
   /**
-   * Where links point: the web app's public address, from configuration
+   * Where links point: the app links' public address, from configuration
    * (APP_ORIGIN and APP_BASE_PATH, appUrl below), never a request's Host. A
    * link is this address followed by the screen: `${appUrl}/reset-password`.
    */
@@ -46,9 +47,10 @@ export const MAIL_TEMPLATE_REGISTRY: MailTemplates = {
   email_change_existing: emailChangeExistingTemplate,
   email_changed: emailChangedTemplate,
   invitation: invitationTemplate,
+  account_deleted: accountDeletedTemplate,
 };
 
-/** The web app's public address: its origin and its path, without a trailing slash. */
+/** The app links' public address: their origin and path, without a trailing slash. */
 export function appUrl(origin: string, basePath: string): string {
   return basePath === '/' ? origin : `${origin}${basePath}`;
 }

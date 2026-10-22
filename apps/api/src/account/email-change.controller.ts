@@ -13,7 +13,7 @@ import { EmailChangeService } from './email-change.service.js';
 
 // The two links of a change of email, opened from a mailbox, possibly in a
 // browser that is not signed in: the token is the credential. Under
-// /api/auth, where the web app sends no access token. Cross-site requests
+// /api/auth, where the app sends no access token. Cross-site requests
 // never reach them: the global Fetch Metadata guard refuses them first.
 @ApiTags('auth')
 @Controller('auth/email-changes')

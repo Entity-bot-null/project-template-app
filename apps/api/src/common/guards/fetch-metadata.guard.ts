@@ -13,9 +13,10 @@ import { env } from '../../env/env.js';
 // registered before the rate limiter). Browsers label each request with
 // Sec-Fetch-Site; anything a page from another origin made the browser send
 // (a sibling subdomain included) is refused before any other work, unless that
-// page's Origin is one of CORS_ORIGINS. That stops cross-site request forgery
-// on the cookie routes, and stops other sites from using up a visitor's rate
-// limit.
+// page's Origin is one of CORS_ORIGINS. That stops other sites from making a
+// visitor's browser call the API (sign-ups, password resets, links opened in
+// the visitor's name) and from using up a visitor's rate limit. The app is
+// not a browser: its requests carry neither header and pass.
 //
 // Some browsers send no Fetch Metadata: older ones (Safari before 16.4), and
 // every browser on a page served over plain HTTP from a non-local address.
@@ -23,15 +24,15 @@ import { env } from '../../env/env.js';
 // same-origin POSTs, so a request without Sec-Fetch-Site but with an Origin
 // must come from the app's own origin (APP_ORIGIN, or the address the request
 // was sent to) or one of CORS_ORIGINS. Requests with neither header pass:
-// non-browser clients (CLIs, servers, probes) carry no victim's cookies, and
-// a browser that sends neither still applies the cookie's SameSite.
+// the app, CLIs, servers and probes. The API sets no cookies, so no request
+// carries credentials its sender did not put there itself (a bearer token).
 // docs/security.md#csrf-cors-xss
 const SAFE_SITES = new Set(['same-origin', 'none']);
 
 @Injectable()
 export class FetchMetadataGuard implements CanActivate, OnModuleInit {
-  // Behind a proxy that sends the API its own upstream name as Host (the web
-  // image's nginx), the public origin is known from APP_ORIGIN only.
+  // Behind a proxy that sends the API its own upstream name as Host (an nginx
+  // in front of it, say), the public origin is known from APP_ORIGIN only.
   onModuleInit(): void {
     if (env.NODE_ENV !== 'production' || env.APP_ORIGIN !== undefined) return;
     new Logger(FetchMetadataGuard.name).warn(

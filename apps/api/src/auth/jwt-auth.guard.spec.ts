@@ -116,7 +116,7 @@ describe('JwtAuthGuard', () => {
     );
   });
 
-  it('refuses a token without sv (minted before it existed): the web app refreshes it', async () => {
+  it('refuses a token without sv (minted before it existed): the app renews it', async () => {
     const token = await jwt.signAsync({ sub: USER_ID, role: 'member' });
     await expect(guard.canActivate(contextWith(`Bearer ${token}`).context)).rejects.toThrow(
       UnauthorizedException,

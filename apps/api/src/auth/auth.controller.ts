@@ -1,15 +1,5 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Post,
-  Req,
-  Res,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
 import { RouteRateLimit } from '../common/guards/rate-limit.guard.js';
 import type { ApiEnvelope } from '../common/interceptors/transform.interceptor.js';
 import { ApiData, ApiErrors, ZodBody } from '../common/openapi/index.js';
@@ -27,10 +17,14 @@ import {
   AuthCapabilitiesSchema,
   type AuthSession,
   AuthSessionSchema,
+  type LogoutDto,
+  LogoutSchema,
   type PasswordResetConfirmDto,
   PasswordResetConfirmSchema,
   type PasswordResetRequestDto,
   PasswordResetRequestSchema,
+  type RefreshDto,
+  RefreshSchema,
   type SignInDto,
   SignInSchema,
   type SignUpConfirmDto,
@@ -39,17 +33,14 @@ import {
   SignUpSchema,
 } from './dto/auth.schemas.js';
 import { PasswordResetService } from './password-reset.service.js';
-import { RefreshRaceLostException } from './sessions.service.js';
-import {
-  clearSessionCookies,
-  hasAmbiguousRefreshCookie,
-  refreshTokenOf,
-  respondWithSession,
-} from './session-cookies.js';
 import { SignUpService } from './sign-up.service.js';
 
-// Cross-site requests never reach these routes: the global Fetch Metadata
-// guard refuses them first (CSRF), and only JSON bodies are accepted.
+// The app's session: the access token and the refresh token travel in the
+// bodies, the app keeps the refresh token in the device's secure storage and
+// sends the access token as a bearer (no cookies: docs/adr/0007-mobile-sessions-
+// with-refresh-tokens-in-the-body.md). Browsers' cross-site requests never
+// reach these routes: the global Fetch Metadata guard refuses them first, and
+// only JSON bodies are accepted.
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
@@ -65,72 +56,46 @@ export class AuthController {
   @ApiOperation({
     summary: 'Sign in with email and password',
     description:
-      'Returns a short-lived access token and sets the refresh token as an httpOnly cookie: __Host-refresh_token on Path=/ in production (Secure), refresh_token scoped to /api/auth elsewhere. A session this browser already had is ended.',
+      'Returns a short-lived access token, a single-use refresh token and the user. The app keeps the refresh token in the secure storage of the device. 429: too many attempts for this address from this client.',
   })
   @ZodBody(SignInSchema)
   @ApiData(AuthSessionSchema)
   @ApiErrors(400, 401, 403)
-  async signIn(
-    @Body() body: SignInDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<ApiEnvelope<AuthSession>> {
-    const result = await this.auth.signIn(body.email, body.password, refreshTokenOf(req));
-    return respondWithSession(res, result, 'Signed in');
+  async signIn(@Body() body: SignInDto): Promise<ApiEnvelope<AuthSession>> {
+    return { data: await this.auth.signIn(body.email, body.password), message: 'Signed in' };
   }
 
-  // A good token is rotated (new cookie, new access token). When the server
-  // says the session is gone (401) the cookies are cleared, so the client
-  // stops retrying; three exceptions keep them: two refresh cookies (clearing
-  // removes only ours, and the next refresh would then use the planted one),
-  // losing a race against another refresh of the same token (the winner's
-  // cookie is already in the jar), and any server failure (the session may be
-  // fine: a database failover must not sign everyone out).
   @Post('refresh')
   @HttpCode(200)
   @RouteRateLimit(REFRESH_RATE_LIMIT)
   @ApiOperation({
-    summary: 'Rotate the refresh cookie and mint a new access token',
+    summary: 'Renew the session: a new access token and a new refresh token',
     description:
-      'Reads the refresh cookie (__Host-refresh_token in production, refresh_token elsewhere). Each refresh token works once; presenting one that was rotated more than 30 seconds ago ends its whole session family.',
+      'Each refresh token works once and is replaced by the one returned. The same token presented again within 30 seconds of its renewal, while the token that renewal returned is still unused, is a retry after a lost answer: it gets a new pair, and the unused one stops working. Presented again in any other way, the token ends its whole session family (theft response). 401: invalid, expired, revoked or reused.',
   })
+  @ZodBody(RefreshSchema)
   @ApiData(AuthSessionSchema)
-  @ApiErrors(401, 403)
-  async refresh(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<ApiEnvelope<AuthSession>> {
-    if (hasAmbiguousRefreshCookie(req)) {
-      throw new UnauthorizedException('Ambiguous session cookies');
-    }
-    try {
-      const token = refreshTokenOf(req);
-      if (token === undefined) throw new UnauthorizedException('Missing refresh token');
-      return respondWithSession(res, await this.auth.refresh(token), 'Session refreshed');
-    } catch (error) {
-      if (error instanceof UnauthorizedException && !(error instanceof RefreshRaceLostException)) {
-        clearSessionCookies(res);
-      }
-      throw error;
-    }
+  @ApiErrors(400, 401, 403)
+  async refresh(@Body() body: RefreshDto): Promise<ApiEnvelope<AuthSession>> {
+    return { data: await this.auth.refresh(body.refreshToken), message: 'Session refreshed' };
   }
 
-  // Idempotent: the presented token's whole family is revoked if known, then
-  // the cookies are cleared. When the database cannot be reached the cookies
-  // stay: the family is still live, and the client's retry needs the cookie
-  // to end it (a cleared one would make the retry a no-op that reads as done).
+  // Idempotent: the presented token's whole family is revoked if known; an
+  // unknown, expired or already revoked token answers the same.
   @Post('logout')
   @HttpCode(204)
-  @ApiOperation({ summary: 'End the current session family and clear the cookies' })
+  @ApiOperation({
+    summary: 'End the session family of a refresh token',
+    description: 'Idempotent: 204 whether the token was live, already ended or unknown.',
+  })
+  @ZodBody(LogoutSchema)
   @ApiResponse({ status: 204, description: 'Signed out' })
-  @ApiErrors(403)
-  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response): Promise<void> {
-    const token = refreshTokenOf(req);
-    if (token !== undefined) await this.auth.logout(token);
-    clearSessionCookies(res);
+  @ApiErrors(400, 403)
+  async logout(@Body() body: LogoutDto): Promise<void> {
+    await this.auth.logout(body.refreshToken);
   }
 
-  // Public and the same for everyone: the web app shows only what works here.
+  // Public and the same for everyone: the app shows only what works here.
   @Get('capabilities')
   @ApiOperation({
     summary:
@@ -170,18 +135,16 @@ export class AuthController {
   @ApiOperation({
     summary: "Confirm a sign-up with its link's token and its password",
     description:
-      'Creates the account and signs it in, like a sign-in (refresh cookie, access token). 401: not the password chosen at sign-up (a few wrong ones drop the sign-up). 403: sign-up is closed here. 404: the link is invalid, replaced, used or expired. 409: the address got an account meanwhile.',
+      'Creates the account and signs it in, like a sign-in (access token, refresh token, user). 401: not the password chosen at sign-up (a few wrong ones drop the sign-up). 403: sign-up is closed here. 404: the link is invalid, replaced, used or expired. 409: the address got an account meanwhile.',
   })
   @ZodBody(SignUpConfirmSchema)
   @ApiData(AuthSessionSchema)
   @ApiErrors(400, 401, 403, 404, 409)
-  async confirmSignUp(
-    @Body() body: SignUpConfirmDto,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<ApiEnvelope<AuthSession>> {
-    const result = await this.signUp.confirm(body.token, body.password, refreshTokenOf(req));
-    return respondWithSession(res, result, 'Account created');
+  async confirmSignUp(@Body() body: SignUpConfirmDto): Promise<ApiEnvelope<AuthSession>> {
+    return {
+      data: await this.signUp.confirm(body.token, body.password),
+      message: 'Account created',
+    };
   }
 
   // The same answer, at the same speed, for every address: whether it has an

@@ -1,32 +1,29 @@
-// The box `pnpm dev` prints under the servers' logs once they are up
-// (scripts/dev.mjs): where the site (the landing, with the app at /app/ and
-// the API at /api, one origin as in production), the API, its docs, the
-// database and the mail catcher are. Read from the settings those processes read (apps/api/.env,
-// DB_PORT, MAILPIT_*), so it shows what runs, not what the defaults would be;
-// email's state is what the API's readiness probe answered.
+// The box `pnpm dev` prints under the API's logs once it is up
+// (scripts/dev.mjs): where the API, its docs, the database, Redis and the mail
+// catcher are, and the address the mobile app points at (EXPO_PUBLIC_API_URL
+// in apps/mobile/.env; Metro runs apart, `pnpm start`). Read from the settings
+// those processes read (apps/api/.env, DB_PORT, MAILPIT_*), so it shows what
+// runs, not what the defaults would be; email's state is what the API's
+// readiness probe answered.
 //
 //   node scripts/dev-banner.mjs     print it
 import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { parseEnv, styleText } from 'node:util';
 
-// apps/landing/astro.config.mjs: server.port, with strictPort (the dev server
-// fails rather than move to another port). It forwards /app to the web app's
-// dev server and /api to the API.
-const LANDING_PORT = '4321';
 // docker-compose.yml: the ports the db, redis and mailpit services publish
 // without DB_PORT, REDIS_PORT, MAILPIT_SMTP_PORT and MAILPIT_UI_PORT.
-export const DEFAULT_DB_PORT = '5442';
-export const DEFAULT_REDIS_PORT = '6389';
-export const DEFAULT_MAILPIT_SMTP_PORT = '1035';
-export const DEFAULT_MAILPIT_UI_PORT = '8035';
+export const DEFAULT_DB_PORT = '5452';
+export const DEFAULT_REDIS_PORT = '6399';
+export const DEFAULT_MAILPIT_SMTP_PORT = '1045';
+export const DEFAULT_MAILPIT_UI_PORT = '8045';
 
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /**
  * @typedef {Record<string, string | undefined>} Env
  * @typedef {'ok' | 'degraded' | 'disabled'} MailStatus what readiness said (checks.mail)
- * @typedef {{ landing: string; web: string; api: string; docs: string; database?: string; redis: string; mail: string; warnings: string[] }} Settings
+ * @typedef {{ api: string; docs: string; app: string; database?: string; redis: string; mail: string; warnings: string[] }} Settings
  */
 
 /**
@@ -39,14 +36,16 @@ const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 export function devSettings({ api, compose }) {
   // Outside production the API listens on loopback (apps/api/src/env/env.schema.ts).
   const host = api.HOST || '127.0.0.1';
-  const apiUrl = `http://${host.includes(':') ? `[${host}]` : host}:${api.PORT || '3000'}/api`;
+  const port = api.PORT || '3000';
+  const apiUrl = `http://${host.includes(':') ? `[${host}]` : host}:${port}/api`;
   const mail = mailSettings(api, compose);
   const redis = redisSettings(api, compose);
   const settings = {
-    landing: `http://localhost:${LANDING_PORT}`,
-    web: `http://localhost:${LANDING_PORT}/app/`,
     api: apiUrl,
     docs: `${apiUrl}/docs`,
+    // The device reaches this machine's loopback through `adb reverse` (the
+    // Android emulator) or as itself (the iOS simulator): localhost either way.
+    app: `EXPO_PUBLIC_API_URL=http://localhost:${port} · adb reverse tcp:${port} tcp:${port}`,
     redis: redis.value,
     mail: mail.value,
   };
@@ -61,16 +60,16 @@ export function devSettings({ api, compose }) {
     };
   }
   const url = new URL(api.DATABASE_URL);
-  const port = url.port || '5432';
+  const dbPort = url.port || '5432';
   const published = compose.DB_PORT || DEFAULT_DB_PORT;
   return {
     ...settings,
     // Host, port and database only: never the credentials.
-    database: `${url.hostname}:${port}${url.pathname}`,
+    database: `${url.hostname}:${dbPort}${url.pathname}`,
     warnings: [
-      ...(LOOPBACK.has(url.hostname) && port !== published
+      ...(LOOPBACK.has(url.hostname) && dbPort !== published
         ? [
-            `DATABASE_URL uses port ${port}, but pnpm db:up publishes ${published} (DB_PORT): set the same port in both`,
+            `DATABASE_URL uses port ${dbPort}, but pnpm db:up publishes ${published} (DB_PORT): set the same port in both`,
           ]
         : []),
       ...redis.warnings,
@@ -152,10 +151,9 @@ export function renderBanner(settings, app, style = styleText, mailStatus = unde
       ? settings.mail
       : `${settings.mail} · ${mailStatus}`;
   const rows = [
-    ['Site', settings.landing],
-    ['App', settings.web],
     ['API', settings.api],
     ['API docs', settings.docs],
+    ['App', settings.app],
     ...(settings.database ? [['Database', settings.database]] : []),
     ['Redis', settings.redis],
     ['Mail', mail],

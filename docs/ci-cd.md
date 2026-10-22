@@ -13,6 +13,7 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 - [Environments](#environments)
 - [Secrets and variables](#secrets-and-variables)
 - [Setting up the repository](#setting-up-the-repository)
+- [Images](#images)
 - [Workflow security](#workflow-security)
 - [Pinning](#pinning)
 - [Keeping the stack current](#keeping-the-stack-current)
@@ -24,6 +25,7 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 | `ci.yml`                    | pull request, push to `main`, manual           | none                              | dependency review (opt-in), the quality gates, "CI passed"                                  |
 | `conventions.yml`           | pull request, again when its title is edited   | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required      |
 | `quality-gates.yml`         | called by CI, EAS build and EAS update         | none                              | the gates below, on a given commit                                                          |
+| `docker-images.yml`         | called by the quality gates                    | none                              | builds the API's images (`api`, `api-migrate`) and scans them with Trivy; never pushes      |
 | `e2e-android.yml`           | pull request and push touching the app, manual | none                              | release APK of the `e2e` variant, mock API, emulator, Maestro flows                         |
 | `codeql.yml`                | pull request, push, weekly (opt-in)            | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                  |
 | `release.yml`               | push to `main`                                 | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                   |
@@ -34,16 +36,20 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 | `eas-rollback.yml`          | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                             |
 
 The quality gates: the checks `pnpm verify` runs locally, plus the Docker-based ones, the
-repository scripts' tests (`pnpm test:scripts`) and the native projects (`expo prebuild`):
+repository scripts' tests (`pnpm test:scripts`), the API's integration suite and images, and the
+native projects (`expo prebuild`):
 
 | Job                                   | Runs                                                                                                                                                                                                                                 |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Format, lint, types, workflows        | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` (contract drift included), `pnpm test:scripts`, `node scripts/lint-workflows.mjs`                                                                                                 |
+| Tool images                           | resolves the pinned PostgreSQL, Redis and Mailpit images of `scripts/tool-images/Dockerfile` (through the mirror when it has them) for the integration job's service containers                                                      |
+| Format, lint, types, workflows        | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` (contract drift included), `pnpm test:scripts` (the migrations' contract steps and the mock API against the contract included), `node scripts/lint-workflows.mjs`                 |
 | Expo doctor                           | `pnpm expo:doctor`: SDK compatibility of dependencies (against the installed SDK's manifest, so the result depends on the lockfile, not on the day Expo publishes a patch), config, duplicate native modules, React Native Directory |
 | Static analysis (Semgrep)             | `node scripts/sast.mjs`                                                                                                                                                                                                              |
-| Unit, component and integration tests | `pnpm test:coverage` with thresholds; the HTML report as an artifact                                                                                                                                                                 |
+| Unit, component and integration tests | `pnpm test:coverage` with the thresholds of both packages (the API's OpenAPI drift spec included); the HTML reports as an artifact                                                                                                   |
+| Integration tests                     | `pnpm test:integration`: the API over HTTP on PostgreSQL 18, with Redis 8 and Mailpit, all service containers; a missing one fails the suite instead of skipping it                                                                  |
 | Security                              | `pnpm security` (audit, dependency policy, secrets in the tree) and gitleaks on the full history                                                                                                                                     |
-| Bundle, budget and native projects    | `pnpm build` (the app's production export), `pnpm perf:check` (bundle budget), `expo prebuild` of both platforms in `apps/mobile`                                                                                                    |
+| Build, budget and native projects     | `pnpm build` (the API, and the app's production export), `pnpm perf:check` (bundle budget), `expo prebuild` of both platforms in `apps/mobile`                                                                                       |
+| Images                                | `docker-images.yml`: `apps/api/Dockerfile` built (targets `runtime` and `migrate`) and scanned by Trivy (fixable HIGH and CRITICAL fail); nothing is pushed                                                                          |
 
 Pull requests from Dependabot run the same gates; they skip only the conventions job (bots name
 branches their own way).
@@ -216,6 +222,32 @@ Once, after creating the repository from this template (REQUIERE CONFIGURACIÓN)
 7. The first push of `main`: `git push --no-verify -u origin main` (the pre-push hook refuses pushes
    to `main` from then on).
 
+## Images
+
+`docker-images.yml` builds `api` and `api-migrate` (the `migrate` stage of `apps/api/Dockerfile`:
+the Prisma CLI with its schema engine and the committed migrations), tagged with the commit SHA and
+built with `APP_RELEASE=<commit SHA>`, the release every log line, error report and span of the
+image carries ([observability.md](observability.md#identity)), cached in the GitHub Actions cache,
+and scans each one with Trivy before any push: a fixable HIGH or CRITICAL advisory fails the job
+([security.md](security.md#container-images)). The builds pass the day as `OS_UPGRADE_DATE`: the
+operating system upgrade in the Dockerfile runs again once a day instead of coming from the cache
+until the base image changes. The base images come through the mirror by digest where it has them
+(`scripts/tool-image.mjs --build-contexts`). CI never pushes. To publish, set `IMAGE_PREFIX` (for
+example `ghcr.io/owner/repo`), add the registry login step marked in the file (and
+`packages: write` for GHCR), and call it with `push: true`. Pushed images carry their SBOM and SLSA
+provenance as attestations; signed GitHub attestations are one commented step away
+([security.md](security.md#artifact-integrity)).
+
+Locally: `docker compose --profile stack up --build` builds the same Dockerfile, runs the
+migrations and serves the API on `http://localhost:8090/api`, on the compose Redis
+([manual.md](manual.md#55-the-production-like-stack)). Add `--profile observability` (and
+`STACK_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318` in the root `.env`) to see its traces and
+metrics in Grafana.
+
+The build context is an allowlist (`.dockerignore`): the root manifests, the lockfile and `apps/`,
+minus the mobile app's generated native projects. A new top-level folder an image needs (a shared
+`packages/`) must be added there.
+
 ## Workflow security
 
 Every workflow follows the same rules, checked by `pnpm lint:workflows` (actionlint and zizmor, also
@@ -235,21 +267,23 @@ in CI):
 
 ## Pinning
 
-| What                                                | Pinned by                                                         | Updated by                                                |
-| --------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------- |
-| GitHub Actions                                      | commit SHA (tag in a comment)                                     | Dependabot (`github-actions`)                             |
-| Runner image                                        | `runs-on: ubuntu-24.04` in every workflow                         | by hand, the next LTS ([Ubuntu](#ubuntu))                 |
-| Tool images (actionlint, zizmor, Semgrep, gitleaks) | tag and digest in `scripts/tool-images/Dockerfile`                | Dependabot (`docker`)                                     |
-| npm dependencies                                    | `pnpm-lock.yaml`; seven-day release age                           | Dependabot (`npm`), SDK packages through SDK upgrades     |
-| pnpm                                                | `packageManager` in `package.json`; `apps/mobile/eas.json` `pnpm` | by hand, both together                                    |
-| Node.js                                             | one exact version: `.nvmrc` (CI), `apps/mobile/eas.json` `node`   | by hand, both together                                    |
-| EAS CLI                                             | exact version (`EAS_CLI_VERSION`) in the EAS workflows            | by hand, at or above `apps/mobile/eas.json` `cli.version` |
-| Maestro                                             | version and SHA-256 in `e2e-android.yml`                          | by hand (release page), keeping the seven-day rule        |
-| JDK (E2E build)                                     | `java-version: '17'` (React Native's supported JDK)               | by hand, with React Native's requirements                 |
-| Android NDK (E2E build)                             | `ndkVersion` of React Native's version catalog                    | with React Native (read by `e2e-android.yml`)             |
-| Android emulator (E2E)                              | `api-level` in `e2e-android.yml`                                  | by hand, to the `targetSdk` of React Native's catalog     |
-| ccache (E2E build)                                  | Ubuntu's package (`apt-get`, signed archive)                      | the runner image's Ubuntu release                         |
-| Gradle's JVM memory (Android builds)                | `GRADLE_JVM_PROPERTIES` in `apps/mobile/app.config.ts`            | by hand, when a build runs out of memory                  |
+| What                                                                                   | Pinned by                                                         | Updated by                                                                                  |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| GitHub Actions                                                                         | commit SHA (tag in a comment)                                     | Dependabot (`github-actions`)                                                               |
+| Runner image                                                                           | `runs-on: ubuntu-24.04` in every workflow                         | by hand, the next LTS ([Ubuntu](#ubuntu))                                                   |
+| Tool images (actionlint, zizmor, Semgrep, gitleaks, Trivy, PostgreSQL, Redis, Mailpit) | tag and digest in `scripts/tool-images/Dockerfile`                | Dependabot (`docker`); PostgreSQL and Redis majors by hand ([below](#postgresql-and-redis)) |
+| The API's base image (Node.js)                                                         | tag and digest in `apps/api/Dockerfile`                           | Dependabot (`docker`); the Node.js major by hand                                            |
+| Development services (PostgreSQL, Redis, Mailpit)                                      | tag and digest in `docker-compose.yml`, the same as CI's          | Dependabot (`docker-compose`); majors by hand                                               |
+| npm dependencies                                                                       | `pnpm-lock.yaml`; seven-day release age                           | Dependabot (`npm`), SDK packages through SDK upgrades                                       |
+| pnpm                                                                                   | `packageManager` in `package.json`; `apps/mobile/eas.json` `pnpm` | by hand, both together                                                                      |
+| Node.js                                                                                | one exact version: `.nvmrc` (CI), `apps/mobile/eas.json` `node`   | by hand, both together                                                                      |
+| EAS CLI                                                                                | exact version (`EAS_CLI_VERSION`) in the EAS workflows            | by hand, at or above `apps/mobile/eas.json` `cli.version`                                   |
+| Maestro                                                                                | version and SHA-256 in `e2e-android.yml`                          | by hand (release page), keeping the seven-day rule                                          |
+| JDK (E2E build)                                                                        | `java-version: '17'` (React Native's supported JDK)               | by hand, with React Native's requirements                                                   |
+| Android NDK (E2E build)                                                                | `ndkVersion` of React Native's version catalog                    | with React Native (read by `e2e-android.yml`)                                               |
+| Android emulator (E2E)                                                                 | `api-level` in `e2e-android.yml`                                  | by hand, to the `targetSdk` of React Native's catalog                                       |
+| ccache (E2E build)                                                                     | Ubuntu's package (`apt-get`, signed archive)                      | the runner image's Ubuntu release                                                           |
+| Gradle's JVM memory (Android builds)                                                   | `GRADLE_JVM_PROPERTIES` in `apps/mobile/app.config.ts`            | by hand, when a build runs out of memory                                                    |
 
 **EAS CLI's dependencies.** The EAS workflows run `pnpm dlx "eas-cli@$EAS_CLI_VERSION"` in
 `apps/mobile`, inside the workspace, so the root's `pnpm-workspace.yaml` applies. The CLI's version is exact; its dependencies have no lockfile and resolve on
@@ -284,7 +318,8 @@ its pull request:
 | Node.js, `@types/node`                     | `@types/node` minors and patches                                      | [Node.js](#nodejs)                                                                       |
 | pnpm                                       | nothing (it never edits `packageManager`)                             | [pnpm](#pnpm)                                                                            |
 | GitHub Actions                             | new SHA and version comment, in the workflows and `.github/actions/*` | merging: the auto-merge never merges a change to a workflow or an action                 |
-| Tool images                                | tag and digest together                                               | nothing                                                                                  |
+| Tool images                                | tag and digest together                                               | PostgreSQL and Redis majors ([PostgreSQL and Redis](#postgresql-and-redis))              |
+| The API's images and `docker-compose.yml`  | tag and digest together, Node.js minors                               | the Node.js major ([Node.js](#nodejs)); PostgreSQL and Redis majors                      |
 | EAS CLI, Maestro, JDK, emulator            | nothing                                                               | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
 | Ubuntu (the runners)                       | nothing                                                               | [Ubuntu](#ubuntu)                                                                        |
 
@@ -299,6 +334,23 @@ closes when its nine months of support end) as a minor update. The next LTS move
 that image together, in one pull request with the full CI and E2E (Android), once what the jobs
 install on the runner (`apt-get`: ccache) and the Android emulator support it.
 
+### PostgreSQL and Redis
+
+The development services (`docker-compose.yml`) and CI's integration job (the tool images) run the
+same images, pinned by tag and digest; Dependabot proposes their new digests and minors, never a
+major. A major moves by hand, the two files together, in one pull request with the full CI:
+
+1. Read the release notes (removed settings, changed defaults).
+2. `docker-compose.yml` and `scripts/tool-images/Dockerfile`: the new tag and digest (the same
+   digest in both: one from Docker Hub, the other from ECR Public's mirror of Docker's official
+   images).
+3. PostgreSQL's data directory does not start under the next major: dump the development database
+   (`docker compose exec db pg_dump -U app app > dump.sql`), `docker compose down -v` (removes the
+   volume), `pnpm services:up`, restore it (`docker compose exec -T db psql -U app app < dump.sql`),
+   or start empty and run `pnpm db:migrate` and `pnpm db:seed`. Redis keeps nothing the API cannot
+   rebuild: its volume can go.
+4. `pnpm test:integration` locally, then CI.
+
 ### Node.js
 
 `.nvmrc` holds one exact version for CI and the Git hooks; `apps/mobile/eas.json`
@@ -308,12 +360,15 @@ releases are announced on nodejs.org) changes both files and nothing else.
 A major moves once it is an LTS release (an even major, from its October):
 
 1. `.nvmrc` and `apps/mobile/eas.json` `node`: the new version, released at least a week ago (the
-   same delay as every dependency).
-2. `engines.node` in `package.json` and `apps/mobile/package.json`: it accepts the new major already
+   same delay as every dependency); the base image of `apps/api/Dockerfile` (both `FROM` lines),
+   tag and digest.
+2. `engines.node` in `package.json`, `apps/mobile/package.json` and `apps/api/package.json`: it
+   accepts the new major already
    (`^24.15.0 || >=26.0.0`); drop the old one once everybody has moved. `engineStrict` refuses an
    install outside the range.
-3. `pnpm add -D -w @types/node@^<major>` and `pnpm --filter mobile add -D @types/node@^<major>`
-   (the root and the app declare it): Dependabot leaves its majors to this step.
+3. `pnpm add -D -w @types/node@^<major>`, `pnpm --filter mobile add -D @types/node@^<major>` and
+   `pnpm --filter api add -D @types/node@^<major>` (each package declares it): Dependabot leaves its
+   majors to this step.
 4. Corepack is not part of Node.js 25 and later: developers install it first
    (`npm install -g corepack`, in the setup steps already). CI (`pnpm/action-setup`) and EAS
    (`apps/mobile/eas.json` `pnpm`) install pnpm without it.
@@ -348,6 +403,6 @@ not follow semantic versioning), and typescript-eslint supports a range of versi
 `pnpm view typescript-eslint peerDependencies` (`>=4.8.4 <6.1.0` with typescript-eslint 8.71, so
 neither 6.1 nor 7 yet). Expo does not set the version: `expo install --check` only requires that
 TypeScript is installed. Once typescript-eslint's range includes a new version:
-`pnpm add -D -w typescript@~<version>` and `pnpm --filter mobile add -D typescript@~<version>`
-(the root's tooling and the app use the same TypeScript), then `pnpm typecheck`, `pnpm lint` and
-`pnpm test`.
+`pnpm add -D -w typescript@~<version>`, `pnpm --filter mobile add -D typescript@~<version>` and
+`pnpm --filter api add -D typescript@~<version>` (the root's tooling and both apps use the same
+TypeScript), then `pnpm typecheck`, `pnpm lint` and `pnpm test`.

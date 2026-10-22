@@ -101,7 +101,7 @@ describe.skipIf(skipWithoutMailpit)('change of email (PostgreSQL + Mailpit)', ()
     await request(t.server).get('/api/users/me').set(bearer(session.accessToken)).expect(401);
     await request(t.server)
       .post('/api/auth/refresh')
-      .set('Cookie', session.refreshCookie)
+      .send({ refreshToken: session.refreshToken })
       .expect(401);
     await request(t.server)
       .post('/api/auth/sign-in')

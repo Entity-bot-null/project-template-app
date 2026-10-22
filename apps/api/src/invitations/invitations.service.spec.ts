@@ -116,10 +116,6 @@ function setup({
       calls.push('start session');
       return Promise.resolve(refresh);
     }),
-    retire: vi.fn(() => {
-      calls.push('end previous session');
-      return Promise.resolve();
-    }),
   };
   const auth = { sessionFor: vi.fn(() => Promise.resolve({ accessToken: 'access' })) };
   const service = new InvitationsService(
@@ -128,7 +124,7 @@ function setup({
     sessions as unknown as SessionsService,
     auth as unknown as AuthService,
   );
-  return { service, prisma, tx, mail, sessions, calls, refresh };
+  return { service, prisma, tx, mail, sessions, auth, calls, refresh };
 }
 
 beforeEach(() => {
@@ -228,14 +224,13 @@ describe('InvitationsService.list and revoke', () => {
 
 describe('InvitationsService.accept', () => {
   it('creates the account with the invitation role under its lock, then signs it in', async () => {
-    const { service, tx, sessions, calls, refresh } = setup();
-    const result = await service.accept(TOKEN, 'Ada Lovelace', GOOD, 'old-refresh', NOW);
+    const { service, tx, auth, calls, refresh } = setup();
+    const result = await service.accept(TOKEN, 'Ada Lovelace', GOOD, NOW);
     expect(calls).toEqual([
       'lock address',
       'lock invitation',
       'delete invitation',
       'create account',
-      'end previous session',
       'start session',
     ]);
     const [sql, ...values] = tx.$queryRaw.mock.calls[0] as unknown as [
@@ -250,8 +245,12 @@ describe('InvitationsService.accept', () => {
     // The role is the invitation's, read under the lock: never the request's.
     expect(data).toMatchObject({ email: 'ada@example.test', name: 'Ada Lovelace', role: 'admin' });
     await expect(checkPassword(data.passwordHash, GOOD)).resolves.toBe(true);
-    expect(sessions.retire).toHaveBeenCalledWith('old-refresh', 'sign-in');
-    expect(result).toEqual({ session: { accessToken: 'access' }, refresh });
+    // The session the app adopts, for the new account.
+    expect(auth.sessionFor).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'admin' }),
+      refresh,
+    );
+    expect(result).toEqual({ accessToken: 'access' });
   });
 
   it.each([
@@ -260,7 +259,7 @@ describe('InvitationsService.accept', () => {
     ['expired', { id: 'i1', email: 'ada@example.test', expiresAt: new Date(NOW) }],
   ])('answers 404 for an invitation %s', async (_case, invitation) => {
     const { service, prisma } = setup({ invitation });
-    await expect(service.accept(TOKEN, 'Ada', GOOD, undefined, NOW)).rejects.toThrow(
+    await expect(service.accept(TOKEN, 'Ada', GOOD, NOW)).rejects.toThrow(
       new NotFoundException(INVALID_INVITATION),
     );
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -269,10 +268,14 @@ describe('InvitationsService.accept', () => {
   it('refuses a weak password before taking the link, judged against the address and the name', async () => {
     const { service, prisma } = setup();
     for (const weak of ['short', 'correcthorsebatterystaple', 'lovelace is the best name']) {
-      await expect(service.accept(TOKEN, 'Ada Lovelace', weak, undefined, NOW)).rejects.toThrow(
+      await expect(service.accept(TOKEN, 'Ada Lovelace', weak, NOW)).rejects.toThrow(
         BadRequestException,
       );
     }
+    // Named as the password field's problem, for the app to mark it.
+    await expect(service.accept(TOKEN, 'Ada Lovelace', 'short', NOW)).rejects.toMatchObject({
+      errors: [{ path: 'password' }],
+    });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -283,7 +286,7 @@ describe('InvitationsService.accept', () => {
     'answers 404 when whoever invited was %s: nobody vouches for it any more',
     async (_case, inviterRole) => {
       const { service, tx, sessions } = setup({ lockedRows: [{ role: 'admin', inviterRole }] });
-      await expect(service.accept(TOKEN, 'Ada', GOOD, undefined, NOW)).rejects.toThrow(
+      await expect(service.accept(TOKEN, 'Ada', GOOD, NOW)).rejects.toThrow(
         new NotFoundException(INVALID_INVITATION),
       );
       expect(tx.user.create).not.toHaveBeenCalled();
@@ -293,7 +296,7 @@ describe('InvitationsService.accept', () => {
 
   it('answers 404 when the invitation changed after it was read, 409 for a taken address', async () => {
     const replaced = setup({ lockedRows: [] });
-    await expect(replaced.service.accept(TOKEN, 'Ada', GOOD, undefined, NOW)).rejects.toThrow(
+    await expect(replaced.service.accept(TOKEN, 'Ada', GOOD, NOW)).rejects.toThrow(
       INVALID_INVITATION,
     );
     expect(replaced.tx.user.create).not.toHaveBeenCalled();
@@ -304,14 +307,12 @@ describe('InvitationsService.accept', () => {
         clientVersion: 'test',
       }),
     );
-    await expect(taken.service.accept(TOKEN, 'Ada', GOOD, undefined, NOW)).rejects.toThrow(
+    await expect(taken.service.accept(TOKEN, 'Ada', GOOD, NOW)).rejects.toThrow(
       new ConflictException(ACCOUNT_EXISTS),
     );
     expect(taken.sessions.create).not.toHaveBeenCalled();
     const failing = setup();
     failing.tx.user.create.mockRejectedValueOnce(new Error('database down'));
-    await expect(failing.service.accept(TOKEN, 'Ada', GOOD, undefined, NOW)).rejects.toThrow(
-      'database down',
-    );
+    await expect(failing.service.accept(TOKEN, 'Ada', GOOD, NOW)).rejects.toThrow('database down');
   });
 });

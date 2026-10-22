@@ -1,12 +1,19 @@
 // Tests of the `pnpm dev` runner (scripts/dev.mjs). Run: pnpm test:scripts
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, test } from 'node:test';
-import { answers, apiReadyWatcher, pnpmCommand, readMailStatus, resolvedExecPath } from './dev.mjs';
+import {
+  answers,
+  apiReadyWatcher,
+  DEV_PACKAGES,
+  pnpmCommand,
+  readMailStatus,
+  resolvedExecPath,
+} from './dev.mjs';
 
 const READY =
   'apps/api dev: [Nest] 158233  - 12/10/2026, 16:44:24     LOG [NestApplication] Nest application successfully started';
@@ -42,7 +49,7 @@ describe('apiReadyWatcher', () => {
     const middle = READY.indexOf('successfully');
     watch(READY.slice(0, middle));
     assert.equal(calls(), 0);
-    watch(`${READY.slice(middle)}\napps/web dev: hmr update /src/App.tsx\n`);
+    watch(`${READY.slice(middle)}\napps/api dev: Watching for file changes.\n`);
     assert.equal(calls(), 1);
   });
 
@@ -51,6 +58,19 @@ describe('apiReadyWatcher', () => {
     watch(`${READY}\napps/api dev: File change detected. Starting incremental compilation...\n`);
     watch(`${READY}\n`);
     assert.equal(calls(), 2);
+  });
+});
+
+describe('DEV_PACKAGES', () => {
+  test('names packages of the workspace that have a dev script', () => {
+    assert.ok(DEV_PACKAGES.length > 0);
+    for (const name of DEV_PACKAGES) {
+      const manifest = /** @type {{ name: string; scripts?: Record<string, string> }} */ (
+        JSON.parse(readFileSync(new URL(`../apps/${name}/package.json`, import.meta.url), 'utf8'))
+      );
+      assert.equal(manifest.name, name);
+      assert.ok(manifest.scripts?.dev, `apps/${name} has no dev script`);
+    }
   });
 });
 

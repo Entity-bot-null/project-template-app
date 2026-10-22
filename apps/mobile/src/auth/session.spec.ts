@@ -1,7 +1,15 @@
 import { publicApi } from '@/api/client';
 import { createHttp } from '@/api/http';
 import { createMemoryStorage, STORAGE_KEYS } from '@/lib/storage';
-import { bodyOf, deferred, failure, ok, stubFetch, type StubbedFetch } from '@/test/http';
+import {
+  bodyOf,
+  deferred,
+  failure,
+  noContent,
+  ok,
+  stubFetch,
+  type StubbedFetch,
+} from '@/test/http';
 import { item, session as sessionFixture, tokens, user } from '@/test/fixtures';
 
 import { createSession, type Session, useSessionStore } from './session';
@@ -237,7 +245,7 @@ describe('renewal', () => {
     const session = await signedIn();
     const pending = deferred();
     fetchStub.on('POST /api/auth/refresh', () => pending.promise);
-    fetchStub.on('POST /api/auth/logout', () => ok(null));
+    fetchStub.on('POST /api/auth/logout', () => noContent());
     const renewal = session.refreshAfterRejection('access-1');
     await new Promise(process.nextTick);
     await session.signOut();
@@ -263,7 +271,7 @@ describe('renewal', () => {
       'POST /api/auth/refresh',
       () => answers.shift() ?? failure(401, 'Reused refresh token'),
     );
-    fetchStub.on('POST /api/auth/logout', () => ok(null));
+    fetchStub.on('POST /api/auth/logout', () => noContent());
     const late = session.refreshAfterRejection('access-1');
     await new Promise(process.nextTick);
     await session.signOut();
@@ -330,7 +338,7 @@ describe('a request of an ended session', () => {
   beforeEach(() => {
     fetchStub = stubFetch({
       'POST /api/auth/sign-in': () => ok(sessionFixture('1')),
-      'POST /api/auth/logout': () => ok(null),
+      'POST /api/auth/logout': () => noContent(),
     });
   });
 

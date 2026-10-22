@@ -21,8 +21,9 @@ also installs the Git hooks.
 1. **Issue.** Use the feature or bug template: acceptance criteria, screens and states, release
    impact.
 2. **Branch** from an up-to-date `main` ([below](#branches)). Never commit to `main`.
-3. **Contract first** when the API changes: `openapi/openapi.json`, then `pnpm contract`
-   ([openapi/README.md](openapi/README.md)).
+3. **The API first** when the contract changes: the route and its schemas in `apps/api`, then
+   `pnpm contract`, and commit both generated files ([openapi/README.md](openapi/README.md)); a
+   database change comes with its migration ([docs/database.md](docs/database.md)).
 4. **Code and tests together**, following [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) and
    [docs/testing.md](docs/testing.md).
    [docs/mobile-architecture.md](docs/mobile-architecture.md#adding-a-feature) has the steps for a

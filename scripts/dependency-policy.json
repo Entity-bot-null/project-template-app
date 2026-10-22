@@ -15,7 +15,17 @@
     },
     "exceptions": {
       "description": "Entries of pnpm-workspace.yaml that weaken a setting, each a reviewed decision: allowBuilds entries not set to false and trustPolicyExclude entries, by their exact text, with { reason }; minimumReleaseAgeExclude entries (exact versions only), with { reason, expires }. From the date in expires (YYYY-MM-DD, at most the release delay plus a day ahead) the check fails until the entry is deleted from both files. An exception whose entry is gone fails too.",
-      "allowBuilds": {},
+      "allowBuilds": {
+        "argon2": {
+          "reason": "Native password hashing of the API (apps/api): the install script selects the prebuilt binding for the platform, or compiles it. Without it argon2 cannot load."
+        },
+        "@prisma/engines": {
+          "reason": "Prisma (apps/api): the install script downloads the query and schema engines for the platform, checked against the release checksums. Without them Prisma cannot generate its client or run migrations."
+        },
+        "prisma": {
+          "reason": "Prisma CLI (apps/api): its install script prepares the engines @prisma/engines downloads; the migrations and the client generation need it."
+        }
+      },
       "trustPolicyExclude": {},
       "minimumReleaseAgeExclude": {}
     }
@@ -123,6 +133,10 @@
       "caniuse-lite": {
         "license": "CC-BY-4.0",
         "reason": "Browser support data read by Babel (browserslist) at build time; attribution license for data. Not part of the app binary."
+      },
+      "elkjs": {
+        "license": "EPL-2.0",
+        "reason": "Graph layout used by Prisma Studio inside the prisma CLI (the API and its migration image). Used unmodified; EPL-2.0 obligations apply only to modifications of elkjs itself."
       }
     }
   },

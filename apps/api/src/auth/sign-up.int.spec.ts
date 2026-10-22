@@ -2,7 +2,7 @@ import { Logger } from '@nestjs/common';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp, resetDatabase, type TestApp } from '../../test/app.js';
-import { bearer, cookiesOf, seedUser, signIn } from '../../test/auth.js';
+import { bearer, seedUser, sessionOf, signIn } from '../../test/auth.js';
 import { envelopeOf } from '../../test/http.js';
 import {
   deleteMessagesTo,
@@ -98,10 +98,14 @@ describe.skipIf(skipWithoutMailpit)('sign-up (PostgreSQL + Mailpit)', () => {
     expect(text).toContain(`https://app.example.com/app/confirm-sign-up#token=${token}`);
 
     const res = await confirm(token).expect(200);
-    const session = envelopeOf<{ accessToken: string; user: Record<string, unknown> }>(res).data;
+    // The session the app adopts: both tokens in the body.
+    const session = sessionOf(res);
     expect(session.user).toMatchObject({ email, name: 'Ada Lovelace', role: 'member' });
-    expect(cookiesOf(res).some((cookie) => cookie.startsWith('refresh_token='))).toBe(true);
     await request(t.server).get('/api/users/me').set(bearer(session.accessToken)).expect(200);
+    await request(t.server)
+      .post('/api/auth/refresh')
+      .send({ refreshToken: session.refreshToken })
+      .expect(200);
     await signIn(t.server, email, PASSWORD);
     expect(await t.prisma.signUp.count()).toBe(0);
     // The link worked once.
@@ -210,27 +214,28 @@ describe.skipIf(skipWithoutMailpit)('sign-up (PostgreSQL + Mailpit)', () => {
     await confirm('not-a-token').expect(400);
   });
 
-  it('ends the session this browser had, like a sign-in', async () => {
+  it('starts a session of its own, like a sign-in: any other one is left alone', async () => {
     const before = await seedUser(t.prisma, { email: address(), name: 'Grace Hopper' });
     const session = await signIn(t.server, before.email);
     const email = address();
     const token = await linkFor(email);
     await request(t.server)
       .post('/api/auth/sign-ups/confirm')
-      .set('Cookie', session.refreshCookie)
       .send({ token, password: PASSWORD })
       .expect(200);
+    // A device that held another session signs it out itself (the app does).
     await request(t.server)
       .post('/api/auth/refresh')
-      .set('Cookie', session.refreshCookie)
-      .expect(401);
+      .send({ refreshToken: session.refreshToken })
+      .expect(200);
   });
 
-  it('limits requests per address of the client', async () => {
+  it('limits requests per address asked for: one person running out blocks nobody else', async () => {
     const statuses = [];
-    for (let i = 0; i < 6; i++)
-      statuses.push((await ask(`nobody-${String(i)}@example.test`)).status);
+    for (let i = 0; i < 6; i++) statuses.push((await ask('nobody@example.test')).status);
     expect(statuses).toEqual([202, 202, 202, 202, 202, 429]);
+    // The same client IP, another address (phones behind a carrier NAT).
+    expect((await ask('somebody-else@example.test')).status).toBe(202);
     await t.signUps.settled();
   });
 

@@ -12,22 +12,43 @@ export const SignInSchema = z.object({
 });
 export type SignInDto = z.infer<typeof SignInSchema>;
 
-export const AuthUserSchema = z.object({
-  id: z.uuid(),
-  email: z.email(),
-  name: z.string(),
-  role: z.enum(ROLES),
-});
+// Who a session belongs to (GET /api/users/me tells more).
+export const AuthUserSchema = z
+  .object({
+    id: z.uuid(),
+    email: z.email(),
+    name: z.string(),
+    role: z.enum(ROLES),
+  })
+  .meta({ id: 'SessionUser' });
 export type AuthUser = z.infer<typeof AuthUserSchema>;
 
-// The refresh token never appears in a body: it travels as an httpOnly cookie.
-export const AuthSessionSchema = z.object({
-  accessToken: z.string(),
-  /** Seconds until the access token expires. */
-  expiresIn: z.number().int(),
-  user: AuthUserSchema,
-});
+// A session as the app receives it: the access token for the Authorization
+// header, the refresh token it keeps in the device's secure storage (sent back
+// once, at the next renewal: each one works once), and the user.
+export const AuthSessionSchema = z
+  .object({
+    accessToken: z.string(),
+    refreshToken: z.string(),
+    /** Seconds until the access token expires. */
+    expiresIn: z.number().int(),
+    user: AuthUserSchema,
+  })
+  .meta({ id: 'Session' });
 export type AuthSession = z.infer<typeof AuthSessionSchema>;
+
+// A refresh token is 32 random bytes in base64url: anything else is refused
+// before any lookup.
+export const REFRESH_TOKEN = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{43}$/, 'Invalid refresh token')
+  .meta({ description: 'The refresh token the last session response returned.' });
+
+export const RefreshSchema = z.object({ refreshToken: REFRESH_TOKEN });
+export type RefreshDto = z.infer<typeof RefreshSchema>;
+
+export const LogoutSchema = z.object({ refreshToken: REFRESH_TOKEN });
+export type LogoutDto = z.infer<typeof LogoutSchema>;
 
 // The claims of the access token: the signer builds exactly this and the
 // guard accepts exactly this, so a new claim changes both at once. sv is the
@@ -41,17 +62,19 @@ export const AccessTokenPayloadSchema = z.object({
 });
 export type AccessTokenPayload = z.infer<typeof AccessTokenPayloadSchema>;
 
-// What this deployment offers, so the web app shows only what works.
-export const AuthCapabilitiesSchema = z.object({
-  /** Email is configured: "Forgot your password?" can send a link. */
-  passwordReset: z.boolean(),
-  /** Public sign-up is open (SIGN_UP_ENABLED): "Create an account". */
-  signUp: z.boolean(),
-  /** Email is configured: the Account page can change the address (confirmed by a link). */
-  emailChange: z.boolean(),
-  /** Email is configured: administrators can invite people to create an account. */
-  invitations: z.boolean(),
-});
+// What this deployment offers, so the app shows only what works.
+export const AuthCapabilitiesSchema = z
+  .object({
+    /** Email is configured: "Forgot your password?" can send a link. */
+    passwordReset: z.boolean(),
+    /** Public sign-up is open (SIGN_UP_ENABLED): "Create an account". */
+    signUp: z.boolean(),
+    /** Email is configured: the Account page can change the address (confirmed by a link). */
+    emailChange: z.boolean(),
+    /** Email is configured: administrators can invite people to create an account. */
+    invitations: z.boolean(),
+  })
+  .meta({ id: 'Capabilities' });
 export type AuthCapabilities = z.infer<typeof AuthCapabilitiesSchema>;
 
 export const PasswordResetRequestSchema = z.object({
@@ -101,6 +124,13 @@ export const ChangeEmailSchema = z.object({
   newEmail: z.string().trim().max(254).pipe(z.email()).meta({ format: 'email' }),
 });
 export type ChangeEmailDto = z.infer<typeof ChangeEmailSchema>;
+
+// Deleting the account confirms the current password: no policy, only the
+// size bound.
+export const DeleteAccountSchema = z.object({
+  password: z.string().min(1, 'Password is required').max(PASSWORD_MAX_INPUT_LENGTH),
+});
+export type DeleteAccountDto = z.infer<typeof DeleteAccountSchema>;
 
 export const EmailChangeConfirmSchema = z.object({ token: ONE_TIME_TOKEN });
 export type EmailChangeConfirmDto = z.infer<typeof EmailChangeConfirmSchema>;

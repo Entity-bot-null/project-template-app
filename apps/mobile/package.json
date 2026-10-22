@@ -8,6 +8,7 @@
     "node": "^24.15.0 || >=26.0.0"
   },
   "scripts": {
+    "prepare": "pnpm types:generate",
     "types:generate": "expo customize tsconfig.json",
     "start": "expo start",
     "android": "expo run:android",

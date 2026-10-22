@@ -24,7 +24,7 @@ import { redact, redactText, redactUrl } from './redact.js';
 // Sentry SDK, rather than @sentry/node: that one installs its own
 // OpenTelemetry setup (this API has its own, observability/telemetry-sdk.ts)
 // and brings a CLI under a non-OSI license into production dependencies
-// (docs/adr/0002-observability-and-optional-infrastructure.md).
+// (docs/adr/0004-observability-and-optional-infrastructure.md).
 //
 // Nothing is collected implicitly: no breadcrumbs, no request data, no local
 // variables. Each report carries the error, its stack and the ErrorContext the

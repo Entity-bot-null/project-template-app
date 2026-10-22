@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { env } from '../env/env.js';
 import { PrismaClient } from '../prisma/generated/client.js';
-import { SEED_USERS, seed } from './seed.js';
+import { SEED_ITEM_COUNT, SEED_USERS, seed } from './seed.js';
 
 // `pnpm db:seed`: development data for a local database. The accounts it
 // creates have public passwords, so it refuses production, and any database
@@ -31,10 +31,15 @@ if (remote.length > 0 && !process.argv.includes('--allow-remote-database')) {
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: env.DATABASE_URL }) });
 try {
   await seed(prisma);
+  // Addresses and roles only: no password is ever printed, even a public one
+  // (their list is in seed.ts and docs/manual.md#51-first-time).
   console.log(
-    ['Seeded:', ...SEED_USERS.map((u) => `  ${u.role.padEnd(7)} ${u.email} / ${u.password}`)].join(
-      '\n',
-    ),
+    [
+      'Seeded:',
+      ...SEED_USERS.map((u) => `  ${u.role.padEnd(7)} ${u.email}`),
+      `  ${String(SEED_ITEM_COUNT)} example items for member@example.com`,
+      'Their passwords: docs/manual.md#51-first-time.',
+    ].join('\n'),
   );
 } finally {
   await prisma.$disconnect();

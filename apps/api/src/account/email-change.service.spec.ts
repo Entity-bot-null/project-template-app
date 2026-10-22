@@ -168,9 +168,14 @@ describe('EmailChangeService.request', () => {
     await expect(service.request('u1', 'not the password', 'new@example.test')).rejects.toThrow(
       new ForbiddenException(WRONG_CURRENT_PASSWORD),
     );
-    await expect(service.request('u1', CURRENT, ' ADA@example.test')).rejects.toThrow(
-      new BadRequestException(SAME_ADDRESS),
+    await expect(service.request('u1', CURRENT, ' ADA@example.test')).rejects.toBeInstanceOf(
+      BadRequestException,
     );
+    // Named as the new address field's problem, for the app to mark it.
+    await expect(service.request('u1', CURRENT, 'ada@example.test')).rejects.toMatchObject({
+      message: `newEmail: ${SAME_ADDRESS}`,
+      errors: [{ path: 'newEmail', message: SAME_ADDRESS }],
+    });
     await service.settled();
     expect(mail.enqueue).not.toHaveBeenCalled();
     const off = await setup({ mailEnabled: false });

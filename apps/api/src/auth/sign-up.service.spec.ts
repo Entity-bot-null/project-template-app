@@ -121,10 +121,6 @@ async function setup({
       calls.push('start session');
       return Promise.resolve(refresh);
     }),
-    retire: vi.fn(() => {
-      calls.push('end previous session');
-      return Promise.resolve();
-    }),
   };
   const auth = { sessionFor: vi.fn(() => Promise.resolve({ accessToken: 'access' })) };
   const service = new SignUpService(
@@ -162,6 +158,12 @@ describe('SignUpService.request', () => {
         service.request({ ...INPUT, password: weak });
       }).toThrow(BadRequestException);
     }
+    // Named as the password field's problem, for the app to mark it.
+    expect(() => {
+      service.request({ ...INPUT, password: 'short' });
+    }).toThrow(
+      expect.objectContaining({ errors: [expect.objectContaining({ path: 'password' })] }),
+    );
     await service.settled();
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
@@ -231,15 +233,9 @@ describe('SignUpService.request', () => {
 
 describe('SignUpService.confirm', () => {
   it('creates the account from the sign-up, under its lock, then signs it in', async () => {
-    const { service, tx, sessions, calls, passwordHash, refresh } = await setup();
-    const result = await service.confirm(TOKEN, GOOD, 'old-refresh', NOW);
-    expect(calls).toEqual([
-      'lock sign-up',
-      'delete sign-up',
-      'create account',
-      'end previous session',
-      'start session',
-    ]);
+    const { service, tx, sessions, auth, calls, passwordHash, refresh } = await setup();
+    const result = await service.confirm(TOKEN, GOOD, NOW);
+    expect(calls).toEqual(['lock sign-up', 'delete sign-up', 'create account', 'start session']);
     const [sql, ...values] = tx.$queryRaw.mock.calls[0] as unknown as [
       TemplateStringsArray,
       ...unknown[],
@@ -250,9 +246,10 @@ describe('SignUpService.confirm', () => {
       data: { email: 'ada@example.test', name: 'Ada Lovelace', role: 'member', passwordHash },
       select: { id: true, email: true, name: true, role: true },
     });
-    expect(sessions.retire).toHaveBeenCalledWith('old-refresh', 'sign-in');
     expect(sessions.create).toHaveBeenCalledWith('u9', passwordHash);
-    expect(result).toEqual({ session: { accessToken: 'access' }, refresh });
+    // The session the app adopts, for the new account.
+    expect(auth.sessionFor).toHaveBeenCalledWith(expect.objectContaining({ id: 'u9' }), refresh);
+    expect(result).toEqual({ accessToken: 'access' });
   });
 
   it.each([
@@ -261,7 +258,7 @@ describe('SignUpService.confirm', () => {
     ['expired', { id: 's1', passwordHash: 'x', expiresAt: new Date(NOW) }],
   ])('answers 404 for a link %s, without checking any password', async (_case, signUp) => {
     const { service, prisma } = await setup({ signUp });
-    await expect(service.confirm(TOKEN, GOOD, undefined, NOW)).rejects.toThrow(
+    await expect(service.confirm(TOKEN, GOOD, NOW)).rejects.toThrow(
       new NotFoundException(INVALID_SIGN_UP_LINK),
     );
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
@@ -270,15 +267,15 @@ describe('SignUpService.confirm', () => {
 
   it('answers 401 for another password, counting it; the last allowed one drops the sign-up', async () => {
     const counted = await setup({ attempts: 4 });
-    await expect(
-      counted.service.confirm(TOKEN, 'not the password', undefined, NOW),
-    ).rejects.toThrow(new UnauthorizedException(WRONG_SIGN_UP_PASSWORD));
+    await expect(counted.service.confirm(TOKEN, 'not the password', NOW)).rejects.toThrow(
+      new UnauthorizedException(WRONG_SIGN_UP_PASSWORD),
+    );
     expect(counted.prisma.$queryRaw).toHaveBeenCalledOnce();
     expect(counted.prisma.signUp.deleteMany).not.toHaveBeenCalled();
     expect(counted.prisma.$transaction).not.toHaveBeenCalled();
 
     const last = await setup({ attempts: 5 });
-    await expect(last.service.confirm(TOKEN, 'not the password', undefined, NOW)).rejects.toThrow(
+    await expect(last.service.confirm(TOKEN, 'not the password', NOW)).rejects.toThrow(
       UnauthorizedException,
     );
     expect(last.prisma.signUp.deleteMany).toHaveBeenCalledWith({
@@ -289,7 +286,7 @@ describe('SignUpService.confirm', () => {
   it('answers 404 without checking the password once every attempt is spent', async () => {
     const { service, prisma } = await setup();
     prisma.$queryRaw.mockResolvedValueOnce([]);
-    await expect(service.confirm(TOKEN, GOOD, undefined, NOW)).rejects.toThrow(
+    await expect(service.confirm(TOKEN, GOOD, NOW)).rejects.toThrow(
       new NotFoundException(INVALID_SIGN_UP_LINK),
     );
     const [sql] = prisma.$queryRaw.mock.calls[0] as unknown as [TemplateStringsArray];
@@ -299,9 +296,7 @@ describe('SignUpService.confirm', () => {
 
   it('answers 404 when the sign-up was replaced or used after its password was checked', async () => {
     const { service, tx, sessions } = await setup({ lockedRows: [] });
-    await expect(service.confirm(TOKEN, GOOD, undefined, NOW)).rejects.toThrow(
-      INVALID_SIGN_UP_LINK,
-    );
+    await expect(service.confirm(TOKEN, GOOD, NOW)).rejects.toThrow(INVALID_SIGN_UP_LINK);
     expect(tx.user.create).not.toHaveBeenCalled();
     expect(sessions.create).not.toHaveBeenCalled();
   });
@@ -314,7 +309,7 @@ describe('SignUpService.confirm', () => {
         clientVersion: 'test',
       }),
     );
-    await expect(service.confirm(TOKEN, GOOD, undefined, NOW)).rejects.toThrow(
+    await expect(service.confirm(TOKEN, GOOD, NOW)).rejects.toThrow(
       new ConflictException(ACCOUNT_EXISTS),
     );
     expect(sessions.create).not.toHaveBeenCalled();
@@ -323,12 +318,8 @@ describe('SignUpService.confirm', () => {
   it('passes any other failure on, and is closed when sign-up is', async () => {
     const failing = await setup();
     failing.tx.user.create.mockRejectedValueOnce(new Error('database down'));
-    await expect(failing.service.confirm(TOKEN, GOOD, undefined, NOW)).rejects.toThrow(
-      'database down',
-    );
+    await expect(failing.service.confirm(TOKEN, GOOD, NOW)).rejects.toThrow('database down');
     const closed = await setup({ enabled: false });
-    await expect(closed.service.confirm(TOKEN, GOOD, undefined, NOW)).rejects.toThrow(
-      ForbiddenException,
-    );
+    await expect(closed.service.confirm(TOKEN, GOOD, NOW)).rejects.toThrow(ForbiddenException);
   });
 });

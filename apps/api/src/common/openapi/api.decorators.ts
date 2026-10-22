@@ -52,6 +52,8 @@ const ERROR_DESCRIPTIONS: Readonly<Record<number, string>> = {
   403: 'Not allowed',
   404: 'Not found',
   409: 'Conflict',
+  422: 'The request cannot be processed as sent',
+  426: 'This app version is no longer supported: update the app',
   429: 'Rate limit exceeded',
   503: 'Service unavailable',
 };

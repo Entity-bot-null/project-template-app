@@ -7,7 +7,7 @@ import type { MailOptions } from '../src/infrastructure/mail/mail.types.js';
 // Mailpit for the outbox specs (*.int.spec.ts in src/infrastructure/mail):
 // MAIL_TEST_SMTP_URL and MAILPIT_TEST_URL (CI starts a throwaway Mailpit),
 // else the local one `pnpm dev` starts (MAIL_SMTP_URL in apps/api/.env, its
-// web API on MAILPIT_UI_PORT, 8035 by default). Every spec writes to
+// web API on MAILPIT_UI_PORT, 8045 by default). Every spec writes to
 // addresses of its own and reads and deletes only those, so a development
 // Mailpit is safe to use; its chaos switch is global, and the specs that arm
 // it disarm it when they finish.
@@ -22,7 +22,7 @@ function fromFile(path: string, name: string): string | undefined {
 const smtpUrl = process.env.MAIL_TEST_SMTP_URL ?? fromFile('.env', 'MAIL_SMTP_URL');
 const apiUrl =
   process.env.MAILPIT_TEST_URL ??
-  `http://localhost:${fromFile('../../.env', 'MAILPIT_UI_PORT') ?? '8035'}`;
+  `http://localhost:${fromFile('../../.env', 'MAILPIT_UI_PORT') ?? '8045'}`;
 
 /** describe.skipIf(skipWithoutMailpit) */
 export const skipWithoutMailpit = smtpUrl === undefined && process.env.CI !== 'true';

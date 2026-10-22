@@ -2,10 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service.js';
 import { LEASE_STORE, type LeaseStore } from './lease.store.js';
 
-// Coordination between instances (docs/architecture.md#locks-and-idempotency).
-// Prepared, not used by the template itself: reach for these when two
-// instances must not do the same thing at the same time, or when the same
-// message may arrive twice.
+// Coordination between instances (docs/architecture.md#locks-and-idempotency):
+// reach for these when two instances must not do the same thing at the same
+// time, or when the same message may arrive twice. The items' Idempotency-Key
+// claims through IdempotencyService (items/items.service.ts); LockService is
+// prepared, not used by the template itself.
 //
 // With REDIS_URL they hold across every instance; without it, within one
 // process only. While Redis is down they fail closed (RedisUnavailableError):

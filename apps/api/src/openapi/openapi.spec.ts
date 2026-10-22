@@ -7,8 +7,8 @@ import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
 import { buildOpenApiDocument, OPENAPI_JSON_PATH } from './openapi.js';
 
-// Contract drift guard: the committed openapi/openapi.json (what the web app
-// generates its client types from) must match what the controllers produce.
+// Contract drift guard: the committed openapi/openapi.json (what the mobile
+// app generates its client types from) must match what the controllers produce.
 // When it fails, run `pnpm contract` at the repository root and commit both
 // generated files.
 describe('OpenAPI contract', () => {
@@ -36,13 +36,10 @@ describe('OpenAPI contract', () => {
   });
 
   it('declares the bearer requirement on every route but the public ones', () => {
-    // Sign-in and its session cookies, the probes, and the Web Vitals the
-    // browser sends signed in or not (docs/security.md#web-vitals). A new
-    // public route is a decision: add it here with its reason.
+    // Sign-in, renewal and the account links, and the probes. A new public
+    // route is a decision: add it here with its reason.
     const publicRoute = (path: string) =>
-      path.startsWith('/api/auth/') ||
-      path.startsWith('/api/health/') ||
-      path === '/api/telemetry/web-vitals';
+      path.startsWith('/api/auth/') || path.startsWith('/api/health/');
     const unprotected = operations()
       .filter(({ path }) => !publicRoute(path))
       .filter(({ op }) => {
@@ -68,6 +65,27 @@ describe('OpenAPI contract', () => {
   it('documents the rate limit on every route except the health probes', () => {
     for (const { path, op } of operations()) {
       expect('429' in op.responses, path).toBe(!path.startsWith('/api/health/'));
+    }
+  });
+
+  it('documents the minimum app version (426) on every route except the health probes', () => {
+    for (const { path, op } of operations()) {
+      expect('426' in op.responses, path).toBe(!path.startsWith('/api/health/'));
+    }
+  });
+
+  it('names the schemas the app refers to, and every error envelope can list fields', () => {
+    const schemas = document.components?.schemas ?? {};
+    for (const name of ['User', 'Session', 'Item', 'ItemPage', 'CreateItemRequest']) {
+      expect(schemas, name).toHaveProperty(name);
+    }
+    expect(schemas.ErrorResponse).toMatchObject({
+      properties: { errors: { items: { $ref: '#/components/schemas/FieldError' } } },
+    });
+    // Every reference resolves.
+    const refs = JSON.stringify(document).match(/#\/components\/schemas\/[A-Za-z]+/g) ?? [];
+    for (const ref of new Set(refs)) {
+      expect(schemas, ref).toHaveProperty(ref.split('/').at(-1) ?? '');
     }
   });
 });

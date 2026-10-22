@@ -26,35 +26,24 @@ export async function seedUser(
 
 export interface SignedIn {
   accessToken: string;
-  /** The Set-Cookie headers of the response. */
-  setCookies: string[];
-  /** `refresh_token=<value>`, ready for a Cookie header. */
-  refreshCookie: string;
+  /** Sent back once, to POST /api/auth/refresh or /logout: each one works once. */
+  refreshToken: string;
+  user: { id: string; email: string; name: string; role: Role };
 }
 
-/** Signs in through the API and returns what a browser would hold. */
+/** Signs in through the API and returns the session the app would keep. */
 export async function signIn(
   server: Server,
   email: string,
   password = TEST_PASSWORD,
 ): Promise<SignedIn> {
   const res = await request(server).post('/api/auth/sign-in').send({ email, password }).expect(200);
-  const setCookies = cookiesOf(res);
-  const refresh = setCookies.find((cookie) => cookie.startsWith('refresh_token='));
-  if (refresh === undefined) throw new Error('sign-in set no refresh cookie');
-  return {
-    accessToken: envelopeOf<{ accessToken: string }>(res).data.accessToken,
-    setCookies,
-    refreshCookie: refresh.split(';', 1)[0] ?? refresh,
-  };
+  return sessionOf(res);
 }
 
-export function cookiesOf(res: request.Response): string[] {
-  const header: unknown = res.headers['set-cookie'];
-  if (Array.isArray(header)) {
-    return header.filter((value): value is string => typeof value === 'string');
-  }
-  return typeof header === 'string' ? [header] : [];
+/** The session a response carries (sign-in, refresh, sign-up confirmation...). */
+export function sessionOf(res: request.Response): SignedIn {
+  return envelopeOf<SignedIn>(res).data;
 }
 
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });

@@ -1,14 +1,17 @@
-import type { CookieOptions } from 'express';
 import type { RouteLimit } from '../common/guards/rate-limit.guard.js';
-import { env } from '../env/env.js';
 
-/** Access token lifetime: short, the refresh cookie renews it. */
+/** Access token lifetime: short, the refresh token renews it. */
 export const ACCESS_TOKEN_TTL_SEC = 15 * 60;
 /** Pinned on the signer and on every verifier. */
 export const ACCESS_TOKEN_ALGORITHM = 'HS256';
 /** Refresh session lifetime, renewed on every rotation (sliding). */
 export const REFRESH_TOKEN_TTL_SEC = 30 * 24 * 60 * 60;
-/** A token rotated this recently is a client race (two tabs), not a replay. */
+/**
+ * The reuse window: a refresh token presented again this soon after its
+ * rotation is a renewal whose answer was lost (a dropped connection, a retry),
+ * not a replay. It gets a new pair, and the successor nobody received is
+ * replaced (docs/adr/0007-mobile-sessions-with-refresh-tokens-in-the-body.md).
+ */
 export const REFRESH_REUSE_LEEWAY_SEC = 30;
 /** Absolute lifetime of a sign-in: rotations never extend a session past it. */
 export const REFRESH_FAMILY_MAX_AGE_SEC = 90 * 24 * 60 * 60;
@@ -43,77 +46,93 @@ export const INVITATION_TTL_MS = 7 * 24 * 60 * 60_000;
 /** An invitation's message is worth sending this long after it is queued. */
 export const INVITATION_MESSAGE_TTL_MS = 24 * 60 * 60_000;
 
-// Per client IP: credential stuffing protection. Counted on top of the global
-// limit (RATE_LIMIT_MAX), not instead of it: both apply, and whichever runs
-// out first blocks (@RouteRateLimit, common/guards/rate-limit.guard.ts).
-export const SIGN_IN_RATE_LIMIT: RouteLimit = { limit: 10, ttlSec: 60 };
-export const REFRESH_RATE_LIMIT: RouteLimit = { limit: 30, ttlSec: 60 };
-// Asking for a reset link, per IP; each address also gets at most one
-// message a minute and MAIL_DAILY_LIMIT_PER_ADDRESS a day (the outbox).
-export const PASSWORD_RESET_REQUEST_RATE_LIMIT: RouteLimit = { limit: 5, ttlSec: 15 * 60 };
+// Counted on top of the global limit (RATE_LIMIT_MAX), not instead of it: both
+// apply, and whichever runs out first blocks (@RouteRateLimit,
+// common/guards/rate-limit.guard.ts). Phones often share an address (carrier
+// NAT): no route counts per client IP alone. Signed-in routes count per
+// person; public ones per account and client IP (the address tried, the
+// token presented), so one person's attempts never block the others behind
+// the same address, with a ceiling per address sized for many people
+// (docs/security.md#rate-limiting).
+
+/** Every public route's ceiling of attempts per client IP, in a window. */
+const PUBLIC_IP_CEILING = { limit: 100, ttlSec: 15 * 60 };
+
+// Sign-in: credential stuffing protection, per address tried.
+export const SIGN_IN_RATE_LIMIT: RouteLimit = {
+  limit: 10,
+  ttlSec: 60,
+  per: 'email',
+  ipCeiling: { limit: 300, ttlSec: 60 },
+};
+// Renewal: a refresh token works once (plus its retries), so a handful per
+// token is plenty; the ceiling bounds lookups of made-up tokens.
+export const REFRESH_RATE_LIMIT: RouteLimit = {
+  limit: 10,
+  ttlSec: 60,
+  per: 'refreshToken',
+  ipCeiling: { limit: 600, ttlSec: 60 },
+};
+// Asking for a reset link, per address; each address also gets at most one
+// message a minute and MAIL_DAILY_LIMIT_PER_ADDRESS a day (the outbox). The
+// ceiling is tighter than the others': each request may send a message.
+export const PASSWORD_RESET_REQUEST_RATE_LIMIT: RouteLimit = {
+  limit: 5,
+  ttlSec: 15 * 60,
+  per: 'email',
+  ipCeiling: { limit: 50, ttlSec: 15 * 60 },
+};
 // Using a reset link: a token is 256 random bits, nothing to guess; this
 // bounds the hashing work a client can cause.
-export const PASSWORD_RESET_CONFIRM_RATE_LIMIT: RouteLimit = { limit: 10, ttlSec: 15 * 60 };
+export const PASSWORD_RESET_CONFIRM_RATE_LIMIT: RouteLimit = {
+  limit: 10,
+  ttlSec: 15 * 60,
+  per: 'token',
+  ipCeiling: PUBLIC_IP_CEILING,
+};
 // Changing the password while signed in: each attempt checks the current
-// password, so it is limited like a sign-in.
-export const PASSWORD_CHANGE_RATE_LIMIT: RouteLimit = { limit: 5, ttlSec: 15 * 60 };
-// Signing up, per IP: each request hashes a password and may send a message
-// (each address also gets at most one a minute and a few a day).
-export const SIGN_UP_RATE_LIMIT: RouteLimit = { limit: 5, ttlSec: 15 * 60 };
+// password, so it is limited like a sign-in, per person.
+export const PASSWORD_CHANGE_RATE_LIMIT: RouteLimit = { limit: 5, ttlSec: 15 * 60, per: 'user' };
+// Signing up, per address: each request hashes a password and may send a
+// message (each address also gets at most one a minute and a few a day). The
+// ceiling is tighter than the others': each request may send a message.
+export const SIGN_UP_RATE_LIMIT: RouteLimit = {
+  limit: 5,
+  ttlSec: 15 * 60,
+  per: 'email',
+  ipCeiling: { limit: 50, ttlSec: 15 * 60 },
+};
 // Confirming a sign-up checks the password chosen with it: limited like a
 // sign-in, besides the attempts each sign-up allows.
-export const SIGN_UP_CONFIRM_RATE_LIMIT: RouteLimit = { limit: 10, ttlSec: 15 * 60 };
+export const SIGN_UP_CONFIRM_RATE_LIMIT: RouteLimit = {
+  limit: 10,
+  ttlSec: 15 * 60,
+  per: 'token',
+  ipCeiling: PUBLIC_IP_CEILING,
+};
 // Asking to change the address checks the current password: limited like a
-// sign-in. Confirming or undoing a change takes a 256-bit token (undoing also
-// hashes a new password): this bounds the work a client can cause.
-export const EMAIL_CHANGE_RATE_LIMIT: RouteLimit = { limit: 5, ttlSec: 15 * 60 };
-export const EMAIL_CHANGE_LINK_RATE_LIMIT: RouteLimit = { limit: 10, ttlSec: 15 * 60 };
+// sign-in, per person. Confirming or undoing a change takes a 256-bit token
+// (undoing also hashes a new password): this bounds the work a client can
+// cause.
+export const EMAIL_CHANGE_RATE_LIMIT: RouteLimit = { limit: 5, ttlSec: 15 * 60, per: 'user' };
+export const EMAIL_CHANGE_LINK_RATE_LIMIT: RouteLimit = {
+  limit: 10,
+  ttlSec: 15 * 60,
+  per: 'token',
+  ipCeiling: PUBLIC_IP_CEILING,
+};
+// Deleting the account checks the current password: limited like a sign-in,
+// per person.
+export const ACCOUNT_DELETION_RATE_LIMIT: RouteLimit = { limit: 5, ttlSec: 15 * 60, per: 'user' };
 // Inviting (administrators): each invitation sends a message; each address
 // also gets at most one a minute and a few a day.
-export const INVITATION_RATE_LIMIT: RouteLimit = { limit: 30, ttlSec: 15 * 60 };
+export const INVITATION_RATE_LIMIT: RouteLimit = { limit: 30, ttlSec: 15 * 60, per: 'user' };
 // Accepting an invitation hashes the chosen password: this bounds the work.
-export const INVITATION_ACCEPT_RATE_LIMIT: RouteLimit = { limit: 10, ttlSec: 15 * 60 };
+export const INVITATION_ACCEPT_RATE_LIMIT: RouteLimit = {
+  limit: 10,
+  ttlSec: 15 * 60,
+  per: 'token',
+  ipCeiling: PUBLIC_IP_CEILING,
+};
 
-// In production the refresh cookie carries the __Host- prefix: browsers then
-// accept it only when Secure, without Domain and on Path=/, so a site on a
-// sibling subdomain cannot plant one of its own (cookie tossing, which would
-// sign the victim in to the attacker's account). The price of Path=/ is that
-// the cookie also travels with requests outside /api/auth, where nothing
-// reads it. Plain HTTP (development, tests) cannot use the prefix, so there
-// it is a plain cookie scoped to /api/auth.
-const PRODUCTION = env.NODE_ENV === 'production';
-export const REFRESH_COOKIE = PRODUCTION ? '__Host-refresh_token' : 'refresh_token';
-export const REFRESH_COOKIE_PATH = PRODUCTION ? '/' : '/api/auth';
-export const SESSION_HINT_COOKIE = 'has_session';
-
-// The refresh token: httpOnly (scripts never see it), Secure in production,
-// SameSite from AUTH_COOKIE_SAMESITE. It expires with its session row.
-export function refreshCookieOptions(expiresAt?: Date): CookieOptions {
-  return {
-    httpOnly: true,
-    secure: PRODUCTION,
-    sameSite: env.AUTH_COOKIE_SAMESITE,
-    path: REFRESH_COOKIE_PATH,
-    ...(expiresAt && { expires: expiresAt }),
-  };
-}
-
-// A readable companion holding no secret, only the fact that a refresh is
-// worth trying: the web app skips its boot refresh (and the 401 an anonymous
-// visitor would collect) when it is absent. Set and cleared together with the
-// refresh cookie.
-export function sessionHintCookieOptions(expiresAt?: Date): CookieOptions {
-  return {
-    httpOnly: false,
-    secure: PRODUCTION,
-    sameSite: env.AUTH_COOKIE_SAMESITE,
-    path: '/',
-    ...(expiresAt && { expires: expiresAt }),
-  };
-}
-
-// Emails are compared case-insensitively but stored in a case-sensitive
-// unique column, so every write and lookup goes through this first.
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+export { normalizeEmail } from '../common/utils/email.js';

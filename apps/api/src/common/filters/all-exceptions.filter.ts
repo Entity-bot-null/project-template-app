@@ -12,12 +12,18 @@ import { errorTracker } from '../../observability/error-tracker.js';
 import { type ErrorOrigin, recordServerError } from '../../observability/metrics.js';
 import { isDatabaseConnectionFailure } from '../../prisma/connection-failures.js';
 import { Prisma } from '../../prisma/generated/client.js';
+import {
+  type FieldError,
+  ValidationFailedException,
+} from '../errors/validation-failed.exception.js';
 import { ExternalServiceError } from '../http/external-http.js';
 import { pathOf } from '../logging/request-context.middleware.js';
 
 export interface ErrorOutcome {
   status: number;
   message: string;
+  /** The invalid fields of a 400 that names them (ValidationFailedException). */
+  errors?: readonly FieldError[];
 }
 
 export interface FailureOrigin {
@@ -29,10 +35,11 @@ export interface FailureOrigin {
 }
 
 // Every error leaves the API as { data: null, message } with its HTTP status
-// (docs/error-handling.md). Expected errors (HttpException and the known
-// database ones) keep their message; anything else is a 500 with a generic
-// message, its detail and stack go to the log only, tied to the request id
-// the client received in X-Request-Id.
+// (docs/error-handling.md), plus `errors` on a 400 that names its fields.
+// Expected errors (HttpException and the known database ones) keep their
+// message; anything else is a 500 with a generic message, its detail and
+// stack go to the log only, tied to the request id the client received in
+// X-Request-Id.
 //
 // Every 5xx is also classified by origin (application, database, dependency,
 // unavailable): logged, counted (app.server.errors) and, when unexpected,
@@ -47,7 +54,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const req = http.getRequest<Request>();
     const res = http.getResponse<Response>();
-    const { status, message } = normalizeException(exception);
+    const { status, message, errors } = normalizeException(exception);
 
     if (status >= 500) {
       const failure = classifyFailure(exception);
@@ -74,11 +81,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
     }
 
-    res.status(status).json({ data: null, message });
+    res.status(status).json({ data: null, message, ...(errors !== undefined && { errors }) });
   }
 }
 
 export function normalizeException(exception: unknown): ErrorOutcome {
+  if (exception instanceof ValidationFailedException) {
+    return {
+      status: exception.getStatus(),
+      message: httpMessage(exception),
+      errors: exception.errors,
+    };
+  }
   if (exception instanceof HttpException) {
     return { status: exception.getStatus(), message: httpMessage(exception) };
   }

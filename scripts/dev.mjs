@@ -1,9 +1,9 @@
-// `pnpm dev`, once the database is up: the API, web and landing dev servers
-// (pnpm --parallel, their output passed through as it comes), then the box of
+// `pnpm dev`, once the services are up: the dev servers of DEV_PACKAGES (pnpm
+// --parallel, their output passed through as it comes), then the box of
 // scripts/dev-banner.mjs under their logs, each time the API has started or
-// restarted after a change and the site answers, the app included (the
-// landing's server forwards /app to the web app's). The addresses stay at the
-// bottom of the terminal instead of scrolling away with the start-up logs.
+// restarted after a change and answers. The addresses stay at the bottom of
+// the terminal instead of scrolling away with the start-up logs. The mobile
+// app runs apart (`pnpm start`): Metro is interactive.
 //
 //   node scripts/dev.mjs
 import { spawn } from 'node:child_process';
@@ -16,6 +16,9 @@ import { currentBanner, currentSettings } from './dev-banner.mjs';
 // NestApplication's last start-up line, logged once app.listen has returned
 // (apps/api/src/server.ts): the API answers from then on.
 const API_READY = /Nest application successfully started/;
+
+/** The workspace packages whose `dev` script `pnpm dev` runs. */
+export const DEV_PACKAGES = ['api'];
 
 /**
  * A consumer of the servers' output that calls `onReady` for every line that
@@ -110,12 +113,7 @@ if (isCli) {
   const colors = process.stdout.isTTY && !process.env.NO_COLOR ? { FORCE_COLOR: '1' } : {};
   const [command, args] = pnpmCommand(resolvedExecPath(process.env.npm_execpath), [
     '--parallel',
-    '--filter',
-    'api',
-    '--filter',
-    'web',
-    '--filter',
-    'landing',
+    ...DEV_PACKAGES.flatMap((name) => ['--filter', name]),
     'dev',
   ]);
   const servers = spawn(command, args, {
@@ -127,21 +125,17 @@ if (isCli) {
     process.exitCode = 1;
   });
 
-  // Aborted once the servers have exited: a pending wait for the web server
-  // ends at once (it would keep this script alive) and prints nothing.
+  // Aborted once the servers have exited: a pending wait for the API ends at
+  // once (it would keep this script alive) and prints nothing.
   const stopped = new AbortController();
 
-  // One box at a time, after the site and the app through it answer (at most
-  // 30 s each: a server that does not start still gets the box, under its
-  // error).
+  // One box at a time, after the API answers (at most 30 s: a server that does
+  // not start still gets the box, under its error).
   let shown = Promise.resolve();
   const showBanner = () => {
     shown = shown.then(async () => {
       const settings = currentSettings();
-      await Promise.all([
-        answers(settings.web, stopped.signal),
-        answers(settings.landing, stopped.signal),
-      ]);
+      await answers(`${settings.api}/health/live`, stopped.signal);
       const mailStatus = await readMailStatus(settings.api, stopped.signal);
       if (!stopped.signal.aborted) process.stdout.write(`\n${currentBanner(mailStatus)}\n\n`);
     });

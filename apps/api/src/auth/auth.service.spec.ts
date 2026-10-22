@@ -29,7 +29,7 @@ function setup(found: (typeof USER & { passwordHash: string }) | null) {
   const findUnique = vi.fn().mockResolvedValue(found);
   const sessions = {
     create: vi.fn().mockResolvedValue(REFRESH),
-    rotate: vi.fn().mockResolvedValue({ user: USER, securityVersion: 5, session: REFRESH }),
+    rotate: vi.fn().mockResolvedValue({ user: USER, session: { ...REFRESH, securityVersion: 5 } }),
     retire: vi.fn().mockResolvedValue(undefined),
   };
   const prisma = { user: { findUnique } } as unknown as PrismaService;
@@ -48,29 +48,30 @@ describe('AuthService at boot', () => {
 });
 
 describe('AuthService', () => {
-  it('signs in: a session row, and an access token carrying only id and role', async () => {
+  it('signs in: a session row, both tokens in the body, an access token carrying id, role and version', async () => {
     const { service, sessions } = setup({ ...USER, passwordHash });
-    const result = await service.signIn(USER.email, 'right password');
+    const session = await service.signIn(USER.email, 'right password');
 
     // With the hash it verified, re-checked under the user lock.
     expect(sessions.create).toHaveBeenCalledWith(USER.id, passwordHash);
-    expect(sessions.retire).not.toHaveBeenCalled();
-    expect(result.refresh).toBe(REFRESH);
-    expect(result.session).toMatchObject({ expiresIn: ACCESS_TOKEN_TTL_SEC, user: USER });
-    expect(result.session.user).not.toHaveProperty('passwordHash');
-    const claims = await jwt.verifyAsync<Record<string, unknown>>(result.session.accessToken);
+    expect(session).toMatchObject({
+      refreshToken: REFRESH.token,
+      expiresIn: ACCESS_TOKEN_TTL_SEC,
+      user: USER,
+    });
+    expect(session.user).not.toHaveProperty('passwordHash');
+    const claims = await jwt.verifyAsync<Record<string, unknown>>(session.accessToken);
     // sv: the version SessionsService read under the user's lock.
     expect(claims).toMatchObject({ sub: USER.id, role: 'member', sv: 3 });
   });
 
-  it('ends the session this browser already had before starting a new one', async () => {
+  it('starts a family of its own at every sign-in, leaving the others alone', async () => {
     const { service, sessions } = setup({ ...USER, passwordHash });
-    await service.signIn(USER.email, 'right password', 'previous-token');
-    // Named as a sign-in in the theft warning, if the token turns out stolen.
-    expect(sessions.retire).toHaveBeenCalledWith('previous-token', 'sign-in');
-    expect(sessions.retire.mock.invocationCallOrder[0]).toBeLessThan(
-      sessions.create.mock.invocationCallOrder[0] ?? 0,
-    );
+    await service.signIn(USER.email, 'right password');
+    await service.signIn(USER.email, 'right password');
+    // A device that had a session logs it out itself (the app does, at sign-out).
+    expect(sessions.create).toHaveBeenCalledTimes(2);
+    expect(sessions.retire).not.toHaveBeenCalled();
   });
 
   it('looks the email up trimmed and lowercased', async () => {
@@ -93,19 +94,17 @@ describe('AuthService', () => {
 
   it('touches no session when the credentials are wrong', async () => {
     const { service, sessions } = setup({ ...USER, passwordHash });
-    await expect(service.signIn(USER.email, 'wrong', 'previous-token')).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(service.signIn(USER.email, 'wrong')).rejects.toThrow(UnauthorizedException);
     expect(sessions.create).not.toHaveBeenCalled();
     expect(sessions.retire).not.toHaveBeenCalled();
   });
 
-  it('refreshes by rotating the session and minting a new access token', async () => {
+  it('refreshes by rotating the session: a new pair and the user, as at sign-in', async () => {
     const { service, sessions } = setup(null);
-    const result = await service.refresh('old-token');
+    const session = await service.refresh('old-token');
     expect(sessions.rotate).toHaveBeenCalledWith('old-token');
-    expect(result.refresh).toBe(REFRESH);
-    await expect(jwt.verifyAsync(result.session.accessToken)).resolves.toMatchObject({
+    expect(session).toMatchObject({ refreshToken: REFRESH.token, user: USER });
+    await expect(jwt.verifyAsync(session.accessToken)).resolves.toMatchObject({
       sub: USER.id,
       sv: 5,
     });
@@ -114,6 +113,6 @@ describe('AuthService', () => {
   it('logs out by retiring the session family', async () => {
     const { service, sessions } = setup(null);
     await service.logout('a-token');
-    expect(sessions.retire).toHaveBeenCalledWith('a-token', 'logout');
+    expect(sessions.retire).toHaveBeenCalledWith('a-token');
   });
 });

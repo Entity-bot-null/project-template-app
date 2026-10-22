@@ -45,6 +45,15 @@ allowBuilds:
   # checks it or falls back to a download.
   '@sentry/cli': false
   unrs-resolver: false
+  # The API (apps/api). argon2's install script picks the prebuilt binding
+  # for the platform, or builds it: the native password hashing.
+  argon2: true
+  # The Prisma CLI and engines download their platform binaries, checked
+  # against the release's checksums.
+  '@prisma/engines': true
+  prisma: true
+  # Telemetry only.
+  '@scarf/scarf': false
 
 # Security overrides: transitive versions forced past a published advisory
 # until the dependency that pins them ships the fix. Each entry names the
@@ -56,6 +65,12 @@ overrides:
   # GHSA-pqg4-j6r4-53mv (critical): react-devtools-core in React Native,
   # development tooling only.
   shell-quote: ^1.11.0
+  # GHSA-ggr8-5vv4-36mx (high), pinned at 7.1.5 by @prisma/config 7.10 (the
+  # API's Prisma CLI and client).
+  '@prisma/config>deepmerge-ts': ^8.0.2
+  # GHSA-3f6p-5ww8-9rcr (high) and GHSA-rgwj-5xj2-c3m3 (moderate), pinned at
+  # 3.15.3 by the prisma CLI 7.10 (MySQL support; the API uses PostgreSQL).
+  'prisma>mysql2': ^3.24.5
 
 # Advisories `pnpm audit` (pnpm security, CI) skips, each reviewed: no fixed
 # version exists, and the package never reaches the app binary. `pnpm

@@ -42,6 +42,7 @@ for (const [platform, budget] of Object.entries(budgets)) {
     (sum, path) => sum + statSync(new URL(path, DIST)).size,
     0,
   );
+  /** @type {[what: string, sizeKb: number, maxKb: number, detail: string][]} */
   const checks = [
     [
       'bundle',

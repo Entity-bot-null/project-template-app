@@ -1,10 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  ServiceUnavailableException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { fieldError } from '../common/errors/validation-failed.exception.js';
 import { errorSummary } from '../common/logging/error-summary.js';
 import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
 import type { PasswordChangedPayload } from '../infrastructure/mail/templates/password-changed.template.js';
@@ -85,7 +80,7 @@ export class PasswordResetService {
           });
     if (owner === null) throw new NotFoundException(INVALID_RESET_LINK);
     const problem = passwordProblem(password, { email: owner.email, name: owner.name });
-    if (problem !== undefined) throw new BadRequestException(`password: ${problem}`);
+    if (problem !== undefined) throw fieldError('password', problem);
 
     // Hashed before the transaction: it holds the account's lock meanwhile.
     const passwordHash = await hashPassword(password);

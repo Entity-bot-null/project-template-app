@@ -22,6 +22,9 @@ export default defineConfig({
       // The public origin the app is served from, behind a proxy that does
       // not pass the client's Host (src/common/guards/fetch-metadata.int.spec.ts).
       APP_ORIGIN: 'https://app.example.com',
+      // The oldest Android app served (src/common/http/app-version.int.spec.ts);
+      // the other suites send no X-App-Platform, so the check never applies.
+      MOBILE_MIN_VERSION_ANDROID: '2.0.0',
       LOG_LEVEL: 'warn',
     },
     globalSetup: ['./test/global-setup.ts'],

@@ -24,10 +24,9 @@ describe('devSettings', () => {
         compose: {},
       }),
       {
-        landing: 'http://localhost:4321',
-        web: 'http://localhost:4321/app/',
         api: 'http://127.0.0.1:3000/api',
         docs: 'http://127.0.0.1:3000/api/docs',
+        app: 'EXPO_PUBLIC_API_URL=http://localhost:3000 · adb reverse tcp:3000 tcp:3000',
         database: `localhost:${DEFAULT_DB_PORT}/app`,
         redis: 'off (in-process stores; set REDIS_URL in apps/api/.env)',
         mail: 'off (set MAIL_SMTP_URL in apps/api/.env)',
@@ -43,6 +42,15 @@ describe('devSettings', () => {
     });
     assert.equal(settings.api, 'http://[::1]:4000/api');
     assert.equal(settings.docs, 'http://[::1]:4000/api/docs');
+    // The app points at this machine through localhost, whatever the API binds.
+    assert.match(settings.app, /EXPO_PUBLIC_API_URL=http:\/\/localhost:4000/);
+  });
+
+  test("the app's address is the API's port in apps/api/.env.example", () => {
+    const example = readFileSync(new URL('../apps/api/.env.example', import.meta.url), 'utf8');
+    const port = /^PORT=(\d+)$/m.exec(example)?.[1];
+    assert.equal(port, '3010');
+    assert.match(devSettings({ api: { PORT: port }, compose: {} }).app, /localhost:3010/);
   });
 
   test('a local DATABASE_URL on another port than DB_PORT is pointed out', () => {
@@ -73,16 +81,6 @@ describe('devSettings', () => {
     const settings = devSettings({ api: {}, compose: {} });
     assert.equal(settings.database, undefined);
     assert.match(settings.warnings[0] ?? '', /apps\/api\/\.env\.example/);
-  });
-
-  test("the landing's address is the port its dev server keeps", () => {
-    const config = readFileSync(
-      new URL('../apps/landing/astro.config.mjs', import.meta.url),
-      'utf8',
-    );
-    const port = /server: \{ port: (\d+) \}/.exec(config)?.[1];
-    assert.equal(devSettings({ api: {}, compose: {} }).landing, `http://localhost:${String(port)}`);
-    assert.match(config, /\bstrictPort: true\b/);
   });
 
   test('the default ports are the ones docker-compose.yml publishes', () => {
@@ -127,7 +125,7 @@ describe('devSettings', () => {
     assert.equal(settings.mail, 'smtp://localhost:1025');
     assert.match(
       settings.warnings.join('\n'),
-      /MAIL_SMTP_URL uses port 1025, but pnpm services:up publishes Mailpit on 1035/,
+      /MAIL_SMTP_URL uses port 1025, but pnpm services:up publishes Mailpit on 1045/,
     );
   });
 
@@ -156,7 +154,7 @@ describe('devSettings', () => {
     });
     assert.match(
       settings.warnings.join('\n'),
-      /REDIS_URL uses port 6379, but pnpm services:up publishes Redis on 6389/,
+      /REDIS_URL uses port 6379, but pnpm services:up publishes Redis on 6399/,
     );
     assert.deepEqual(
       devSettings({
@@ -203,10 +201,9 @@ describe('renderBanner', () => {
     const text = lines.join('\n');
     assert.match(text, /project-template 1\.2\.3 · development/);
     for (const value of [
-      settings.landing,
-      settings.web,
       settings.api,
       settings.docs,
+      settings.app,
       settings.database ?? '',
       settings.redis,
       settings.mail,
@@ -223,7 +220,7 @@ describe('renderBanner', () => {
     });
     assert.match(
       renderBanner(withMailpit, APP, plain, 'ok'),
-      /Mail +http:\/\/localhost:8035 \(Mailpit\) · ok/,
+      /Mail +http:\/\/localhost:8045 \(Mailpit\) · ok/,
     );
     assert.match(renderBanner(withMailpit, APP, plain, 'degraded'), /· degraded/);
     assert.doesNotMatch(renderBanner(settings, APP, plain, 'disabled'), /· disabled/);

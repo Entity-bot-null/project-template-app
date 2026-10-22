@@ -17,18 +17,15 @@ import {
 } from './auth.constants.js';
 import type { AuthUser } from './dto/auth.schemas.js';
 
-export interface IssuedSession {
-  /** The opaque refresh token; only ever sent to the client as a cookie. */
+/** A new refresh token: the device receives it once, in a response body. */
+export interface StartedSession {
   token: string;
   expiresAt: Date;
-}
-
-/** A new session, with the account's securityVersion read under its lock: the access token carries it. */
-export interface StartedSession extends IssuedSession {
+  /** The account's securityVersion, read under its lock: the access token carries it. */
   securityVersion: number;
 }
 
-// Refresh tokens are 32 random bytes. The client holds the token, the
+// Refresh tokens are 32 random bytes. The device holds the token, the
 // database only its SHA-256: a leaked table cannot be replayed, and since the
 // token has full entropy a plain hash is enough (no secret, exact lookup).
 export function hashRefreshToken(token: string): string {
@@ -43,15 +40,6 @@ const invalidSession = (): UnauthorizedException =>
 const expiryWithin = (familyExpiresAt: Date, now: number): Date =>
   new Date(Math.min(now + REFRESH_TOKEN_TTL_SEC * 1000, familyExpiresAt.getTime()));
 
-// Two refreshes with the same token within seconds (two tabs, a retry after a
-// lost response) are a client race, not a theft: the loser is told no without
-// touching the session or the cookie the winner just set.
-export class RefreshRaceLostException extends UnauthorizedException {
-  constructor() {
-    super('Refresh token already rotated, retry with the current one');
-  }
-}
-
 type Tx = Prisma.TransactionClient;
 
 // Every session transaction takes the user's row lock, then reads again what
@@ -59,21 +47,27 @@ type Tx = Prisma.TransactionClient;
 // what the transaction it waited for committed. That is READ COMMITTED,
 // PostgreSQL's default, pinned here: under a stricter default set on the
 // database or the role (REPEATABLE READ, SERIALIZABLE), the second read would
-// see the snapshot from before the wait, and a refresh that lost a race would
-// fail with a serialization error (500) instead of being answered as a race.
+// see the snapshot from before the wait, and a renewal that waited for
+// another would fail with a serialization error (500) instead of seeing it.
 const SESSION_TRANSACTION = { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted };
 
 type RotateOutcome =
-  | { user: AuthUser; securityVersion: number; session: IssuedSession }
-  | { error: 'invalid' | 'race' }
+  | { user: AuthUser; session: StartedSession }
+  | { error: 'invalid' }
   | { error: 'reuse'; userId: string };
 
 // Sessions follow the refresh token rotation pattern with family revocation
 // (OAuth 2.0 Security BCP, RFC 9700): every refresh token works once; a
 // sign-in starts a family; a token presented again after its rotation is the
-// signature of theft and ends its whole family. Every change to a user's
-// sessions takes that user's row lock first, so rotations, logouts and
-// revocations of one user never interleave.
+// signature of theft and ends its whole family. One exception, for phones,
+// whose renewals lose their answer to a dropped connection: a token presented
+// again within REFRESH_REUSE_LEEWAY_SEC of its rotation, while the successor
+// that rotation created was never used, is that renewal retried. It gets a new
+// pair, and the successor nobody received is revoked and marked superseded:
+// should it ever be presented, two clients hold the family, which ends
+// (docs/adr/0007-mobile-sessions-with-refresh-tokens-in-the-body.md). Every
+// change to a user's sessions takes that user's row lock first, so rotations,
+// logouts and revocations of one user never interleave.
 @Injectable()
 export class SessionsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(SessionsService.name);
@@ -127,12 +121,11 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
     return { token, expiresAt, securityVersion };
   }
 
-  // Single use: a valid token is revoked as rotated and replaced by a successor
-  // in the same family. A token rotated within the leeway is a client race;
-  // one rotated earlier means someone else holds a copy, and its family ends.
-  async rotate(
-    token: string,
-  ): Promise<{ user: AuthUser; securityVersion: number; session: IssuedSession }> {
+  // Single use: a valid token is revoked as rotated and replaced by a
+  // successor in the same family. Presented again: within the reuse window,
+  // with its successor still unused, it is a retried renewal (see the class
+  // comment); otherwise someone else holds a copy, and the family ends.
+  async rotate(token: string): Promise<{ user: AuthUser; session: StartedSession }> {
     const tokenHash = hashRefreshToken(token);
     const outcome = await this.prisma.$transaction(async (tx): Promise<RotateOutcome> => {
       const found = await tx.session.findUnique({ where: { tokenHash }, select: { userId: true } });
@@ -145,30 +138,44 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
           user: {
             select: { id: true, email: true, name: true, role: true, securityVersion: true },
           },
+          replacedBy: { select: { id: true, revokedAt: true } },
         },
       });
       if (!current) return { error: 'invalid' };
 
       const now = Date.now();
+      // A successor a retried renewal replaced: whoever holds it is a second
+      // client of the family. Returned, not thrown, so the revocation commits.
+      if (current.superseded) {
+        await revokeFamily(tx, current.familyId, now);
+        return { error: 'reuse', userId: current.userId };
+      }
       if (current.revokedAt) {
         // Revoked by a logout or a theft response: dead, nothing to learn.
         if (!current.rotated) return { error: 'invalid' };
-        if (now - current.revokedAt.getTime() <= REFRESH_REUSE_LEEWAY_SEC * 1000) {
-          return { error: 'race' };
+        const successor = current.replacedBy;
+        const retried =
+          now - current.revokedAt.getTime() <= REFRESH_REUSE_LEEWAY_SEC * 1000 &&
+          successor !== null &&
+          successor.revokedAt === null;
+        if (!retried) {
+          await revokeFamily(tx, current.familyId, now);
+          return { error: 'reuse', userId: current.userId };
         }
-        await revokeFamily(tx, current.familyId, now);
-        // Returned, not thrown, so the transaction commits the revocation.
-        return { error: 'reuse', userId: current.userId };
+        // The successor was never used: its answer was lost. Replaced, and
+        // marked so a late use of it reads as reuse.
+        await tx.session.update({
+          where: { id: successor.id },
+          data: { revokedAt: new Date(now), superseded: true },
+        });
+        this.logger.debug('Renewal retried within the reuse window: its unused successor replaced');
+      } else if (current.expiresAt.getTime() <= now) {
+        return { error: 'invalid' };
       }
-      if (current.expiresAt.getTime() <= now) return { error: 'invalid' };
 
-      await tx.session.update({
-        where: { id: current.id },
-        data: { revokedAt: new Date(now), rotated: true },
-      });
       const next = newToken();
       const expiresAt = expiryWithin(current.familyExpiresAt, now);
-      await tx.session.create({
+      const created = await tx.session.create({
         data: {
           userId: current.userId,
           familyId: current.familyId,
@@ -176,27 +183,32 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
           tokenHash: hashRefreshToken(next),
           expiresAt,
         },
+        select: { id: true },
+      });
+      // A retry keeps the first rotation's time: the window never stretches.
+      await tx.session.update({
+        where: { id: current.id },
+        data: {
+          revokedAt: current.revokedAt ?? new Date(now),
+          rotated: true,
+          replacedById: created.id,
+        },
       });
       const { securityVersion, ...user } = current.user;
-      return { user, securityVersion, session: { token: next, expiresAt } };
+      return { user, session: { token: next, expiresAt, securityVersion } };
     }, SESSION_TRANSACTION);
 
     if ('error' in outcome) {
-      if (outcome.error === 'race') {
-        this.logger.debug('Refresh race lost: the token was rotated moments ago');
-        throw new RefreshRaceLostException();
-      }
       if (outcome.error === 'reuse') this.logReuse(outcome.userId, 'refresh');
       throw invalidSession();
     }
     return outcome;
   }
 
-  // Logout, and sign-in over an existing session: ends the family of the
-  // presented token, whatever its state. Presenting a token that was rotated
-  // earlier than the leeway is also reported as theft, naming where it was
-  // caught. Idempotent; an unknown token is a no-op.
-  async retire(token: string, during: 'sign-in' | 'logout'): Promise<void> {
+  // Logout: ends the family of the presented token, whatever its state.
+  // Presenting a superseded token, or one rotated earlier than the reuse
+  // window, is also reported as theft. Idempotent; an unknown token is a no-op.
+  async retire(token: string): Promise<void> {
     const tokenHash = hashRefreshToken(token);
     const reusedBy = await this.prisma.$transaction(async (tx) => {
       const found = await tx.session.findUnique({ where: { tokenHash }, select: { userId: true } });
@@ -207,12 +219,13 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
       const now = Date.now();
       await revokeFamily(tx, current.familyId, now);
       const reused =
-        current.rotated &&
-        current.revokedAt !== null &&
-        now - current.revokedAt.getTime() > REFRESH_REUSE_LEEWAY_SEC * 1000;
+        current.superseded ||
+        (current.rotated &&
+          current.revokedAt !== null &&
+          now - current.revokedAt.getTime() > REFRESH_REUSE_LEEWAY_SEC * 1000);
       return reused ? current.userId : null;
     }, SESSION_TRANSACTION);
-    if (reusedBy !== null) this.logReuse(reusedBy, during);
+    if (reusedBy !== null) this.logReuse(reusedBy, 'logout');
   }
 
   /** Ends every session of a user at once (password change, account lock). */
@@ -242,7 +255,7 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private logReuse(userId: string, during: 'refresh' | 'sign-in' | 'logout'): void {
+  private logReuse(userId: string, during: 'refresh' | 'logout'): void {
     this.logger.warn(
       `Refresh token reuse for user ${userId} (at ${during}): its session family was revoked`,
     );
@@ -250,8 +263,8 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
 }
 
 // Serializes every session change of one user (see the class comment), and
-// every account change (a new password, a reset): they lock the same row.
-// Exported for those, which revoke sessions in their own transaction.
+// every account change (a new password, a reset, a deletion): they lock the
+// same row. Exported for those, which revoke sessions in their own transaction.
 export async function lockUser(tx: Tx, userId: string): Promise<void> {
   await tx.$queryRaw`SELECT "id" FROM "users" WHERE "id" = ${userId}::uuid FOR UPDATE`;
 }

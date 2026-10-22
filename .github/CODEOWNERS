@@ -18,7 +18,18 @@
 # Redaction, error reporting and analytics: what leaves the device.
 # /apps/mobile/src/lib/observability/        @your-org/security-reviewers
 # /apps/mobile/src/lib/analytics/            @your-org/security-reviewers
-# The API contract.
+# The API: authentication, sessions, guards and the HTTP pipeline; what
+# leaves the process (redaction, error tracking, telemetry); configuration.
+# /apps/api/src/auth/                        @your-org/security-reviewers
+# /apps/api/src/common/                      @your-org/security-reviewers
+# /apps/api/src/observability/               @your-org/security-reviewers
+# /apps/api/src/env/                         @your-org/security-reviewers
+# /apps/api/src/app.setup.ts                 @your-org/security-reviewers
+# /apps/api/src/app.module.ts                @your-org/security-reviewers
+# /apps/api/src/infrastructure/              @your-org/backend
+# /apps/api/src/lifecycle/                   @your-org/backend
+# Schema, migrations and the API contract.
+# /apps/api/prisma/                          @your-org/backend
 # /openapi/                                  @your-org/backend @your-org/mobile
 # Native configuration, signing and releases: a mistake here ships to stores.
 # /apps/mobile/app.config.ts                 @your-org/mobile-leads
@@ -29,6 +40,10 @@
 # /pnpm-workspace.yaml                       @your-org/mobile-leads
 # /pnpm-lock.yaml                            @your-org/mobile-leads
 # package.json                               @your-org/mobile-leads
+# Server images and the local services.
+# Dockerfile                                 @your-org/backend
+# /.dockerignore                             @your-org/backend
+# /docker-compose.yml                        @your-org/backend
 # Gates: CI, hooks and the checks they run. Owning these is what keeps the
 # rules above from being edited away.
 # /.github/                                  @your-org/mobile-leads
@@ -39,6 +54,10 @@
 # /commitlint.config.mjs                     @your-org/mobile-leads
 # /.gitignore                                @your-org/mobile-leads
 # /apps/mobile/jest.config.js                @your-org/mobile-leads
+# /apps/api/vitest.config.ts                 @your-org/backend
+# /apps/api/vitest.config.int.ts             @your-org/backend
+# /tsconfig.json                             @your-org/mobile-leads
+# /tsconfig.base.json                        @your-org/mobile-leads
 # /apps/mobile/bundle-budget.json            @your-org/mobile-leads
 # /apps/mobile/scripts/                      @your-org/mobile-leads
 # /lint-staged.config.mjs                    @your-org/mobile-leads

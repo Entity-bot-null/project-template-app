@@ -40,6 +40,7 @@ model User {
   mailMessages    MailMessage[]
   accountTokens   AccountToken[]
   invitationsSent Invitation[]
+  items           Item[]
 
   @@map("users")
 }
@@ -59,11 +60,19 @@ model Session {
   expiresAt       DateTime  @map("expires_at") @db.Timestamptz(3)
   revokedAt       DateTime? @map("revoked_at") @db.Timestamptz(3)
   // True when revokedAt came from a rotation (a successor exists): only those
-  // rows get the race leeway; logout and theft revocations do not.
+  // rows get the reuse window; logout and theft revocations do not.
   rotated         Boolean   @default(false)
+  // The session this one's rotation started. A renewal retried within the
+  // reuse window (its answer was lost) replaces it, since it was never used.
+  replacedById    String?   @unique @map("replaced_by_id") @db.Uuid
+  // A successor replaced by such a retry: presenting it later means a second
+  // holder of the token, and ends the family like any reuse.
+  superseded      Boolean   @default(false)
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy Session? @relation("SessionRotation", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces   Session? @relation("SessionRotation")
 
   @@index([userId])
   @@index([familyId])
@@ -99,6 +108,9 @@ enum MailKind {
   email_changed
   // An administrator's invitation to create an account (limited per address).
   invitation
+  // The account was deleted: a notice to its last address (a security notice,
+  // never held back). Queued without the user, which no longer exists.
+  account_deleted
 }
 
 enum MailStatus {
@@ -253,4 +265,27 @@ model Invitation {
   // Deleting a user sets its invitations' invitedById to null.
   @@index([invitedById])
   @@map("invitations")
+}
+
+// The example resource (docs/authorization.md): every item belongs to one
+// user, the only one who lists or reads it. Deleted with its owner.
+model Item {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  ownerId        String   @map("owner_id") @db.Uuid
+  title          String   @db.VarChar(120)
+  description    String?  @db.VarChar(2000)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  // The Idempotency-Key its creation carried, if any, and a SHA-256 of what
+  // was asked (items.service.ts): a retry with the key gets this item back
+  // instead of a second one, the same key with another body is refused.
+  idempotencyKey String?  @map("idempotency_key") @db.VarChar(255)
+  requestHash    String?  @map("request_hash") @db.Char(64)
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // One item per key and owner, whatever the instances or the cache did.
+  @@unique([ownerId, idempotencyKey])
+  // An owner's page, newest first: createdAt, then id for equal timestamps.
+  @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("items")
 }

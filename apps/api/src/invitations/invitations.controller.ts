@@ -26,7 +26,7 @@ import {
 import { InvitationsService } from './invitations.service.js';
 
 // Administrators only: the guard checks the role on every route, whatever the
-// web app shows (docs/authorization.md).
+// app shows (docs/authorization.md).
 @ApiTags('invitations')
 @Controller('admin/invitations')
 @Auth('admin')

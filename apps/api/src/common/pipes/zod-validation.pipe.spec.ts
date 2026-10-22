@@ -21,6 +21,28 @@ describe('ZodValidationPipe', () => {
     expect(() => pipe.transform({ title: '' }, meta('body'))).toThrow(/^title: /);
   });
 
+  it('names every invalid field for the client to mark: nested paths dotted, the whole value by its target', () => {
+    const nested = new ZodValidationPipe(
+      z.object({
+        title: z.string().min(1, 'Required'),
+        tags: z.array(z.string().max(2, 'Too long')),
+      }),
+    );
+    expect(() => nested.transform({ title: '', tags: ['ok', 'long'] }, meta('body'))).toThrow(
+      expect.objectContaining({
+        message: 'title: Required, tags.1: Too long',
+        errors: [
+          { path: 'title', message: 'Required' },
+          { path: 'tags.1', message: 'Too long' },
+        ],
+      }),
+    );
+    const query = new ZodValidationPipe(Schema, 'query');
+    expect(() => query.transform('not an object', meta('query'))).toThrow(
+      expect.objectContaining({ errors: [expect.objectContaining({ path: 'query' })] }),
+    );
+  });
+
   it('validates only its own argument type', () => {
     const body = new ZodValidationPipe(Schema, 'body');
     const query = new ZodValidationPipe(Schema, 'query');

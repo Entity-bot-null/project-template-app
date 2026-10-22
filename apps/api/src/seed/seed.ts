@@ -18,15 +18,47 @@ export const SEED_USERS: readonly SeedUser[] = [
   { email: 'member@example.com', name: 'Member', role: 'member', password: 'member-password' },
 ];
 
-/** Idempotent: keyed on the email, a re-run resets name, role and password. */
+/** The member's example items: the same 45 the mock API serves (apps/mobile/scripts/mock-api.mjs). */
+export const SEED_ITEM_COUNT = 45;
+const SEED_ITEMS_OWNER = 'member@example.com';
+
+/** A fixed id per example item (a valid UUID), so a re-run finds it again. */
+export function seedItemId(index: number): string {
+  return `00000000-0000-7000-8000-${String(index + 1).padStart(12, '0')}`;
+}
+
+/**
+ * Idempotent: users keyed on the email, a re-run resets name, role and
+ * password; items keyed on their fixed ids, a re-run resets them (items the
+ * member created stay).
+ */
 export async function seed(prisma: PrismaClient): Promise<void> {
+  const ids = new Map<string, string>();
   for (const user of SEED_USERS) {
     const email = normalizeEmail(user.email);
     const passwordHash = await hashPassword(user.password);
-    await prisma.user.upsert({
+    const { id } = await prisma.user.upsert({
       where: { email },
       create: { email, name: user.name, role: user.role, passwordHash },
       update: { name: user.name, role: user.role, passwordHash },
+      select: { id: true },
+    });
+    ids.set(email, id);
+  }
+  const ownerId = ids.get(SEED_ITEMS_OWNER);
+  if (ownerId === undefined) throw new Error(`The seed has no ${SEED_ITEMS_OWNER}`);
+  for (let index = 0; index < SEED_ITEM_COUNT; index += 1) {
+    // Hourly from 2026-01-01, as the mock: Item 45 is the newest.
+    const item = {
+      ownerId,
+      title: `Item ${String(index + 1)}`,
+      description: `Example item number ${String(index + 1)}.`,
+      createdAt: new Date(Date.UTC(2026, 0, 1) + index * 3_600_000),
+    };
+    await prisma.item.upsert({
+      where: { id: seedItemId(index) },
+      create: { id: seedItemId(index), ...item },
+      update: item,
     });
   }
 }

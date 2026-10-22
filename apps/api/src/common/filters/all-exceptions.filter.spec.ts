@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RedisUnavailableError } from '../../infrastructure/redis/redis.service.js';
 import { disabledErrorTracker, setErrorTracker } from '../../observability/error-tracker.js';
 import { Prisma } from '../../prisma/generated/client.js';
+import { ValidationFailedException } from '../errors/validation-failed.exception.js';
 import { ExternalServiceError } from '../http/external-http.js';
 import {
   AllExceptionsFilter,
@@ -112,6 +113,26 @@ describe('AllExceptionsFilter', () => {
     new AllExceptionsFilter().catch(new BadRequestException('Nope'), host);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ data: null, message: 'Nope' });
+  });
+
+  it('lists the invalid fields of a 400 that names them, in errors', () => {
+    const { host, res } = hostFor({ method: 'POST', originalUrl: '/api/x' });
+    const errors = [
+      { path: 'title', message: 'Required' },
+      { path: 'password', message: 'Too short' },
+    ];
+    new AllExceptionsFilter().catch(new ValidationFailedException(errors), host);
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({
+      data: null,
+      message: 'title: Required, password: Too short',
+      errors,
+    });
+    expect(normalizeException(new ValidationFailedException(errors))).toEqual({
+      status: 400,
+      message: 'title: Required, password: Too short',
+      errors,
+    });
   });
 
   it('logs server errors with the request id and path, never the query string', () => {

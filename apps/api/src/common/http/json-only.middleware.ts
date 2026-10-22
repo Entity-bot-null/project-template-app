@@ -12,10 +12,10 @@ const FORM_TYPES = new Set([
 // The API accepts JSON bodies only; anything else is refused before it is
 // parsed. HTML forms (urlencoded, multipart, text/plain) are exactly what
 // another site can make a browser send without a CORS preflight, so this
-// closes that path to every route, on top of SameSite cookies and the Fetch
-// Metadata check (docs/security.md#csrf-cors-xss). A form is refused even
-// with an empty body: a bodiless form POST to a route that takes no body
-// (logout) would otherwise reach its handler.
+// closes that path to every route, on top of the Fetch Metadata check
+// (docs/security.md#csrf-cors-xss). A form is refused even with an empty
+// body: a bodiless form POST to a route that takes no body would otherwise
+// reach its handler.
 export function jsonOnly(req: Request, res: Response, next: NextFunction): void {
   if (!METHODS_WITH_BODY.has(req.method)) {
     next();

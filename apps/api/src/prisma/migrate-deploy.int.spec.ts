@@ -109,7 +109,7 @@ describe('migrate-deploy.mjs (the api-migrate command)', { timeout: 120_000 }, (
 
   it('ignores attempts rolled back with prisma migrate resolve', async () => {
     // A failed attempt of an earlier text, marked rolled back
-    // (docs/incident-response.md#10-failed-database-migration), stays in the
+    // (docs/database.md#migrations), stays in the
     // table next to the applied one.
     await query(
       `INSERT INTO _prisma_migrations (id, checksum, migration_name, started_at, rolled_back_at, applied_steps_count)

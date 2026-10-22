@@ -64,7 +64,7 @@ BEGIN
     AND applied.checksum <> shipped.checksum;
   IF edited IS NOT NULL THEN
     RAISE EXCEPTION 'Migrations changed after they were applied to this database: %', edited
-      USING HINT = 'Never edit an applied migration: restore the file as it was applied and ship the change as a new migration (docs/incident-response.md#10-failed-database-migration).';
+      USING HINT = 'Never edit an applied migration: restore the file as it was applied and ship the change as a new migration (docs/database.md#migrations).';
   END IF;
 END
 $guard$;`;

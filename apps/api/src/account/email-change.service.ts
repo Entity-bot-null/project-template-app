@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -7,6 +6,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { fieldError } from '../common/errors/validation-failed.exception.js';
 import { consumeAccountToken, hashAccountToken } from '../auth/account-tokens.js';
 import { normalizeEmail } from '../auth/auth.constants.js';
 import { checkPassword, hashPassword } from '../auth/password.js';
@@ -25,7 +25,7 @@ const ACCOUNT_TRANSACTION = { isolationLevel: Prisma.TransactionIsolationLevel.R
 export const INVALID_EMAIL_LINK = 'This link is invalid or has expired';
 /** The address got an account of its own after the link was sent. */
 export const ADDRESS_TAKEN = 'This address is used by another account';
-export const SAME_ADDRESS = 'newEmail: This is already the address of the account';
+export const SAME_ADDRESS = 'This is already the address of the account';
 export const WRONG_CURRENT_PASSWORD = 'The current password is wrong';
 
 // Changing the account's address (docs/security.md#change-of-email), in three
@@ -68,7 +68,7 @@ export class EmailChangeService {
     });
     if (user === null) throw new NotFoundException('User not found');
     const address = normalizeEmail(newEmail);
-    if (address === user.email) throw new BadRequestException(SAME_ADDRESS);
+    if (address === user.email) throw fieldError('newEmail', SAME_ADDRESS);
     if (!(await checkPassword(user.passwordHash, currentPassword))) {
       // 403, not 401: the session is fine, the confirmation is not.
       throw new ForbiddenException(WRONG_CURRENT_PASSWORD);
@@ -155,7 +155,7 @@ export class EmailChangeService {
       throw new NotFoundException(INVALID_EMAIL_LINK);
     }
     const problem = passwordProblem(password, { email: owner.targetEmail, name: account.name });
-    if (problem !== undefined) throw new BadRequestException(`password: ${problem}`);
+    if (problem !== undefined) throw fieldError('password', problem);
     // Hashed before the transaction: it holds the account's lock meanwhile.
     const passwordHash = await hashPassword(password);
     try {

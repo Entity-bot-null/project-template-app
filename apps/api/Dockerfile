@@ -40,7 +40,6 @@ RUN pnpm --filter api build
 FROM base AS prod-deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json apps/api/
-COPY apps/web/package.json apps/web/
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
     pnpm install --frozen-lockfile --prod --filter api --ignore-scripts
 
@@ -56,15 +55,16 @@ FROM prod-deps AS migrate-deps
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libssl3 \
     && rm -rf /var/lib/apt/lists/*
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm rebuild @prisma/engines \
+# Scoped to the API: at the workspace root, pnpm rebuild would also install
+# the other packages' production dependencies (the mobile app's).
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store pnpm --filter api rebuild @prisma/engines \
     && test -n "$(find node_modules/.pnpm -path '*/@prisma/engines/schema-engine-debian-openssl-3.0.x' -type f)"
 
 # What both shipped images start from: the Node.js base with the operating
 # system fixes published since it was built (the image scan in CI fails on a
-# fixable HIGH or CRITICAL advisory; the web image does the same with apk),
-# and without the Node.js package managers bundled in it (npm, corepack,
-# yarn): only node is needed, and they are attack surface with advisories of
-# their own.
+# fixable HIGH or CRITICAL advisory), and without the Node.js package
+# managers bundled in it (npm, corepack, yarn): only node is needed, and they
+# are attack surface with advisories of their own.
 FROM public.ecr.aws/docker/library/node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS hardened
 # The day of those fixes (CI passes today's date). It is part of the cache key
 # of the RUN below: a build cache would otherwise replay the upgrade of the

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { envelope, zodToOpenApi } from './zod-schema.js';
+import { envelope, schemaComponents, zodToOpenApi } from './zod-schema.js';
 
 describe('zodToOpenApi', () => {
   it('documents formats without the regex Zod uses to check them', () => {
@@ -27,6 +27,29 @@ describe('zodToOpenApi', () => {
     const schema = z.object({ limit: z.number().default(20) });
     expect(zodToOpenApi(schema, 'input').required).toBeUndefined();
     expect(zodToOpenApi(schema, 'output').required).toEqual(['limit']);
+  });
+
+  it('makes a named schema a component, referenced wherever it appears', () => {
+    const Thing = z.object({ id: z.uuid() }).meta({ id: 'SpecThing' });
+    const Page = z.object({ items: z.array(Thing) }).meta({ id: 'SpecThingPage' });
+    expect(zodToOpenApi(Page, 'output')).toEqual({ $ref: '#/components/schemas/SpecThingPage' });
+    expect(zodToOpenApi(z.object({ thing: Thing }), 'output').properties?.thing).toEqual({
+      $ref: '#/components/schemas/SpecThing',
+    });
+    expect(schemaComponents()).toMatchObject({
+      SpecThing: { type: 'object', properties: { id: { type: 'string', format: 'uuid' } } },
+      SpecThingPage: {
+        properties: { items: { type: 'array', items: { $ref: '#/components/schemas/SpecThing' } } },
+      },
+    });
+  });
+
+  it('refuses one name for two different schemas when the document is built', () => {
+    const named = z.object({ limit: z.number().default(20) }).meta({ id: 'SpecDefaulted' });
+    // Input and output differ (the default): one name cannot describe both.
+    zodToOpenApi(z.object({ query: named }), 'input');
+    zodToOpenApi(z.object({ page: named }), 'output');
+    expect(() => schemaComponents()).toThrow(/"SpecDefaulted"/);
   });
 });
 
