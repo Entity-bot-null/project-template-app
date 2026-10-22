@@ -317,6 +317,416 @@ describe('the mock API (scripts/mock-api.mjs) against openapi/openapi.json', () 
     assert.equal((await call('POST /api/items', { body: { title: 'x' } })).status, 401);
   });
 
+  /** The token of the newest link the mock "emailed" to `to`. */
+  async function linkTo(/** @type {string} */ to) {
+    const outbox = /** @type {{ data: { to: string; link?: string }[] }} */ (
+      await (await fetch(`${base}/__mock/outbox`)).json()
+    ).data;
+    const link = outbox.filter((mail) => mail.to === to && mail.link).at(-1)?.link ?? '';
+    const token = /#token=([A-Za-z0-9_-]{43})$/.exec(link)?.[1];
+    assert.ok(token, `no link was sent to ${to}`);
+    return { link, token };
+  }
+
+  const PASSWORD = 'a long enough passphrase';
+
+  test('capabilities: everything, the mock "sends" email', async () => {
+    const { body } = await call('GET /api/auth/capabilities');
+    assert.deepEqual(body.data, {
+      passwordReset: true,
+      signUp: true,
+      emailChange: true,
+      invitations: true,
+    });
+  });
+
+  test('sign-up: a link to confirm, the password chosen then, an account signed in', async () => {
+    const email = 'new.person@example.com';
+    assert.equal(
+      (await call('POST /api/auth/sign-ups', { body: { email, name: 'New', password: 'short' } }))
+        .status,
+      400,
+    );
+    assert.equal(
+      (await call('POST /api/auth/sign-ups', { body: { email, name: 'New', password: PASSWORD } }))
+        .status,
+      202,
+    );
+    const { link, token } = await linkTo(email);
+    assert.match(link, /^templateapp-dev:\/\/confirm-sign-up#token=/);
+    assert.equal(
+      (await call('POST /api/auth/sign-ups/confirm', { body: { token, password: 'wrong' } }))
+        .status,
+      401,
+    );
+    const confirmed = await call('POST /api/auth/sign-ups/confirm', {
+      body: { token, password: PASSWORD },
+    });
+    assert.equal(confirmed.status, 200);
+    assert.equal(confirmed.body.data.user.email, email);
+    assert.equal(confirmed.body.data.user.role, 'member');
+    // One use.
+    assert.equal(
+      (await call('POST /api/auth/sign-ups/confirm', { body: { token, password: PASSWORD } }))
+        .status,
+      404,
+    );
+    assert.equal(
+      (await call('POST /api/auth/sign-ups/confirm', { body: { token: 'x', password: 'x' } }))
+        .status,
+      400,
+    );
+    // An address with an account gets a notice, and the same answer.
+    assert.equal(
+      (
+        await call('POST /api/auth/sign-ups', {
+          body: { email, name: 'Again', password: PASSWORD },
+        })
+      ).status,
+      202,
+    );
+  });
+
+  test('password recovery: a link, a new password, every session ended', async () => {
+    const email = 'recover@example.com';
+    await call('POST /api/auth/sign-ups', { body: { email, name: 'R', password: PASSWORD } });
+    const signUp = await linkTo(email);
+    const session = (
+      await call('POST /api/auth/sign-ups/confirm', {
+        body: { token: signUp.token, password: PASSWORD },
+      })
+    ).body.data;
+
+    assert.equal((await call('POST /api/auth/password-resets', { body: { email } })).status, 204);
+    assert.equal(
+      (await call('POST /api/auth/password-resets', { body: { email: 'nobody@example.com' } }))
+        .status,
+      204,
+    );
+    assert.equal((await call('POST /api/auth/password-resets', { body: {} })).status, 400);
+    const { token } = await linkTo(email);
+    assert.equal(
+      (await call('POST /api/auth/password-resets/confirm', { body: { token, password: 'short' } }))
+        .status,
+      400,
+    );
+    const newPassword = 'another long passphrase';
+    assert.equal(
+      (
+        await call('POST /api/auth/password-resets/confirm', {
+          body: { token, password: newPassword },
+        })
+      ).status,
+      204,
+    );
+    assert.equal((await call('GET /api/users/me', { token: session.accessToken })).status, 401);
+    assert.equal(
+      (
+        await call('POST /api/auth/password-resets/confirm', {
+          body: { token, password: newPassword },
+        })
+      ).status,
+      404,
+    );
+    assert.equal((await signIn(email, newPassword)).user.email, email);
+  });
+
+  test('the account: password, email (confirmed, then undone), deletion', async () => {
+    const email = 'owner@example.com';
+    await call('POST /api/auth/sign-ups', { body: { email, name: 'Owner', password: PASSWORD } });
+    const signUp = await linkTo(email);
+    let session = (
+      await call('POST /api/auth/sign-ups/confirm', {
+        body: { token: signUp.token, password: PASSWORD },
+      })
+    ).body.data;
+
+    const changed = 'a changed long passphrase';
+    assert.equal(
+      (
+        await call('POST /api/account/password', {
+          token: session.accessToken,
+          body: { currentPassword: 'wrong', newPassword: changed },
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call('POST /api/account/password', {
+          token: session.accessToken,
+          body: { currentPassword: PASSWORD, newPassword: 'short' },
+        })
+      ).status,
+      400,
+    );
+    const renewed = await call('POST /api/account/password', {
+      token: session.accessToken,
+      body: { currentPassword: PASSWORD, newPassword: changed },
+    });
+    assert.equal(renewed.status, 200);
+    assert.equal((await call('GET /api/users/me', { token: session.accessToken })).status, 401);
+    session = renewed.body.data;
+    assert.equal((await call('GET /api/users/me', { token: session.accessToken })).status, 200);
+
+    const newEmail = 'owner.new@example.com';
+    assert.equal(
+      (
+        await call('POST /api/account/email', {
+          token: session.accessToken,
+          body: { currentPassword: changed, newEmail: email },
+        })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call('POST /api/account/email', {
+          token: session.accessToken,
+          body: { currentPassword: 'wrong', newEmail },
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call('POST /api/account/email', {
+          token: session.accessToken,
+          body: { currentPassword: changed, newEmail },
+        })
+      ).status,
+      202,
+    );
+    const confirm = await linkTo(newEmail);
+    assert.equal(
+      (await call('POST /api/auth/email-changes/confirm', { body: { token: confirm.token } }))
+        .status,
+      204,
+    );
+    assert.equal(
+      (await call('POST /api/auth/email-changes/confirm', { body: { token: confirm.token } }))
+        .status,
+      404,
+    );
+    assert.equal((await call('GET /api/users/me', { token: session.accessToken })).status, 401);
+    assert.equal((await signIn(newEmail, changed)).user.email, newEmail);
+
+    const revert = await linkTo(email);
+    const restored = 'a restored long passphrase';
+    assert.equal(
+      (
+        await call('POST /api/auth/email-changes/revert', {
+          body: { token: revert.token, password: restored },
+        })
+      ).status,
+      204,
+    );
+    session = await signIn(email, restored);
+
+    assert.equal(
+      (
+        await call('POST /api/account/deletion', {
+          token: session.accessToken,
+          body: { password: 'wrong' },
+        })
+      ).status,
+      403,
+    );
+    assert.equal(
+      (await call('POST /api/account/deletion', { token: session.accessToken, body: {} })).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call('POST /api/account/deletion', {
+          token: session.accessToken,
+          body: { password: restored },
+        })
+      ).status,
+      204,
+    );
+    assert.equal((await call('GET /api/users/me', { token: session.accessToken })).status, 401);
+    assert.equal(
+      (await call('POST /api/auth/sign-in', { body: { email, password: restored } })).status,
+      401,
+    );
+
+    // The only administrator cannot delete their account.
+    const admin = await signIn('admin@example.com', 'admin-password');
+    assert.equal(
+      (
+        await call('POST /api/account/deletion', {
+          token: admin.accessToken,
+          body: { password: 'admin-password' },
+        })
+      ).status,
+      409,
+    );
+  });
+
+  test('administration: users, invitations, and only for an admin', async () => {
+    const member = await signIn();
+    const admin = await signIn('admin@example.com', 'admin-password');
+    assert.equal((await call('GET /api/users', { token: member.accessToken })).status, 403);
+    assert.equal(
+      (await call('GET /api/admin/invitations', { token: member.accessToken })).status,
+      403,
+    );
+    assert.equal(
+      (
+        await call('POST /api/admin/invitations', {
+          token: member.accessToken,
+          body: { email: 'x@example.com', role: 'member' },
+        })
+      ).status,
+      403,
+    );
+    assert.equal((await call('GET /api/users')).status, 401);
+
+    const users = await call('GET /api/users', {
+      path: '/api/users?limit=1&offset=0',
+      token: admin.accessToken,
+    });
+    assert.equal(users.body.data.items.length, 1);
+    assert.ok(users.body.data.total >= 2);
+    assert.equal(
+      (await call('GET /api/users', { path: '/api/users?limit=0', token: admin.accessToken }))
+        .status,
+      400,
+    );
+    // Members read only themselves.
+    const memberId = member.user.id;
+    const adminId = admin.user.id;
+    assert.equal(
+      (
+        await call('GET /api/users/{id}', {
+          path: `/api/users/${memberId}`,
+          token: member.accessToken,
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call('GET /api/users/{id}', {
+          path: `/api/users/${adminId}`,
+          token: member.accessToken,
+        })
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call('GET /api/users/{id}', {
+          path: `/api/users/${memberId}`,
+          token: admin.accessToken,
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (await call('GET /api/users/{id}', { path: '/api/users/x', token: admin.accessToken }))
+        .status,
+      400,
+    );
+
+    const email = 'invited@example.com';
+    assert.equal(
+      (
+        await call('POST /api/admin/invitations', {
+          token: admin.accessToken,
+          body: { email: 'member@example.com', role: 'member' },
+        })
+      ).status,
+      409,
+    );
+    assert.equal(
+      (
+        await call('POST /api/admin/invitations', {
+          token: admin.accessToken,
+          body: { email, role: 'owner' },
+        })
+      ).status,
+      400,
+    );
+    const first = await call('POST /api/admin/invitations', {
+      token: admin.accessToken,
+      body: { email, role: 'member' },
+    });
+    assert.equal(first.status, 201);
+    const replaced = await linkTo(email);
+    const second = await call('POST /api/admin/invitations', {
+      token: admin.accessToken,
+      body: { email, role: 'admin' },
+    });
+    assert.equal(second.body.data.invitedBy.name, 'Admin');
+    const listed = await call('GET /api/admin/invitations', { token: admin.accessToken });
+    assert.deepEqual(
+      listed.body.data.items.map((/** @type {{ id: string }} */ invitation) => invitation.id),
+      [second.body.data.id],
+    );
+    // Inviting again replaced the first link.
+    assert.equal(
+      (
+        await call('POST /api/auth/invitations/accept', {
+          body: { token: replaced.token, name: 'Invited', password: PASSWORD },
+        })
+      ).status,
+      404,
+    );
+    const { token } = await linkTo(email);
+    assert.equal(
+      (
+        await call('POST /api/auth/invitations/accept', {
+          body: { token, name: '', password: PASSWORD },
+        })
+      ).status,
+      400,
+    );
+    const accepted = await call('POST /api/auth/invitations/accept', {
+      body: { token, name: 'Invited', password: PASSWORD },
+    });
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.body.data.user.role, 'admin');
+    assert.equal(
+      (await call('GET /api/admin/invitations', { token: admin.accessToken })).body.data.total,
+      0,
+    );
+
+    const revoked = await call('POST /api/admin/invitations', {
+      token: admin.accessToken,
+      body: { email: 'revoked@example.com', role: 'member' },
+    });
+    const id = revoked.body.data.id;
+    const path = `/api/admin/invitations/${id}`;
+    assert.equal(
+      (await call('DELETE /api/admin/invitations/{id}', { path, token: admin.accessToken })).status,
+      204,
+    );
+    assert.equal(
+      (await call('DELETE /api/admin/invitations/{id}', { path, token: admin.accessToken })).status,
+      404,
+    );
+    assert.equal(
+      (
+        await call('DELETE /api/admin/invitations/{id}', {
+          path: '/api/admin/invitations/x',
+          token: admin.accessToken,
+        })
+      ).status,
+      400,
+    );
+    const link = await linkTo('revoked@example.com');
+    assert.equal(
+      (
+        await call('POST /api/auth/invitations/accept', {
+          body: { token: link.token, name: 'Late', password: PASSWORD },
+        })
+      ).status,
+      404,
+    );
+  });
+
   test('a fault set on demand answers with the error envelope', async () => {
     await fetch(`${base}/__mock/faults`, {
       method: 'POST',

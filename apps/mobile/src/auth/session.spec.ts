@@ -10,7 +10,7 @@ import {
   stubFetch,
   type StubbedFetch,
 } from '@/test/http';
-import { item, session as sessionFixture, tokens, user } from '@/test/fixtures';
+import { item, session as sessionFixture, user } from '@/test/fixtures';
 
 import { createSession, type Session, useSessionStore } from './session';
 
@@ -31,7 +31,7 @@ beforeEach(async () => {
   secure = createMemoryStorage();
   installation = createMemoryStorage();
   await installation.setItem(STORAGE_KEYS.installation, 'installed');
-  useSessionStore.setState({ status: 'restoring', endedBy: null });
+  useSessionStore.setState({ status: 'restoring', endedBy: null, user: null });
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
 });
 
@@ -43,16 +43,16 @@ describe('restore', () => {
   it('is signed out without a stored session, without asking the server', async () => {
     fetchStub = stubFetch({});
     await create().restore();
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null });
+    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null, user: null });
     expect(fetchStub.requests).toHaveLength(0);
   });
 
   it('renews a stored session and keeps the rotated refresh token', async () => {
     await secure.setItem(STORAGE_KEYS.refreshToken, 'refresh-0');
-    fetchStub = stubFetch({ 'POST /api/auth/refresh': () => ok(tokens('1')) });
+    fetchStub = stubFetch({ 'POST /api/auth/refresh': () => ok(sessionFixture('1')) });
     const session = create();
     await session.restore();
-    expect(useSessionStore.getState().status).toBe('signedIn');
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user });
     expect(await bodyOf(fetchStub.requests[0]!)).toEqual({ refreshToken: 'refresh-0' });
     expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBe('refresh-1');
     await expect(session.getAccessToken()).resolves.toBe('access-1');
@@ -65,7 +65,11 @@ describe('restore', () => {
       'POST /api/auth/refresh': () => failure(401, 'Invalid refresh token'),
     });
     await create().restore();
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: 'expired' });
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'expired',
+      user: null,
+    });
     expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBeNull();
   });
 
@@ -76,11 +80,13 @@ describe('restore', () => {
     });
     const session = create();
     await session.restore();
-    expect(useSessionStore.getState().status).toBe('signedIn');
+    // Who it belongs to is unknown until the first renewal.
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user: null });
     expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBe('refresh-0');
 
-    fetchStub.on('POST /api/auth/refresh', () => ok(tokens('1')));
+    fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('1')));
     await expect(session.getAccessToken()).resolves.toBe('access-1');
+    expect(useSessionStore.getState().user).toEqual(user);
   });
 
   it('forgets a session left by a previous installation (iOS Keychain survives uninstalls)', async () => {
@@ -99,7 +105,7 @@ describe('restore', () => {
     jest.spyOn(secure, 'getItem').mockRejectedValue(new Error('Keystore unavailable'));
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     await create().restore();
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null });
+    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null, user: null });
     expect(fetchStub.requests).toHaveLength(0);
   });
 
@@ -119,9 +125,9 @@ describe('restore', () => {
       .spyOn(installation, 'getItem')
       .mockRejectedValueOnce(new Error('database disk image is malformed'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    fetchStub = stubFetch({ 'POST /api/auth/refresh': () => ok(tokens('1')) });
+    fetchStub = stubFetch({ 'POST /api/auth/refresh': () => ok(sessionFixture('1')) });
     await create().restore();
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null });
+    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null, user: null });
     expect(fetchStub.requests).toHaveLength(0);
     expect(warn).toHaveBeenCalledWith('[auth] Installation not confirmed', expect.anything());
 
@@ -137,7 +143,7 @@ describe('restore', () => {
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     fetchStub = stubFetch({});
     await expect(create().restore()).resolves.toBeUndefined();
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null });
+    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null, user: null });
     expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBeNull();
     expect(fetchStub.requests).toHaveLength(0);
   });
@@ -150,7 +156,7 @@ describe('restore', () => {
     fetchStub = stubFetch({});
     await create().restore();
     // Not trusted now, and checked again at the next launch.
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null });
+    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null, user: null });
     expect(await installation.getItem(STORAGE_KEYS.installation)).toBeNull();
     expect(fetchStub.requests).toHaveLength(0);
   });
@@ -163,14 +169,14 @@ describe('signIn and signOut', () => {
     const onSignIn = jest.fn();
     session.onSignIn(onSignIn);
     await expect(session.signIn({ email: user.email, password: 'pw' })).resolves.toEqual(user);
-    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null });
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user });
     expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBe('refresh-1');
     expect(onSignIn).toHaveBeenCalledWith(user);
     await expect(session.getAccessToken()).resolves.toBe('access-1');
   });
 
   it('leaves the state untouched when the credentials are wrong', async () => {
-    useSessionStore.setState({ status: 'signedOut', endedBy: null });
+    useSessionStore.setState({ status: 'signedOut', endedBy: null, user: null });
     fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => failure(401, 'Invalid credentials') });
     await expect(create().signIn({ email: user.email, password: 'bad' })).rejects.toMatchObject({
       kind: 'unauthenticated',
@@ -189,7 +195,11 @@ describe('signIn and signOut', () => {
     const unsubscribe = session.onSignOut(onSignOut);
     await session.signIn({ email: user.email, password: 'pw' });
     await session.signOut();
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: 'user' });
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'user',
+      user: null,
+    });
     expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBeNull();
     await expect(session.getAccessToken()).resolves.toBeNull();
     expect(onSignOut).toHaveBeenCalledTimes(1);
@@ -197,6 +207,171 @@ describe('signIn and signOut', () => {
     const logout = fetchStub.requests.find((request) => request.url.endsWith('/logout'));
     expect(await bodyOf(logout!)).toEqual({ refreshToken: 'refresh-1' });
     unsubscribe();
+  });
+});
+
+// A confirmed sign-up, an accepted invitation or a changed password answer a
+// new session: the app adopts it as if the user had just signed in.
+describe('adopt', () => {
+  it('starts the session it is handed, stores the refresh token and tells the listeners', async () => {
+    fetchStub = stubFetch({});
+    useSessionStore.setState({ status: 'signedOut', endedBy: 'expired', user: null });
+    const session = create();
+    const onSignIn = jest.fn();
+    session.onSignIn(onSignIn);
+    await expect(session.adopt(sessionFixture('1'))).resolves.toEqual(user);
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user });
+    expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBe('refresh-1');
+    expect(onSignIn).toHaveBeenCalledWith(user);
+    await expect(session.getAccessToken()).resolves.toBe('access-1');
+    expect(fetchStub.requests).toHaveLength(0);
+  });
+
+  it('replaces the current session: its renewal in flight is discarded and revoked', async () => {
+    fetchStub = stubFetch({
+      'POST /api/auth/sign-in': () => ok(sessionFixture('1')),
+      'POST /api/auth/logout': () => noContent(),
+    });
+    const session = create();
+    await session.signIn({ email: user.email, password: 'pw' });
+    const pending = deferred();
+    fetchStub.on('POST /api/auth/refresh', () => pending.promise);
+    const renewal = session.refreshAfterRejection('access-1');
+    await new Promise(process.nextTick);
+
+    await session.adopt(sessionFixture('2'));
+    pending.resolve(ok(sessionFixture('late')));
+
+    await expect(renewal).resolves.toBeNull();
+    await new Promise(process.nextTick);
+    expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBe('refresh-2');
+    await expect(session.getAccessToken()).resolves.toBe('access-2');
+    // A request of the replaced session is not replayed with the new token.
+    await expect(session.refreshAfterRejection('access-1')).resolves.toBeNull();
+    const revoked = await Promise.all(
+      fetchStub.requests.filter((request) => request.url.endsWith('/logout')).map(bodyOf),
+    );
+    expect(revoked).toEqual([{ refreshToken: 'refresh-late' }]);
+  });
+
+  it('keeps the data of the same account: a changed password is the same user', async () => {
+    fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });
+    const session = create();
+    const onSignOut = jest.fn();
+    session.onSignOut(onSignOut);
+    await session.signIn({ email: user.email, password: 'pw' });
+    await session.adopt(sessionFixture('2'));
+    expect(onSignOut).not.toHaveBeenCalled();
+    await new Promise(process.nextTick);
+    // The server ended the previous session itself (every session ends).
+    expect(fetchStub.requests.some((request) => request.url.endsWith('/logout'))).toBe(false);
+  });
+
+  it('signs the previous account out when the session belongs to another one', async () => {
+    fetchStub = stubFetch({
+      'POST /api/auth/sign-in': () => ok(sessionFixture('1')),
+      'POST /api/auth/logout': () => noContent(),
+    });
+    const session = create();
+    const events: string[] = [];
+    session.onSignOut(() => events.push('signed out'));
+    session.onSignIn((signedIn) => events.push(`signed in ${signedIn.id}`));
+    await session.signIn({ email: user.email, password: 'pw' });
+    const invited = { ...user, id: 'user-invited', email: 'invited@example.com' };
+
+    await session.adopt(sessionFixture('b', invited));
+
+    // The previous account's data goes before the new one arrives.
+    expect(events).toEqual(['signed in user-1', 'signed out', 'signed in user-invited']);
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedIn',
+      endedBy: null,
+      user: invited,
+    });
+    await new Promise(process.nextTick);
+    const revoked = await Promise.all(
+      fetchStub.requests.filter((request) => request.url.endsWith('/logout')).map(bodyOf),
+    );
+    expect(revoked).toEqual([{ refreshToken: 'refresh-1' }]);
+    await expect(session.getAccessToken()).resolves.toBe('access-b');
+  });
+
+  it('refuses a session that breaks the contract, leaving the state untouched', async () => {
+    fetchStub = stubFetch({});
+    useSessionStore.setState({ status: 'signedOut', endedBy: null, user: null });
+    const session = create();
+    await expect(
+      session.adopt({ accessToken: 'a' } as unknown as Parameters<Session['adopt']>[0]),
+    ).rejects.toThrow();
+    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: null, user: null });
+    expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBeNull();
+  });
+});
+
+describe('listeners and storage failures', () => {
+  it('stops telling a sign-in listener that unsubscribed', async () => {
+    fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });
+    const session = create();
+    const onSignIn = jest.fn();
+    const unsubscribe = session.onSignIn(onSignIn);
+    await session.signIn({ email: user.email, password: 'pw' });
+    unsubscribe();
+    await session.adopt(sessionFixture('2'));
+    expect(onSignIn).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends the session here even when the stored token cannot be removed', async () => {
+    fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });
+    const session = create();
+    await session.signIn({ email: user.email, password: 'pw' });
+    jest.spyOn(secure, 'removeItem').mockRejectedValue(new Error('Keychain locked'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await session.forget();
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'user',
+      user: null,
+    });
+    await expect(session.getAccessToken()).resolves.toBeNull();
+    expect(warn).toHaveBeenCalledWith(
+      '[auth] Stored session could not be removed',
+      expect.anything(),
+    );
+  });
+
+  it('ends a session whose stored token is gone by the time it renews', async () => {
+    fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });
+    const session = create();
+    await session.signIn({ email: user.email, password: 'pw' });
+    await secure.removeItem(STORAGE_KEYS.refreshToken);
+    await expect(session.refreshAfterRejection('access-1')).resolves.toBeNull();
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'expired',
+      user: null,
+    });
+    expect(fetchStub.requests.some((request) => request.url.endsWith('/refresh'))).toBe(false);
+  });
+});
+
+describe('forget', () => {
+  it('ends the session here like a sign-out, without telling the server', async () => {
+    fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });
+    const session = create();
+    const onSignOut = jest.fn();
+    session.onSignOut(onSignOut);
+    await session.signIn({ email: user.email, password: 'pw' });
+    await session.forget();
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'user',
+      user: null,
+    });
+    expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBeNull();
+    await expect(session.getAccessToken()).resolves.toBeNull();
+    expect(onSignOut).toHaveBeenCalledTimes(1);
+    await new Promise(process.nextTick);
+    expect(fetchStub.requests.some((request) => request.url.endsWith('/logout'))).toBe(false);
   });
 });
 
@@ -210,7 +385,7 @@ describe('renewal', () => {
 
   it('renews before the access token expires', async () => {
     const session = await signedIn();
-    fetchStub.on('POST /api/auth/refresh', () => ok(tokens('2')));
+    fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('2')));
     clock = 900_000; // the token lives 900 s, renewed 30 s early
     await expect(session.getAccessToken()).resolves.toBe('access-2');
   });
@@ -224,7 +399,7 @@ describe('renewal', () => {
       session.refreshAfterRejection('access-1'),
       session.refreshAfterRejection('access-1'),
     ]);
-    pending.resolve(ok(tokens('2')));
+    pending.resolve(ok(sessionFixture('2')));
     await expect(results).resolves.toEqual(['access-2', 'access-2', 'access-2']);
     expect(fetchStub.requests.filter((request) => request.url.endsWith('/refresh'))).toHaveLength(
       1,
@@ -233,7 +408,7 @@ describe('renewal', () => {
 
   it('reuses a token renewed while a request was in flight', async () => {
     const session = await signedIn();
-    fetchStub.on('POST /api/auth/refresh', () => ok(tokens('2')));
+    fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('2')));
     await session.refreshAfterRejection('access-1');
     await expect(session.refreshAfterRejection('access-1')).resolves.toBe('access-2');
     expect(fetchStub.requests.filter((request) => request.url.endsWith('/refresh'))).toHaveLength(
@@ -249,7 +424,7 @@ describe('renewal', () => {
     const renewal = session.refreshAfterRejection('access-1');
     await new Promise(process.nextTick);
     await session.signOut();
-    pending.resolve(ok(tokens('late')));
+    pending.resolve(ok(sessionFixture('late')));
     await expect(renewal).resolves.toBeNull();
     await new Promise(process.nextTick);
     expect(useSessionStore.getState().status).toBe('signedOut');
@@ -280,24 +455,36 @@ describe('renewal', () => {
     const renewal = session.refreshAfterRejection('access-2');
     await new Promise(process.nextTick);
 
-    lateRenewal.resolve(ok(tokens('late')));
+    lateRenewal.resolve(ok(sessionFixture('late')));
     await expect(late).resolves.toBeNull();
     // Another request of the new session needs a token while its renewal runs.
     const token = session.getAccessToken();
-    nextRenewal.resolve(ok(tokens('3')));
+    nextRenewal.resolve(ok(sessionFixture('3')));
 
     await expect(Promise.all([renewal, token])).resolves.toEqual(['access-3', 'access-3']);
     expect(fetchStub.requests.filter((request) => request.url.endsWith('/refresh'))).toHaveLength(
       2,
     );
-    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null });
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user });
+  });
+
+  it('shows a role changed on the server at the next renewal', async () => {
+    const session = await signedIn();
+    const admin = { ...user, role: 'admin' as const };
+    fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('2', admin)));
+    await expect(session.refreshAfterRejection('access-1')).resolves.toBe('access-2');
+    expect(useSessionStore.getState().user).toEqual(admin);
   });
 
   it('ends the session when the server refuses the renewal', async () => {
     const session = await signedIn();
     fetchStub.on('POST /api/auth/refresh', () => failure(401, 'Reused refresh token'));
     await expect(session.refreshAfterRejection('access-1')).resolves.toBeNull();
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: 'expired' });
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'expired',
+      user: null,
+    });
   });
 
   it('keeps the session when renewing fails for a transient reason', async () => {
@@ -356,7 +543,11 @@ describe('a request of an ended session', () => {
 
     expect((await request.response).status).toBe(401);
     expect(request.authorizations).toEqual(['Bearer access-1']);
-    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null });
+    expect(useSessionStore.getState()).toMatchObject({
+      status: 'signedIn',
+      endedBy: null,
+      user: { id: 'user-b' },
+    });
     await expect(session.getAccessToken()).resolves.toBe('access-b');
     expect(fetchStub.requests.some((sent) => sent.url.endsWith('/refresh'))).toBe(false);
   });
@@ -372,7 +563,11 @@ describe('a request of an ended session', () => {
     request.held.resolve(failure(401, 'Session revoked'));
 
     expect((await request.response).status).toBe(401);
-    expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: 'user' });
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'user',
+      user: null,
+    });
     expect(onSignOut).toHaveBeenCalledTimes(1);
     expect(fetchStub.requests.some((sent) => sent.url.endsWith('/refresh'))).toBe(false);
   });
@@ -380,7 +575,7 @@ describe('a request of an ended session', () => {
   it('still reuses a token renewed by its own session', async () => {
     const session = create();
     await session.signIn({ email: user.email, password: 'pw' });
-    fetchStub.on('POST /api/auth/refresh', () => ok(tokens('2')));
+    fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('2')));
     const request = await inFlight(session, '/api/items');
     clock = 900_000; // the session renews while the request is in flight
     await expect(session.getAccessToken()).resolves.toBe('access-2');

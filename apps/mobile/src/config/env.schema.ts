@@ -19,6 +19,14 @@ const optional = <T extends z.ZodType>(schema: T) =>
 
 const ratio = z.coerce.number().min(0).max(1);
 
+/** An https link to the app's page in one store: its host must be that store's. */
+const storeUrl = (host: string) =>
+  optional(
+    z
+      .url({ protocol: /^https$/ })
+      .refine((value) => new URL(value).hostname === host, `must be an https://${host}/ link`),
+  );
+
 export const PublicEnvSchema = z
   .object({
     EXPO_PUBLIC_APP_ENV: z.enum(APP_ENVIRONMENTS).default('development'),
@@ -37,6 +45,11 @@ export const PublicEnvSchema = z
     ),
     // Share of sessions with performance tracing (0 = off, the default).
     EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: ratio.default(0),
+    // The app's pages in the stores, where the "update required" screen sends
+    // the user (src/features/update). Unset: the screen names the store
+    // instead of linking to it.
+    EXPO_PUBLIC_STORE_URL_IOS: storeUrl('apps.apple.com'),
+    EXPO_PUBLIC_STORE_URL_ANDROID: storeUrl('play.google.com'),
     // Feature flag overrides for development and preview (staging) builds:
     // "newItemForm=false,otherFlag=true" (src/lib/flags). Refused below in
     // production, where every flag has its reviewed default.

@@ -14,6 +14,8 @@ tests in [testing.md](testing.md).
 - [API](#api)
 - [Networking](#networking)
 - [Authentication](#authentication)
+- [Accounts](#accounts)
+- [Minimum supported version](#minimum-supported-version)
 - [Errors](#errors)
 - [Observability](#observability)
 - [Storage](#storage)
@@ -50,9 +52,10 @@ tests in [testing.md](testing.md).
 apps/mobile/src/
   app/            routes only (Expo Router): layouts, guards, screens as thin wrappers
   features/       one folder per product area: screens, their API hooks, their components
-    auth/ items/ settings/ onboarding/ account/
+    auth/ links/ account/ admin/ items/ settings/ onboarding/ update/
   api/            the HTTP client, generated contract types, response unwrapping
-  auth/           the session: tokens, restore, renewal, sign-out
+  auth/           the session: tokens, the user, restore, renewal, adoption, sign-out;
+                  link tokens; password rules of the forms
   config/         public environment, validated
   lib/            app-wide services, no UI: errors, observability, storage, query,
                   links, notifications, permissions, analytics, flags
@@ -92,24 +95,38 @@ Expo Router: every file in `apps/mobile/src/app/` is a route; `_layout.tsx` file
 ```
 apps/mobile/src/app/
   _layout.tsx                 providers, startup, the guards below, error boundary
-  +native-intent.tsx          filters every incoming link (see Deep links)
+  +native-intent.tsx          filters every incoming link, keeps its token (see Deep links)
   +not-found.tsx
+  update-required.tsx         the only screen once the API refuses this version (426)
   (onboarding)/welcome.tsx    first launch only
-  (auth)/sign-in.tsx          signed out
+  (auth)/                     signed out
+    sign-in.tsx  sign-up.tsx  forgot-password.tsx
+  (links)/                    the screens of emailed links, with or without a session
+    reset-password.tsx  confirm-sign-up.tsx  accept-invitation.tsx
+    confirm-email-change.tsx  revert-email-change.tsx
   (app)/_layout.tsx           signed in: stack, offline banner, notification taps
     (tabs)/_layout.tsx        tabs: index (items), settings
     items/[id].tsx            item detail (the id is validated before use)
     new-item.tsx              form sheet (modal)
+    account/                  change-password, change-email, delete-account
+    admin/                    users, invitations: admins only
 ```
 
 **Guards, not redirects.** The root layout declares which groups exist for the current state with
 `Stack.Protected`:
 
-| State                            | Available group |
-| -------------------------------- | --------------- |
-| onboarding not completed         | `(onboarding)`  |
-| onboarding completed, signed out | `(auth)`        |
-| onboarding completed, signed in  | `(app)`         |
+| State                                      | Available group   |
+| ------------------------------------------ | ----------------- |
+| the API refused this app version (426)     | `update-required` |
+| onboarding not completed                   | `(onboarding)`    |
+| onboarding completed, signed out           | `(auth)`          |
+| onboarding completed, signed in            | `(app)`           |
+| any of the three above (never after a 426) | `(links)`, last   |
+| signed in with the `admin` role            | `(app)/admin`     |
+
+`(links)` is declared last, so it is never the screen a guard falls back to. The admin guard reads
+the role of the session (`useSessionUser()`, from the latest sign-in or renewal): a role changed on
+the server shows at the next renewal, and the API authorizes every request anyway.
 
 When the state changes (sign-in, sign-out, session expired), the router moves to the first available
 screen by itself. Screens never navigate to "sign-in" or "home" after an auth event, and no screen
@@ -214,18 +231,27 @@ later.
 const item = await unwrapWith(api.GET('/api/items/{id}', { params: { path: { id } } }), ItemSchema);
 ```
 
+**Which server.** `EXPO_PUBLIC_API_URL` (`apps/mobile/.env`): in development, the real API
+(`http://localhost:3010`, `pnpm dev`; an Android device or emulator reaches it after
+`adb reverse tcp:3010 tcp:3010`), or the mock API without a backend (`http://localhost:4010`,
+`pnpm mock:api`). The mock implements every route of the contract with data in memory: the example
+accounts and items, and an outbox for the links it would email (printed, and readable at
+`GET /__mock/outbox`). `pnpm test:scripts` fails when it serves a route, a status or a body the
+contract does not declare.
+
 ## Networking
 
 `apps/mobile/src/api/http.ts`, used by both clients:
 
-| Behavior       | Detail                                                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------- |
-| Timeout        | 15 s per request, as an `AppError` of kind `timeout`                                           |
-| Cancellation   | the caller's `AbortSignal` (TanStack Query cancels queries nobody needs) → kind `cancelled`    |
-| Request id     | a random `X-Request-Id` on every request: a failure a user reports can be found in server logs |
-| Authentication | the session's access token; after a 401, exactly one replay with a renewed token               |
-| Errors         | network failures become kind `network`; HTTP statuses are read by `unwrap()` with the body     |
-| Breadcrumbs    | method, path (no query string, no body) and status of failures, for error reports              |
+| Behavior       | Detail                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| Timeout        | 15 s per request, as an `AppError` of kind `timeout`                                             |
+| Cancellation   | the caller's `AbortSignal` (TanStack Query cancels queries nobody needs) → kind `cancelled`      |
+| Request id     | a random `X-Request-Id` on every request: a failure a user reports can be found in server logs   |
+| Authentication | the session's access token; after a 401, exactly one replay with a renewed token                 |
+| Errors         | network failures become kind `network`; HTTP statuses are read by `unwrap()` with the body       |
+| Breadcrumbs    | method, path (no query string, no body) and status of failures, for error reports                |
+| App version    | `X-App-Platform`, `X-App-Version`, `X-App-Build` on every request; a 426 shows the update screen |
 
 Plain HTTP is accepted only for local development hosts (validated by
 `apps/mobile/src/config/env.schema.ts`); production requires HTTPS, and Android release builds
@@ -236,6 +262,14 @@ refuse cleartext traffic except in the E2E variant (`usesCleartextTraffic`,
 
 Provider-agnostic: the app speaks to the API's own endpoints (`/api/auth/sign-in`, `/refresh`,
 `/logout`), whatever identity provider is behind them. `apps/mobile/src/auth/session.ts`:
+
+- **the signed-in user** (id, email, name, role) comes with every session and every renewal, and is
+  kept in memory only (`useSessionUser()`); a session restored offline knows it at its first
+  renewal;
+- **adoption**: a confirmed sign-up, an accepted invitation and a changed password answer a new
+  session, which `adopt()` starts with the same guarantees as a sign-in (whatever the previous
+  session was doing is dropped). A session of another account (an invitation accepted while signed
+  in) signs the previous one out first: its data is cleared and its refresh token revoked;
 
 - **access token in memory only**, renewed 30 s before it expires or after a 401;
 - **refresh token in secure storage** (Keychain / Keystore), rotated by every renewal: the old one
@@ -257,7 +291,8 @@ Provider-agnostic: the app speaks to the API's own endpoints (`/api/auth/sign-in
   cannot be read or written (a full disk, a corrupted database) the stored session is not used and
   the user signs in, so a storage failure never holds the app on its splash screen;
 - **sign-out** ends the session on the device at once (token deleted, caches cleared, error
-  reporting and analytics forget the user) and on the server when reachable.
+  reporting and analytics forget the user) and on the server when reachable. `forget()` does the
+  same on the device only, for a session the server already ended (a deleted account).
 
 Credentials typed by the user go to the API and nowhere else: never logged, never stored, never in
 an error report. See [SECURITY.md](../SECURITY.md#storage).
@@ -267,6 +302,42 @@ an error report. See [SECURITY.md](../SECURITY.md#storage).
 the API or keep the same session contract (`Tokens` in `apps/mobile/src/auth/schemas.ts`). Biometric
 unlock, if needed, gates access to the stored refresh token (`requireAuthentication` in
 SecureStore); it is not a second factor by itself.
+
+## Accounts
+
+The account flows of the API, each a screen with its form (see [Forms](#forms)), its hooks in a
+feature's `api.ts`, its states and its integration test:
+
+| Flow               | Screens                                                           | What happens                                                                                    |
+| ------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Sign-up            | `(auth)/sign-up`, then `(links)/confirm-sign-up`                  | a link by email; the password chosen at sign-up confirms it; the account is created and adopted |
+| Password recovery  | `(auth)/forgot-password`, then `(links)/reset-password`           | a link (30 min); the new password ends every session of the account                             |
+| Invitation         | `(app)/admin/invitations`, then `(links)/accept-invitation`       | an admin invites an address with a role; a name and a password create the account, adopted      |
+| Change of password | `(app)/account/change-password`                                   | the current password confirms; every session ends and this device adopts the new one            |
+| Change of email    | `(app)/account/change-email`, then `(links)/confirm-email-change` | a link to the new address; the previous one gets a notice and `(links)/revert-email-change`     |
+| Account deletion   | `(app)/account/delete-account`                                    | the password and a destructive confirmation; after the 204, `forget()` as a sign-out does       |
+| Administration     | `(app)/admin/users`, `(app)/admin/invitations`                    | the accounts, and the pending invitations (invite, revoke); admins only                         |
+
+**What the server offers.** `useCapabilities()` (`GET /api/auth/capabilities`, fresh for an hour)
+says whether this deployment offers password recovery, public sign-up, change of email and
+invitations (a server that sends no email offers none of them). Screens offer an entry only once the
+server said it does: not while it is unknown, loading or offline.
+
+**Nothing tells who has an account.** Sign-up and password recovery answer the same whether the
+address is registered; the screens say "if this address can be used…". Wrong passwords on the
+signed-in forms (403) go under the password field; the API's refusal of a new password (too common,
+predictable, containing the email or name) goes under the new password, and the link stays usable.
+
+## Minimum supported version
+
+Every request carries the platform, the store version and the build of the binary
+(`apps/mobile/src/api/client.ts`). When the API answers 426 (its `MOBILE_MIN_VERSION_IOS` /
+`_ANDROID` is above this version), `apps/mobile/src/features/update/upgrade.ts` records it and the
+root layout's guard leaves `update-required` as the only screen: nothing else can work, so nothing
+else is offered, not even a link. The screen links to the app's store page when
+`EXPO_PUBLIC_STORE_URL_IOS` / `_ANDROID` are set, and says where to update otherwise. A 426 is an
+expected error (`upgradeRequired`), never retried and never reported as a bug. How to raise the
+minimum: [releases.md](releases.md#minimum-supported-version).
 
 ## Errors
 
@@ -397,8 +468,10 @@ are the references:
   `reValidateMode: 'onChange'`);
 - normalize input in the schema (`trim()`, lowercase emails), so what is sent is what was validated;
 - server field errors (`validation` errors with `details.fieldErrors`) go under their fields with
-  `setError`;
-  other errors show in an alert-role message above the submit button;
+  `showFieldErrors()` (`apps/mobile/src/lib/forms.ts`); errors that name no field of the form, and
+  other errors, show in an alert-role message above the submit button (`userMessage()`);
+- a new password follows the API's rules (`apps/mobile/src/auth/passwords.ts`): its length is
+  checked on the device, it is typed twice, and the server's refusal goes under the field;
 - `TextField` connects label, error and accessibility state; the submit `Button` shows `busy` and is
   disabled while submitting, so a double tap cannot send twice;
 - the right keyboard and autofill hints: `keyboardType`, `textContentType`, `autoComplete`,
@@ -437,18 +510,31 @@ since.
 ## Deep links
 
 Three sources reach the same routes: the custom scheme (`templateapp://items/42`), universal links
-and Android App Links (`https://<domain>/items/42`, once `APP.linkDomain` is set and the domain
-serves `apple-app-site-association` and `assetlinks.json`), and notification payloads.
+and Android App Links (`https://<domain>/app/items/42`, once `APP.linkDomain` is set and the domain
+serves `apple-app-site-association` and `assetlinks.json`), and notification payloads. The https
+links of the app live under `/app/` (`APP_LINK_PREFIX`): the rest of the domain is the public
+website, which the app never claims, and the prefix is dropped before matching.
 
 Every incoming link is untrusted input. `apps/mobile/src/app/+native-intent.tsx` passes it through
-`toInternalPath()` (`apps/mobile/src/lib/links.ts`), an allowlist:
+`parseLink()` (`apps/mobile/src/lib/links.ts`), an allowlist:
 
-| Link path     | Opens                       |
-| ------------- | --------------------------- |
-| `/`, `/items` | the items list              |
-| `/items/<id>` | an item (id format checked) |
-| `/settings`   | settings                    |
-| anything else | the home screen             |
+| Link path (after `/app`)                                                                                     | Opens                                         |
+| ------------------------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| `/`, `/items`                                                                                                | the items list                                |
+| `/items/<id>`                                                                                                | an item (id format checked)                   |
+| `/settings`                                                                                                  | settings                                      |
+| `/sign-in`, `/forgot-password`                                                                               | sign-in, password recovery                    |
+| `/reset-password`, `/confirm-sign-up`, `/accept-invitation`, `/confirm-email-change`, `/revert-email-change` | the screen of an emailed link, with its token |
+| anything else                                                                                                | the home screen                               |
+
+**Emailed links carry a one-time token** in the fragment (`#token=<43 base64url characters>`), which
+never reaches a server or its logs. Only those five screens read it, and only in that exact shape.
+The token is a credential: `+native-intent.tsx` keeps it in `apps/mobile/src/auth/linkTokens.ts`
+(memory only, one per screen, taken once, forgotten after 30 minutes) and opens the screen without
+it, so it never travels in the internal path, the navigation state, analytics or breadcrumbs. The
+screen takes it when it mounts and keeps it while it stays (a refused password can be retried); a
+link opened without its token, or refused by the server (used, replaced, expired), shows "This link
+cannot be used" with a way on.
 
 Query strings are dropped; parameters are validated; a link never performs an action by itself (no
 sign-in, payment, deletion or sharing from a URL): it opens a screen where the user decides. A link
@@ -457,12 +543,12 @@ starts the app builds the navigation from its URL alone: the `anchor` of
 `apps/mobile/src/app/(app)/_layout.tsx` puts the tabs below the screen it opens, so back leads to
 the home screen instead of out of the app.
 
-To add a link (password reset, invitation, product page): add its pattern to `ROUTES` in
+To add a link (a product page, another emailed screen): add its pattern to `ROUTES` in
 `apps/mobile/src/lib/links.ts` with a test, then the route. Each route also declares the https path
 that opens the app on Android (`appLink`: exact, or a prefix for a route with a parameter): the App
 Links intent filter in `apps/mobile/app.config.ts` is built from them (`APP_LINK_PATHS`), and
-`links.spec.ts` checks that it opens exactly the paths the allowlist accepts. Add the path to the
-domain's `apple-app-site-association` file too.
+`links.spec.ts` checks that it opens exactly the paths the allowlist accepts. iOS takes its paths
+from the domain's `apple-app-site-association`, which claims `/app/*`.
 
 ## Notifications
 

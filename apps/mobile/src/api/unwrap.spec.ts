@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { errorFromResponse, unwrap, unwrapWith } from './unwrap';
+import { errorFromResponse, expectSuccess, unwrap, unwrapWith } from './unwrap';
 
 function result<D>(status: number, data?: D, error?: unknown) {
   return Promise.resolve({
@@ -66,6 +66,22 @@ describe('unwrapWith', () => {
     ).rejects.toMatchObject({
       kind: 'server',
       message: 'The response does not match the contract',
+    });
+  });
+});
+
+describe('expectSuccess', () => {
+  it('resolves for an answer without a body', async () => {
+    await expect(expectSuccess(result(204))).resolves.toBeUndefined();
+    await expect(expectSuccess(result(202))).resolves.toBeUndefined();
+  });
+
+  it('throws the AppError of a failure', async () => {
+    await expect(
+      expectSuccess(result(403, undefined, { data: null, message: 'The password is wrong' })),
+    ).rejects.toMatchObject({
+      kind: 'forbidden',
+      details: { status: 403, serverMessage: 'The password is wrong' },
     });
   });
 });

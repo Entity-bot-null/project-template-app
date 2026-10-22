@@ -71,6 +71,11 @@ export function noContent(): Response {
   return new Response(null, { status: 204 });
 }
 
+/** A 202 without a body, as the API answers a request whose link goes by email (a sign-up). */
+export function accepted(): Response {
+  return new Response(null, { status: 202 });
+}
+
 /** An error envelope. */
 export function failure(
   status: number,

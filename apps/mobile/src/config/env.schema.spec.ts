@@ -33,6 +33,24 @@ describe('parsePublicEnv', () => {
     ).toThrow(/https in production/);
   });
 
+  it("takes the app's store pages as https links to each store, both optional", () => {
+    const parsed = parsePublicEnv({
+      ...base,
+      EXPO_PUBLIC_STORE_URL_IOS: 'https://apps.apple.com/app/id123456789',
+      EXPO_PUBLIC_STORE_URL_ANDROID: 'https://play.google.com/store/apps/details?id=com.acme.app',
+    });
+    expect(parsed.EXPO_PUBLIC_STORE_URL_IOS).toBe('https://apps.apple.com/app/id123456789');
+    expect(
+      parsePublicEnv({ ...base, EXPO_PUBLIC_STORE_URL_IOS: '' }).EXPO_PUBLIC_STORE_URL_IOS,
+    ).toBe(undefined);
+    expect(() =>
+      parsePublicEnv({ ...base, EXPO_PUBLIC_STORE_URL_IOS: 'https://play.google.com/x' }),
+    ).toThrow(/EXPO_PUBLIC_STORE_URL_IOS: must be an https:\/\/apps\.apple\.com\/ link/);
+    expect(() =>
+      parsePublicEnv({ ...base, EXPO_PUBLIC_STORE_URL_ANDROID: 'http://play.google.com/x' }),
+    ).toThrow(/EXPO_PUBLIC_STORE_URL_ANDROID/);
+  });
+
   it('checks the Sentry DSN shape and the sample rate', () => {
     expect(
       parsePublicEnv({

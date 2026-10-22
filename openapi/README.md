@@ -69,14 +69,16 @@ The session design (tokens in the body, rotation, the reuse window, why):
 
 ## The mock API
 
-`pnpm mock:api` (`apps/mobile/scripts/mock-api.mjs`) implements the contract's session, profile and
-items routes in memory, for working without the API and for the end-to-end flows: accounts
+`pnpm mock:api` (`apps/mobile/scripts/mock-api.mjs`) implements every route of the contract in
+memory, for working without the API and for the end-to-end flows: accounts
 `member@example.com` / `member-password` and `admin@example.com` / `admin-password`, the member's 45
 example items with the ids `pnpm db:seed` gives the API, single-use refresh tokens.
 `MOCK_ACCESS_TTL_SEC=20 pnpm mock:api` makes access tokens expire quickly, to watch the app renew
 its session; `MOCK_LATENCY_MS=1500` slows every answer, to see loading states; `MOCK_API_PORT` moves
 it from 4010 (then change `EXPO_PUBLIC_API_URL` and the `adb reverse` port to match). It is not a
-backend: no persistence, public passwords, local HTTP only.
+backend: no persistence, public passwords, local HTTP only. It sends no email: the links it would
+send are printed with the development build's scheme (`MOCK_APP_SCHEME`) and kept in an outbox,
+`GET /__mock/outbox`.
 
 `apps/mobile/scripts/mock-api.test.mjs` (`pnpm test:scripts`) keeps it true to `openapi.json`: it
 fails when the mock serves a route or a method the contract does not have, answers a status the

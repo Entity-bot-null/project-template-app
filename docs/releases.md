@@ -71,13 +71,15 @@ app can read them. Never a secret: no API keys with write access, no tokens, no 
 validated by `apps/mobile/src/config/env.schema.ts` when the app config is evaluated (a bad value
 fails the build) and again at startup.
 
-| Variable                                | Required                          | Value                                                                  |
-| --------------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
-| `EXPO_PUBLIC_APP_ENV`                   | yes (set by apps/mobile/eas.json) | `development`, `staging` or `production`                               |
-| `EXPO_PUBLIC_API_URL`                   | yes                               | the API's base URL, no trailing slash; HTTPS outside localhost         |
-| `EXPO_PUBLIC_SENTRY_DSN`                | no                                | the Sentry project's DSN; unset: error reporting off                   |
-| `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | no (default 0)                    | share of sessions traced, 0 to 1                                       |
-| `EXPO_PUBLIC_FLAGS`                     | no                                | feature flag overrides, `name=true,other=false`; refused in production |
+| Variable                                | Required                          | Value                                                                                                           |
+| --------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_APP_ENV`                   | yes (set by apps/mobile/eas.json) | `development`, `staging` or `production`                                                                        |
+| `EXPO_PUBLIC_API_URL`                   | yes                               | the API's base URL, no trailing slash; HTTPS outside localhost                                                  |
+| `EXPO_PUBLIC_SENTRY_DSN`                | no                                | the Sentry project's DSN; unset: error reporting off                                                            |
+| `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` | no (default 0)                    | share of sessions traced, 0 to 1                                                                                |
+| `EXPO_PUBLIC_FLAGS`                     | no                                | feature flag overrides, `name=true,other=false`; refused in production                                          |
+| `EXPO_PUBLIC_STORE_URL_IOS`             | no                                | the app's App Store page (`https://apps.apple.com/…`), for the update screen; unset: the screen names the store |
+| `EXPO_PUBLIC_STORE_URL_ANDROID`         | no                                | the app's Google Play page (`https://play.google.com/…`), idem                                                  |
 
 **Build-time** variables exist only on the build machine; they never reach the bundle.
 
@@ -109,6 +111,11 @@ eas env:create --environment production --name SENTRY_ORG --value <org> --visibi
 eas env:create --environment production --name SENTRY_PROJECT --value <project> --visibility plaintext
 eas env:create --environment production --name SENTRY_AUTH_TOKEN \
   --value <token> --visibility secret
+# Once the store pages exist (the update screen links to them):
+eas env:create --environment production --name EXPO_PUBLIC_STORE_URL_IOS \
+  --value https://apps.apple.com/app/id<app-id> --visibility plaintext
+eas env:create --environment production --name EXPO_PUBLIC_STORE_URL_ANDROID \
+  --value 'https://play.google.com/store/apps/details?id=<package>' --visibility plaintext
 # Repeat for preview (staging API) and development.
 eas env:list --environment production
 ```
@@ -346,22 +353,25 @@ store policy. Stores cannot force updates, so the API does:
 app version < minimum supported version  →  the API refuses (426 Upgrade Required)  →  the app shows "Update the app" with a store link
 ```
 
-What each side needs:
+Both sides are in the template; the project only sets the minimum and the store links:
 
-1. **The app tells its version** (**REQUIRES CONFIGURATION** in the app): headers on every request
-   in `apps/mobile/src/api/http.ts`, `X-App-Platform: ios|android`, `X-App-Version:
-<nativeApplicationVersion>` and `X-App-Build: <nativeBuildVersion>` from `expo-application`
-   (already a dependency).
+1. **The app tells its version** (**in the template**): every request carries
+   `X-App-Platform: ios|android`, `X-App-Version: <nativeApplicationVersion>` and
+   `X-App-Build: <nativeBuildVersion>` from `expo-application` (`apps/mobile/src/api/client.ts`,
+   sent by `apps/mobile/src/api/http.ts`).
 2. **The API compares** it (**in the template**): with `MOBILE_MIN_VERSION_IOS` and
    `MOBILE_MIN_VERSION_ANDROID` (its configuration, not the app's; unset: any version), it answers
    426 to anything older, before any other check; requests without `X-App-Platform` and the health
    probes pass ([adr/0010-minimum-supported-app-version.md](adr/0010-minimum-supported-app-version.md)).
    Try it locally with the stack: `STACK_MOBILE_MIN_VERSION_ANDROID=99.0.0`
    ([manual.md](manual.md#55-the-production-like-stack)).
-3. **The app handles that answer** (**REQUIRES CONFIGURATION** in the app): a new `AppError` kind
-   in `apps/mobile/src/lib/errors.ts` (`kindForStatus`), not retried, and a blocking screen with the
-   store link (`Linking.openURL` to the Play Store or App Store page), shown from the root layout.
-   Test it like the other error kinds.
+3. **The app handles that answer** (**in the template**; the store links **REQUIRE
+   CONFIGURATION**): the `upgradeRequired` kind of `AppError` (never retried, never reported as a
+   bug), and the update screen (`apps/mobile/src/features/update/`), the only one the root layout
+   leaves available once any request got a 426. It opens the app's store page
+   (`EXPO_PUBLIC_STORE_URL_IOS` / `_ANDROID`, [Environment variables](#environment-variables)), or
+   names the store when they are unset. Tests: `navigation.int.spec.tsx`, `errors.spec.ts`,
+   `http.spec.ts`, `UpdateRequiredScreen.spec.tsx`.
 4. **Raise the minimum only after** the new version has reached most users (store rollout at 100 %
    and a few days); announce it in the release notes when possible.
 

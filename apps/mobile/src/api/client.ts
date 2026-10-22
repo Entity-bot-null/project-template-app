@@ -1,8 +1,10 @@
+import * as Application from 'expo-application';
 import createClient from 'openapi-fetch';
+import { Platform } from 'react-native';
 
 import { env } from '@/config/env';
 
-import { type AuthHandlers, createHttp } from './http';
+import { type AuthHandlers, type ClientInfo, createHttp } from './http';
 import type { paths } from './schema';
 
 // The only way the app reaches the API (docs/mobile-architecture.md#api): paths,
@@ -24,17 +26,48 @@ const sessionAuth: AuthHandlers = {
     authHandlers?.refreshAfterRejection(rejected) ?? Promise.resolve(null),
 };
 
+const upgradeListeners = new Set<() => void>();
+
+/** Registered by src/features/update: told when the API stops serving this version. */
+export function onUpgradeRequired(listener: () => void): () => void {
+  upgradeListeners.add(listener);
+  return () => {
+    upgradeListeners.delete(listener);
+  };
+}
+
+/** The app's platform, store version and build, sent with every request. */
+export const clientInfo: ClientInfo = {
+  platform: Platform.OS === 'ios' ? 'ios' : 'android',
+  version: Application.nativeApplicationVersion,
+  build: Application.nativeBuildVersion,
+};
+
+const common = {
+  client: clientInfo,
+  onUpgradeRequired: () => {
+    for (const listener of upgradeListeners) listener();
+  },
+};
+
 /** Authenticated endpoints: every call carries the session's access token. */
 export const api = createClient<paths>({
   baseUrl: env.EXPO_PUBLIC_API_URL,
-  fetch: createHttp({ auth: sessionAuth }),
+  fetch: createHttp({ ...common, auth: sessionAuth }),
 });
 
 /** Public endpoints (sign-in, refresh, logout): no token, no refresh. */
 export const publicApi = createClient<paths>({
   baseUrl: env.EXPO_PUBLIC_API_URL,
-  fetch: createHttp(),
+  fetch: createHttp(common),
 });
 
-export type { AuthHandlers } from './http';
+/** The JSON body of a POST to `P`, as the contract defines it. */
+export type PostBody<P extends keyof paths> = paths[P] extends {
+  post: { requestBody?: { content: { 'application/json': infer Body } } };
+}
+  ? Body
+  : never;
+
+export type { AuthHandlers, ClientInfo } from './http';
 export type { components, paths } from './schema';
