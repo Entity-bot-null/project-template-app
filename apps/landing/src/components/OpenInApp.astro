@@ -1,0 +1,47 @@
+---
+// What a link of the app shows where the app does not open it: a computer, or
+// a phone without the app. The web image answers every /app/* address with
+// this page, at that address and without a redirect, so the link's token
+// stays in the fragment, where it never reaches a server
+// (apps/landing/nginx/default.conf.template). Kept out of search results.
+import { localePath, messages, type Locale } from '../i18n';
+import Base from '../layouts/Base.astro';
+import { SITE_NAME } from '../lib/site';
+import Footer from './Footer.astro';
+import Header from './Header.astro';
+import Headline from './Headline.astro';
+import StoreBadges from './StoreBadges.astro';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = messages(locale);
+---
+
+<Base locale={locale} title={`${t.openInApp.title} · ${SITE_NAME}`} description={t.openInApp.lead}>
+  <div class="absolute inset-x-0 top-0 px-(--margin) pt-6">
+    <Header locale={locale} path="/open-in-app/" />
+  </div>
+  <main id="content" class="flex flex-col gap-16 px-(--margin) pt-36 pb-24 md:gap-20 md:pt-40">
+    <Headline as="h1" lines={t.openInApp.heading} />
+    <div class="grid gap-12 md:grid-cols-12 md:gap-x-(--gutter)">
+      <div class="md:col-span-7">
+        <p class="reveal-load text-lead [--d:420ms]">{t.openInApp.lead}</p>
+        <ol class="reveal-load mt-8 flex list-decimal flex-col gap-4 pl-6 [--d:520ms]">
+          {t.openInApp.steps.map((step) => (
+            <li>{step}</li>
+          ))}
+        </ol>
+      </div>
+      <div class="reveal-load flex flex-col gap-8 [--d:620ms] md:col-span-4 md:col-start-9">
+        <StoreBadges locale={locale} />
+        <a href={localePath(locale)} class="link font-semibold">
+          {t.openInApp.action}
+        </a>
+      </div>
+    </div>
+  </main>
+  <Footer locale={locale} path="/open-in-app/" />
+</Base>

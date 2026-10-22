@@ -24,6 +24,7 @@ describe('devSettings', () => {
         compose: {},
       }),
       {
+        site: 'http://localhost:4331',
         api: 'http://127.0.0.1:3000/api',
         docs: 'http://127.0.0.1:3000/api/docs',
         app: 'EXPO_PUBLIC_API_URL=http://localhost:3000 · adb reverse tcp:3000 tcp:3000',
@@ -188,6 +189,19 @@ describe('devSettings', () => {
   });
 });
 
+describe('the site', () => {
+  test("is the landing's dev server, on the port it insists on", () => {
+    const config = readFileSync(
+      new URL('../apps/landing/astro.config.mjs', import.meta.url),
+      'utf8',
+    );
+    const port = /server: \{ port: (\d+) \}/.exec(config)?.[1];
+    assert.ok(/strictPort: true/.test(config), 'the dev server fails rather than move');
+    const { site } = devSettings({ api: {}, compose: {} });
+    assert.equal(site, `http://localhost:${String(port)}`);
+  });
+});
+
 describe('renderBanner', () => {
   const settings = devSettings({
     api: { DATABASE_URL: `postgresql://app:secret@localhost:${DEFAULT_DB_PORT}/app` },
@@ -201,6 +215,7 @@ describe('renderBanner', () => {
     const text = lines.join('\n');
     assert.match(text, /project-template 1\.2\.3 · development/);
     for (const value of [
+      settings.site,
       settings.api,
       settings.docs,
       settings.app,

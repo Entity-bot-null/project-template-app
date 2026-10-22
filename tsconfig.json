@@ -10,5 +10,5 @@
     "checkJs": true,
     "types": ["node"]
   },
-  "include": ["scripts/**/*.mjs", "apps/*/scripts/**/*.mjs"]
+  "include": ["playwright.config.ts", "e2e/**/*.ts", "scripts/**/*.mjs", "apps/*/scripts/**/*.mjs"]
 }

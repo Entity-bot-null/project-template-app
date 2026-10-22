@@ -1,6 +1,7 @@
 name: Docker images
 
-# Reusable: builds the API and its migration job, and scans each one for
+# Reusable: builds the API, its migration job and the web image (the landing,
+# the app's links and their files, behind nginx), and scans each one for
 # known vulnerabilities before anything can be pushed. CI builds
 # without pushing (the Dockerfiles must keep working); a deployment pushes once
 # a registry is configured (docs/ci-cd.md#images).
@@ -34,6 +35,9 @@ jobs:
           - image: api-migrate
             dockerfile: apps/api/Dockerfile
             target: migrate
+          - image: web
+            dockerfile: apps/landing/Dockerfile
+            target: runtime
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

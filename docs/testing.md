@@ -26,6 +26,10 @@ how to run every level, end-to-end on a device included.
 | API unit        | Vitest                                   | one service, guard, pipe, filter or utility, its dependencies faked                                                                       | `apps/api/src/**/<name>.spec.ts` next to the code                                                                            |
 | API integration | Vitest + supertest                       | the real API over HTTP on a real PostgreSQL; the Redis adapters on a real Redis; the email outbox through a real Mailpit                  | `apps/api/src/**/*.int.spec.ts`                                                                                              |
 | Contract        | Vitest spec, typecheck script, node:test | the API's controllers, `openapi/openapi.json`, the app's types and the mock API agree                                                     | `apps/api/src/openapi/openapi.spec.ts`, `apps/mobile/scripts/api-types.mjs --check`, `apps/mobile/scripts/mock-api.test.mjs` |
+| Landing         | Vitest + Astro's container API           | every page in both languages: its texts, its links for search engines, its accessibility basics; the dictionaries and helpers             | `apps/landing/src/**/*.spec.ts`                                                                                              |
+| Web image       | node:test, the real shell scripts        | the image's settings checks, its link files, its routes against the apps they serve                                                       | `scripts/validate-runtime-config.test.mjs`, `scripts/app-links.test.mjs`, `scripts/web-server-routes.test.mjs`               |
+| Browser         | Playwright (Chromium)                    | the built landing as visitors and search engines see it; the web image's app links and their files                                        | `e2e/` ([below](#browser-end-to-end))                                                                                        |
+| Smoke           | `pnpm smoke` (read-only)                 | a deployment, or the stack, answers as it should: pages, links, files, the API through the web server, the probes                         | `scripts/smoke-test.mjs` ([below](#smoke-test))                                                                              |
 
 The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
 End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
@@ -42,6 +46,8 @@ pnpm --filter mobile test -t "rolls the optimistic" # tests whose name matches
 pnpm test:e2e:mobile                                # Maestro flows, on a running emulator/simulator (see End-to-end)
 pnpm test:e2e:mobile:stack                          # Maestro flows against the real API and Mailpit (see End-to-end)
 pnpm test:scripts                                   # the repository scripts' own tests (node --test), the mock API against the contract
+pnpm test:e2e                                       # Playwright: the built landing, and the web image (Docker) (see Browser end-to-end)
+pnpm smoke --url http://localhost:8090              # the smoke test, here against the local stack (see Smoke test)
 pnpm test:integration                               # the API on PostgreSQL, Redis and Mailpit (pnpm services:up first)
 pnpm --filter api test:watch                        # the API's unit tests, re-run on change
 pnpm --filter api exec vitest run src/items         # the API's unit tests under a folder
@@ -177,6 +183,22 @@ It measures the logic (services, guards, pipes, filters, utilities, the env sche
 modules are excluded: they are wiring, verified by the integration suite, which needs a database and
 is not part of the fast coverage gate. A new module does not lower coverage by its controller, but
 it does by any service method without a unit test. Report: `apps/api/coverage/index.html`.
+
+The landing's (`apps/landing/vitest.config.ts`) is 100 % of every kind: its TypeScript is small
+(dictionaries, the store links, `robots.txt`), and its pages are rendered by the page specs.
+
+## Performance budget
+
+`pnpm perf:check`, after `pnpm build` (part of `pnpm verify` and CI), fails when a build outgrows
+its budget:
+
+- the landing (`scripts/check-bundle-size.mjs`, `apps/landing/performance-budget.json`): gzip
+  sizes, 0 kB of JavaScript (a script added to a page fails the check until a reviewer raises the
+  budget on purpose) and the CSS Tailwind produces;
+- the app (`apps/mobile/scripts/check-bundle-size.mjs`, `apps/mobile/bundle-budget.json`): the
+  Hermes bundle and its assets per platform ([performance.md](performance.md#bundle-budget)).
+
+A budget is raised in a reviewed pull request that says why, never to make a build pass.
 
 ## End-to-end
 
@@ -353,6 +375,32 @@ On the iOS simulator, which reaches the Mac's `localhost` directly, run the API 
 **Writing flows**: target `testID`s (`id:`) and visible text; wait with `extendedWaitUntil`, never
 fixed sleeps; keep the mock API's data and accounts (`member@example.com` / `member-password`) as
 the fixtures. `maestro studio` inspects the screen and records commands.
+
+## Browser end-to-end
+
+`pnpm test:e2e` (Playwright, `playwright.config.ts`) runs two projects against what ships:
+
+| Project     | Against                                                                                                                                              | Covers                                                                                                                                                                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `landing`   | the built landing on its preview server (`http://localhost:4331`)                                                                                    | the home page and its way to the download, both languages, the privacy and account deletion pages, the skip link, the not-found page, `robots.txt` and the sitemap                                                                         |
+| `app-links` | the web image itself, built from `apps/landing/Dockerfile` and run with a made-up app identity (`http://localhost:8091`, `e2e/support/web-image.ts`) | the link files (JSON, no redirect, their content), an emailed link opened without the app (the open-in-app page at the link's address, its token kept out of every request), the security headers, the API's envelope when the API is down |
+
+It needs `pnpm --filter landing build`, Docker (the suite builds and starts the image through
+`scripts/e2e-web-image.mjs`: minutes the first time, Docker's cache after) and the browser once:
+`pnpm exec playwright install chromium`. In CI, the "End-to-end tests (browser)" job does the same,
+with the image's base images from the mirror (`TOOL_IMAGE_MIRROR`), and uploads the report and the
+traces of a failure.
+
+## Smoke test
+
+`pnpm smoke --url <public URL> --api <API URL>` checks a deployment, a restored one, or the local
+stack (`pnpm smoke --url http://localhost:8090`): the web server's health, the landing and its links
+on the deployment's origin, the share picture, both languages, the not-found page, an app link
+answered with the open-in-app page without a redirect, the two link files (JSON claiming `/app/*`,
+or 404 while the app's identity is not set; `--require-app-links` makes that a failure), the API
+through the web server, the probes kept private, and with `--api` the API's own probes. Read-only:
+it signs nobody in and writes nothing, so it is safe against production. Every check prints `ok` or
+`FAIL`, and any failure exits 1.
 
 ## Manual testing on devices
 

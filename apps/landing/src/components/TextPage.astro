@@ -1,0 +1,33 @@
+---
+// A page of text (privacy, account deletion): the header, the title, the text
+// in a readable measure, and the footer. Indexed under `path`.
+import type { Locale } from '../i18n';
+import Base from '../layouts/Base.astro';
+import { SITE_NAME } from '../lib/site';
+import Footer from './Footer.astro';
+import Header from './Header.astro';
+
+interface Props {
+  locale: Locale;
+  /** The page's address in the default language. */
+  path: string;
+  title: string;
+  description: string;
+  heading: string;
+}
+
+const { locale, path, title, description, heading } = Astro.props;
+---
+
+<Base locale={locale} title={`${title} · ${SITE_NAME}`} description={description} path={path}>
+  <div class="px-(--margin) pt-6">
+    <Header locale={locale} path={path} />
+  </div>
+  <main id="content" class="px-(--margin) pt-24 pb-28 md:pt-32">
+    <h1 class="text-head font-extrabold text-balance">{heading}</h1>
+    <div class="prose mt-10">
+      <slot />
+    </div>
+  </main>
+  <Footer locale={locale} path={path} />
+</Base>

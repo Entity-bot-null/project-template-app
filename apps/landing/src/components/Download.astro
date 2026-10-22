@@ -1,0 +1,28 @@
+---
+// Where the app is downloaded: the target of every "Get the app" link.
+import { messages, type Locale } from '../i18n';
+import StoreBadges from './StoreBadges.astro';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = messages(locale);
+---
+
+<section
+  id="download"
+  aria-labelledby="download-heading"
+  class="scroll-mt-8 px-(--margin) py-[clamp(7.5rem,16vh,12rem)] md:grid md:grid-cols-12 md:gap-x-(--gutter)"
+>
+  <div class="md:col-span-5">
+    <h2 id="download-heading" class="reveal text-head font-bold">
+      {t.download.heading}
+    </h2>
+    <p class="reveal mt-6 text-lead [--i:1]">{t.download.body}</p>
+  </div>
+  <div class="reveal mt-10 [--i:2] md:col-span-6 md:col-start-7 md:mt-0 md:self-end">
+    <StoreBadges locale={locale} />
+  </div>
+</section>

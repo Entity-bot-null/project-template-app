@@ -1,0 +1,33 @@
+---
+// The privacy page of one language. Its sections follow the data inventory
+// (SECURITY.md#data-inventory and #data-the-api-keeps): a feature that adds
+// data adds its sentence here too. The legal text is the project's
+// (REQUIERE CONFIGURACIÓN): the notice says so until it is written.
+import { messages, type Locale } from '../i18n';
+import TextPage from './TextPage.astro';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = messages(locale).privacy;
+---
+
+<TextPage
+  locale={locale}
+  path="/privacy/"
+  title={t.title}
+  description={t.description}
+  heading={t.heading}
+>
+  <p class="border-l-4 border-accent pl-4 font-semibold">{t.templateNotice}</p>
+  {t.sections.map(({ heading, paragraphs }) => (
+    <section>
+      <h2>{heading}</h2>
+      {paragraphs.map((paragraph) => (
+        <p>{paragraph}</p>
+      ))}
+    </section>
+  ))}
+</TextPage>

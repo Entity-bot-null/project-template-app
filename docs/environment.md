@@ -18,14 +18,15 @@
 
 ## Files
 
-| File                       | Read by                                                                                                                                        | Committed |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| `apps/api/.env`            | the API and the Prisma CLI in development; `pnpm dev`'s banner; the integration specs take only the servers from it (database, Redis, Mailpit) | no        |
-| `apps/api/.env.example`    | documentation of every API variable                                                                                                            | yes       |
-| `.env` (root)              | `docker compose` (ports, `REDIS_PASSWORD`, the production-like stack's secret and settings) and `pnpm dev`'s banner                            | no        |
-| `.env.example` (root)      | documentation of the compose variables                                                                                                         | yes       |
-| `apps/mobile/.env`         | the app's public configuration in development (`pnpm start` loads it)                                                                          | no        |
-| `apps/mobile/.env.example` | documentation of the app's variables ([below](#app-variables))                                                                                 | yes       |
+| File                        | Read by                                                                                                                                        | Committed |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `apps/api/.env`             | the API and the Prisma CLI in development; `pnpm dev`'s banner; the integration specs take only the servers from it (database, Redis, Mailpit) | no        |
+| `apps/api/.env.example`     | documentation of every API variable                                                                                                            | yes       |
+| `.env` (root)               | `docker compose` (ports, `REDIS_PASSWORD`, the production-like stack's secret and settings) and `pnpm dev`'s banner                            | no        |
+| `.env.example` (root)       | documentation of the compose variables                                                                                                         | yes       |
+| `apps/mobile/.env`          | the app's public configuration in development (`pnpm start` loads it)                                                                          | no        |
+| `apps/mobile/.env.example`  | documentation of the app's variables ([below](#app-variables))                                                                                 | yes       |
+| `apps/landing/.env.example` | a list of the landing's build variables (nothing reads an `apps/landing/.env`); the web image's are [below](#web-variables)                    | yes       |
 
 ## API variables
 
@@ -91,29 +92,54 @@ typo never silently means `false`.
 ports from it too, to point out a URL in `apps/api/.env` that does not match. Every port is
 published on 127.0.0.1 only.
 
-| Variable                                                           | Default                                                    | Purpose                                                                                                                                                                 |
-| ------------------------------------------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DB_PORT`                                                          | `5452`                                                     | Host port of the development PostgreSQL; the same port in `DATABASE_URL`.                                                                                               |
-| `REDIS_PORT`                                                       | `6399`                                                     | Host port of the development Redis; the same port in `REDIS_URL`.                                                                                                       |
-| `REDIS_PASSWORD`                                                   | `app`                                                      | Password of the compose Redis (development and the production-like stack); the same in `REDIS_URL`. Local development only.                                             |
-| `MAILPIT_SMTP_PORT`                                                | `1045`                                                     | Host port of Mailpit's SMTP server; the same port in `MAIL_SMTP_URL`.                                                                                                   |
-| `MAILPIT_UI_PORT`                                                  | `8045`                                                     | Host port of Mailpit's web UI and API (where every message lands; the integration specs read it too).                                                                   |
-| `JWT_ACCESS_SECRET`                                                | none                                                       | The production-like stack's signing secret (64+ characters, `openssl rand -hex 32`): its API refuses to boot without it. `pnpm dev` reads its own from `apps/api/.env`. |
-| `STACK_PORT`                                                       | `8090`                                                     | Host port of the production-like stack's API: `http://localhost:8090/api`.                                                                                              |
-| `APP_RELEASE`                                                      | `local`                                                    | The build the stack's image reports, baked in at build time: letters, digits, `.`, `_`, `+`, `-`, such as a commit SHA.                                                 |
-| `STACK_REDIS_URL`                                                  | the compose Redis (`redis://:<REDIS_PASSWORD>@redis:6379`) | Another Redis for the stack's API.                                                                                                                                      |
-| `STACK_RATE_LIMIT_STORE`, `STACK_CACHE_STORE`                      | `redis`                                                    | `memory`: the stack's API keeps rate limit counters and cache in process.                                                                                               |
-| `STACK_MOBILE_MIN_VERSION_IOS`, `STACK_MOBILE_MIN_VERSION_ANDROID` | unset: any version                                         | The stack API's minimum app versions; `99.0.0` makes every request from the app answer 426, to try its update screen.                                                   |
-| `STACK_OTEL_EXPORTER_OTLP_ENDPOINT`                                | unset                                                      | `http://otel-lgtm:4318` sends the stack's telemetry to the local backend (with `--profile observability`).                                                              |
-| `STACK_SENTRY_DSN`                                                 | unset                                                      | The stack API's Sentry DSN.                                                                                                                                             |
-| `OTLP_HTTP_PORT`                                                   | `4328`                                                     | Host port of the local OpenTelemetry backend's OTLP/HTTP receiver (`--profile observability`).                                                                          |
-| `GRAFANA_PORT`                                                     | `3011`                                                     | Host port of its Grafana (anonymous admin: never deploy this service).                                                                                                  |
-| `PROMETHEUS_PORT`                                                  | `9100`                                                     | Host port of its Prometheus.                                                                                                                                            |
+| Variable                                                                                                        | Default                                                    | Purpose                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DB_PORT`                                                                                                       | `5452`                                                     | Host port of the development PostgreSQL; the same port in `DATABASE_URL`.                                                                                               |
+| `REDIS_PORT`                                                                                                    | `6399`                                                     | Host port of the development Redis; the same port in `REDIS_URL`.                                                                                                       |
+| `REDIS_PASSWORD`                                                                                                | `app`                                                      | Password of the compose Redis (development and the production-like stack); the same in `REDIS_URL`. Local development only.                                             |
+| `MAILPIT_SMTP_PORT`                                                                                             | `1045`                                                     | Host port of Mailpit's SMTP server; the same port in `MAIL_SMTP_URL`.                                                                                                   |
+| `MAILPIT_UI_PORT`                                                                                               | `8045`                                                     | Host port of Mailpit's web UI and API (where every message lands; the integration specs read it too).                                                                   |
+| `JWT_ACCESS_SECRET`                                                                                             | none                                                       | The production-like stack's signing secret (64+ characters, `openssl rand -hex 32`): its API refuses to boot without it. `pnpm dev` reads its own from `apps/api/.env`. |
+| `STACK_PORT`                                                                                                    | `8090`                                                     | Host port of the production-like stack's web server: the landing at `http://localhost:8090`, the API at `/api`, the app's links at `/app/*`.                            |
+| `STACK_APPLE_TEAM_ID`, `STACK_IOS_BUNDLE_ID`, `STACK_ANDROID_PACKAGE`, `STACK_ANDROID_SHA256_CERT_FINGERPRINTS` | unset: the link files answer 404                           | The app's identity for the stack's link files ([web variables](#web-variables)).                                                                                        |
+| `APP_RELEASE`                                                                                                   | `local`                                                    | The build the stack's image reports, baked in at build time: letters, digits, `.`, `_`, `+`, `-`, such as a commit SHA.                                                 |
+| `STACK_REDIS_URL`                                                                                               | the compose Redis (`redis://:<REDIS_PASSWORD>@redis:6379`) | Another Redis for the stack's API.                                                                                                                                      |
+| `STACK_RATE_LIMIT_STORE`, `STACK_CACHE_STORE`                                                                   | `redis`                                                    | `memory`: the stack's API keeps rate limit counters and cache in process.                                                                                               |
+| `STACK_MOBILE_MIN_VERSION_IOS`, `STACK_MOBILE_MIN_VERSION_ANDROID`                                              | unset: any version                                         | The stack API's minimum app versions; `99.0.0` makes every request from the app answer 426, to try its update screen.                                                   |
+| `STACK_OTEL_EXPORTER_OTLP_ENDPOINT`                                                                             | unset                                                      | `http://otel-lgtm:4318` sends the stack's telemetry to the local backend (with `--profile observability`).                                                              |
+| `STACK_SENTRY_DSN`                                                                                              | unset                                                      | The stack API's Sentry DSN.                                                                                                                                             |
+| `OTLP_HTTP_PORT`                                                                                                | `4328`                                                     | Host port of the local OpenTelemetry backend's OTLP/HTTP receiver (`--profile observability`).                                                                          |
+| `GRAFANA_PORT`                                                                                                  | `3011`                                                     | Host port of its Grafana (anonymous admin: never deploy this service).                                                                                                  |
+| `PROMETHEUS_PORT`                                                                                               | `9100`                                                     | Host port of its Prometheus.                                                                                                                                            |
 
 The stack's API has fixed values besides: `NODE_ENV=production`, the compose database,
-`TRUST_PROXY=loopback` (published straight to the host), `APP_ENVIRONMENT=stack` and
-`REDIS_REQUIRED=true`; without `MAIL_SMTP_URL`, its email is off. The migration job gets
-`DATABASE_URL` only.
+`TRUST_PROXY=1` (one proxy hop: the web container, which replaces `X-Forwarded-For`),
+`APP_ENVIRONMENT=stack` and `REDIS_REQUIRED=true`; without `MAIL_SMTP_URL`, its email is off. It
+is not published: the web server reaches it as `http://api:3000`. The migration job gets
+`DATABASE_URL` only. The web server gets `APP_ORIGIN=http://localhost:<STACK_PORT>`.
+
+## Web variables
+
+The web image (`apps/landing/Dockerfile`, [ADR 0008](adr/0008-public-site-and-app-links.md)): the
+landing, the app's links and the files that let the phones claim them, and `/api` forwarded to
+the API. Its settings are runtime environment variables, checked by
+`apps/landing/nginx/18-validate-runtime-config.sh` before nginx starts: a missing or malformed value
+stops the container and names the variable, never its value
+(`scripts/validate-runtime-config.test.mjs`).
+
+| Variable                                              | Default           | Purpose                                                                                                                                                                                                                                                                                                                             |
+| ----------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ORIGIN`                                          | none: required    | The site's public origin (`https://app.example.com`: no path, no trailing slash), written into the landing's absolute links (canonical and alternate links, the share picture, the sitemap, `robots.txt`) as they are served. The same origin as the API's `APP_ORIGIN`, the domain of the links its emails carry.                  |
+| `API_UPSTREAM`                                        | `http://api:3000` | Where `/api` goes. Its host is looked up through DNS every 10 seconds (a redeployed API gets a new address), so it must be a DNS name: one only in `/etc/hosts` (`docker run --add-host`) is not seen.                                                                                                                              |
+| `APPLE_TEAM_ID`, `IOS_BUNDLE_ID`                      | unset             | Together: the Team ID of the Apple Developer account (10 characters) and the app's bundle identifier (`com.example.templateapp`; the production variant's, `apps/mobile/app.config.ts`). They write `/.well-known/apple-app-site-association`, claiming `/app/*`; unset, it answers 404 and iPhones open the links in the browser.  |
+| `ANDROID_PACKAGE`, `ANDROID_SHA256_CERT_FINGERPRINTS` | unset             | Together: the app's application id and the SHA-256 fingerprints of the certificates that sign it (`AB:CD:…`, capitals, comma-separated: Play App Signing's key, and the upload key for builds installed outside Play). They write `/.well-known/assetlinks.json`; unset, it answers 404 and Android opens the links in the browser. |
+| `APP_RELEASE`                                         | from the build    | The build the image holds (CI passes the commit SHA), for `docker inspect` and the deployment's records.                                                                                                                                                                                                                            |
+
+The link files are written at start (`apps/landing/nginx/19-app-links.sh`, into `/tmp`, so a
+read-only root filesystem works), served as JSON without a redirect and cached for 5 minutes;
+`pnpm smoke --require-app-links` checks them on a deployment. The domain the app claims
+(`APP.linkDomain` in `apps/mobile/app.config.ts`) must be this origin's host
+([mobile-architecture.md](mobile-architecture.md#deep-links)).
 
 ## App variables
 
@@ -125,32 +151,34 @@ is evaluated (a bad value fails the build) and again at startup. Locally they co
 
 The one that ties the app to the API is `EXPO_PUBLIC_API_URL`: the API's base URL, without `/api`
 and without a trailing slash. HTTPS, except plain HTTP for `localhost`, `127.0.0.1`, `10.0.2.2`
-and `[::1]` outside production. `apps/mobile/.env.example` points it at the mock API
-(`http://localhost:4010`); `http://localhost:3010` reaches `pnpm dev`, with
-`adb reverse tcp:3010 tcp:3010` on Android
-([architecture.md](architecture.md#how-the-app-reaches-the-api)).
+and `[::1]` outside production. `apps/mobile/.env.example` points it at `pnpm dev`'s API
+(`http://localhost:3010`, with `adb reverse tcp:3010 tcp:3010` on Android); the mock API is
+`http://localhost:4010` ([architecture.md](architecture.md#how-the-app-reaches-the-api)).
 The others are `EXPO_PUBLIC_APP_ENV` (set per build profile), `EXPO_PUBLIC_SENTRY_DSN` and
 `EXPO_PUBLIC_SENTRY_TRACES_SAMPLE_RATE` (the app's own Sentry project) and `EXPO_PUBLIC_FLAGS`
-(feature flag overrides, refused in production). The full table, the build-time variables
+(feature flag overrides, refused in production), and `EXPO_PUBLIC_STORE_URL_IOS` and
+`EXPO_PUBLIC_STORE_URL_ANDROID` (the store pages the update screen opens). The full table, the
+build-time variables
 (`APP_VARIANT`, `SENTRY_*`, `GOOGLE_SERVICES_JSON`) and where each value lives:
 [releases.md](releases.md#environment-variables).
 
 ## Per environment
 
-| Setting                         | development                              | test / CI                                                                | production-like stack               | staging                                                 | production                            |
-| ------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------- | ------------------------------------- |
-| `NODE_ENV`                      | `development`                            | `test`                                                                   | `production`                        | `production`                                            | `production`                          |
-| `APP_ENVIRONMENT`               | default                                  | default                                                                  | `stack`                             | `staging`                                               | `production`                          |
-| `APP_RELEASE`                   | `unversioned`                            | `unversioned`                                                            | `local` (root `.env`)               | from the image                                          | from the image                        |
-| Logs                            | text                                     | text, `warn` (integration)                                               | JSON                                | JSON                                                    | JSON                                  |
-| `SENTRY_DSN`                    | unset (or a dev project)                 | unset                                                                    | `STACK_SENTRY_DSN`                  | the project's DSN                                       | the same DSN                          |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`   | unset, or the local backend              | unset                                                                    | `STACK_OTEL_EXPORTER_OTLP_ENDPOINT` | collector or provider                                   | collector or provider, sampled        |
-| `REDIS_URL`                     | the compose Redis (`pnpm services:up`)   | the throwaway Redis of the integration job (`REDIS_TEST_URL`)            | the compose Redis                   | a private one, over `rediss://` or on a private network | the same                              |
-| `MAIL_SMTP_URL`                 | Mailpit, `smtp://localhost:1045`         | unset; the outbox specs use the job's Mailpit (`MAIL_TEST_SMTP_URL`)     | unset: email off                    | the provider (a test sender or sandbox)                 | the provider, `smtps://` or STARTTLS  |
-| `RATE_LIMIT_STORE`              | `redis` (`apps/api/.env.example`)        | `memory` (Redis specs override)                                          | `redis`                             | `redis` with more than one instance                     | `redis` with more than one instance   |
-| `MOBILE_MIN_VERSION_*`          | unset                                    | Android `2.0.0` in the integration configuration (its spec only)         | `STACK_MOBILE_MIN_VERSION_*`        | the oldest version served                               | the oldest version served             |
-| Secrets                         | `apps/api/.env`, root `.env`             | fixed fake values in the test configurations                             | root `.env`                         | the platform's secret store                             | the same                              |
-| The app's `EXPO_PUBLIC_API_URL` | the mock API, or `http://localhost:3010` | `https://api.example.com` (build job); the mock API (Android end-to-end) | `http://localhost:8090`             | the staging API (EAS `preview` environment)             | the production API (EAS `production`) |
+| Setting                         | development                              | test / CI                                                                              | production-like stack               | staging                                                 | production                            |
+| ------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------- | ------------------------------------- |
+| `NODE_ENV`                      | `development`                            | `test`                                                                                 | `production`                        | `production`                                            | `production`                          |
+| `APP_ENVIRONMENT`               | default                                  | default                                                                                | `stack`                             | `staging`                                               | `production`                          |
+| `APP_RELEASE`                   | `unversioned`                            | `unversioned`                                                                          | `local` (root `.env`)               | from the image                                          | from the image                        |
+| Logs                            | text                                     | text, `warn` (integration)                                                             | JSON                                | JSON                                                    | JSON                                  |
+| `SENTRY_DSN`                    | unset (or a dev project)                 | unset                                                                                  | `STACK_SENTRY_DSN`                  | the project's DSN                                       | the same DSN                          |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`   | unset, or the local backend              | unset                                                                                  | `STACK_OTEL_EXPORTER_OTLP_ENDPOINT` | collector or provider                                   | collector or provider, sampled        |
+| `REDIS_URL`                     | the compose Redis (`pnpm services:up`)   | the throwaway Redis of the integration job (`REDIS_TEST_URL`)                          | the compose Redis                   | a private one, over `rediss://` or on a private network | the same                              |
+| `MAIL_SMTP_URL`                 | Mailpit, `smtp://localhost:1045`         | unset; the outbox specs use the job's Mailpit (`MAIL_TEST_SMTP_URL`)                   | unset: email off                    | the provider (a test sender or sandbox)                 | the provider, `smtps://` or STARTTLS  |
+| `RATE_LIMIT_STORE`              | `redis` (`apps/api/.env.example`)        | `memory` (Redis specs override)                                                        | `redis`                             | `redis` with more than one instance                     | `redis` with more than one instance   |
+| `MOBILE_MIN_VERSION_*`          | unset                                    | Android `2.0.0` in the integration configuration (its spec only)                       | `STACK_MOBILE_MIN_VERSION_*`        | the oldest version served                               | the oldest version served             |
+| Secrets                         | `apps/api/.env`, root `.env`             | fixed fake values in the test configurations                                           | root `.env`                         | the platform's secret store                             | the same                              |
+| The app's `EXPO_PUBLIC_API_URL` | `http://localhost:3010`, or the mock API | `https://api.example.com` (build job); the mock API, then the API (Android end-to-end) | `http://localhost:8090`             | the staging API (EAS `preview` environment)             | the production API (EAS `production`) |
+| The web image's app identity    | —                                        | made up (`e2e/support/web-image.ts`)                                                   | `STACK_APPLE_TEAM_ID`…              | the preview variant's                                   | the production variant's              |
 
 Every default is the safe one: optional integrations off, nothing exposed beyond loopback outside
 production, no credential in a committed file.

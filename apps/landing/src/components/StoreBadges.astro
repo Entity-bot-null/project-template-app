@@ -1,0 +1,32 @@
+---
+// The app's store pages (lib/stores.ts), one badge each; while no listing
+// exists, a sentence saying it is coming.
+import { messages, type Locale } from '../i18n';
+import { storeLinks, type StoreId } from '../lib/stores';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = messages(locale);
+const links = storeLinks();
+const LABELS: Record<StoreId, string> = {
+  appStore: t.download.appStore,
+  googlePlay: t.download.googlePlay,
+};
+---
+
+{links.length === 0 ? (
+  <p class="text-lead font-semibold">{t.download.soon}</p>
+) : (
+  <ul class="flex flex-wrap gap-4" role="list">
+    {links.map(({ id, href }) => (
+      <li>
+        <a href={href} class="store-badge font-semibold" data-store={id}>
+          {LABELS[id]}
+        </a>
+      </li>
+    ))}
+  </ul>
+)}

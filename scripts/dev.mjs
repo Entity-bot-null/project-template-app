@@ -18,7 +18,7 @@ import { currentBanner, currentSettings } from './dev-banner.mjs';
 const API_READY = /Nest application successfully started/;
 
 /** The workspace packages whose `dev` script `pnpm dev` runs. */
-export const DEV_PACKAGES = ['api'];
+export const DEV_PACKAGES = ['api', 'landing'];
 
 /**
  * A consumer of the servers' output that calls `onReady` for every line that
@@ -129,13 +129,14 @@ if (isCli) {
   // once (it would keep this script alive) and prints nothing.
   const stopped = new AbortController();
 
-  // One box at a time, after the API answers (at most 30 s: a server that does
-  // not start still gets the box, under its error).
+  // One box at a time, after the API and the site answer (at most 30 s each:
+  // a server that does not start still gets the box, under its error).
   let shown = Promise.resolve();
   const showBanner = () => {
     shown = shown.then(async () => {
       const settings = currentSettings();
       await answers(`${settings.api}/health/live`, stopped.signal);
+      await answers(settings.site, stopped.signal);
       const mailStatus = await readMailStatus(settings.api, stopped.signal);
       if (!stopped.signal.aborted) process.stdout.write(`\n${currentBanner(mailStatus)}\n\n`);
     });

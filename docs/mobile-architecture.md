@@ -511,7 +511,8 @@ since.
 
 Three sources reach the same routes: the custom scheme (`templateapp://items/42`), universal links
 and Android App Links (`https://<domain>/app/items/42`, once `APP.linkDomain` is set and the domain
-serves `apple-app-site-association` and `assetlinks.json`), and notification payloads. The https
+serves `apple-app-site-association` and `assetlinks.json`: the web image writes both from the app's
+identity, [environment.md](environment.md#web-variables)), and notification payloads. The https
 links of the app live under `/app/` (`APP_LINK_PREFIX`): the rest of the domain is the public
 website, which the app never claims, and the prefix is dropped before matching.
 
@@ -548,7 +549,9 @@ To add a link (a product page, another emailed screen): add its pattern to `ROUT
 that opens the app on Android (`appLink`: exact, or a prefix for a route with a parameter): the App
 Links intent filter in `apps/mobile/app.config.ts` is built from them (`APP_LINK_PATHS`), and
 `links.spec.ts` checks that it opens exactly the paths the allowlist accepts. iOS takes its paths
-from the domain's `apple-app-site-association`, which claims `/app/*`.
+from the domain's `apple-app-site-association`, which claims `/app/*`. Where the app does not open
+a link (a computer, a phone without the app), the web image answers it with the landing's
+open-in-app page, at the same address ([architecture.md](architecture.md#public-site-and-app-links-appslanding)).
 
 ## Notifications
 

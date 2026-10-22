@@ -122,8 +122,9 @@ jobs:
           ref: ${{ inputs.ref }}
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # Fails below the coverage thresholds of apps/mobile/jest.config.js and
-      # apps/api/vitest.config.ts; includes the API's OpenAPI drift spec.
+      # Fails below the coverage thresholds of apps/mobile/jest.config.js,
+      # apps/api/vitest.config.ts and apps/landing/vitest.config.ts; includes
+      # the API's OpenAPI drift spec.
       - run: pnpm test:coverage
       - name: Upload the coverage reports
         if: ${{ !cancelled() }}
@@ -230,8 +231,9 @@ jobs:
           ref: ${{ inputs.ref }}
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # The API, and Hermes bytecode for both platforms (the app's export),
-      # then apps/mobile/bundle-budget.json.
+      # The API, the landing, and Hermes bytecode for both platforms (the
+      # app's export), then the landing's performance-budget.json and
+      # apps/mobile/bundle-budget.json.
       - run: pnpm build
       - run: pnpm perf:check
       # The config plugins produce both native projects (no compilation:
@@ -239,6 +241,46 @@ jobs:
       - name: Generate the native projects
         working-directory: apps/mobile
         run: pnpm exec expo prebuild --no-install --platform all
+
+  e2e:
+    name: End-to-end tests (browser)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # The web image's base images from the mirror, by digest
+      # (scripts/e2e-web-image.mjs, as in docker-images.yml).
+      TOOL_IMAGE_MIRROR: mirror.gcr.io
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Cache Playwright browsers
+        id: browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install the browser
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install the browser's system dependencies
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps chromium
+      # The landing for its preview server; the web image is built by the
+      # suite itself (playwright.config.ts).
+      - run: pnpm --filter landing build
+      - run: pnpm test:e2e
+      - name: Upload the Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
 
   images:
     name: Images

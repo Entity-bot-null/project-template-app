@@ -1,0 +1,33 @@
+---
+// How a person starts, in three steps, numbered at poster size.
+import { messages, type Locale } from '../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = messages(locale);
+// Written out in full so Tailwind finds the classes in this file.
+const STAGGER = ['[--i:0]', '[--i:1]', '[--i:2]'] as const;
+---
+
+<section
+  aria-labelledby="how-it-works-heading"
+  class="bg-surface px-(--margin) py-[clamp(7.5rem,16vh,12rem)]"
+>
+  <h2 id="how-it-works-heading" class="reveal text-lead font-bold">
+    {t.howItWorks.heading}
+  </h2>
+  <ol class="mt-14 grid gap-14 md:grid-cols-3 md:gap-x-(--gutter)" role="list">
+    {t.howItWorks.steps.map(({ name, description }, index) => (
+      <li class:list={['reveal', STAGGER[index]]}>
+        <p aria-hidden="true" class="text-head font-extrabold text-muted">
+          {index + 1}
+        </p>
+        <h3 class="mt-4 text-lead font-bold">{name}</h3>
+        <p class="mt-2 max-w-[36ch]">{description}</p>
+      </li>
+    ))}
+  </ol>
+</section>
