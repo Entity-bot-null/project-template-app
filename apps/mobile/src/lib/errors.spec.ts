@@ -16,6 +16,7 @@ describe('kindForStatus', () => {
     [404, 'notFound'],
     [409, 'conflict'],
     [422, 'validation'],
+    [426, 'upgradeRequired'],
     [429, 'rateLimited'],
     [500, 'server'],
     [503, 'server'],
@@ -58,11 +59,14 @@ describe('retries and reporting', () => {
     expect(isRetryable(new AppError('server', '', { status: 501 }))).toBe(false);
     expect(isRetryable(new AppError('validation', ''))).toBe(false);
     expect(isRetryable(new AppError('unauthenticated', ''))).toBe(false);
+    // The same request fails the same way until the app is updated.
+    expect(isRetryable(new AppError('upgradeRequired', ''))).toBe(false);
   });
 
   it('reports bugs and server failures, not normal outcomes', () => {
     expect(isExpected(new AppError('network', ''))).toBe(true);
     expect(isExpected(new AppError('validation', ''))).toBe(true);
+    expect(isExpected(new AppError('upgradeRequired', ''))).toBe(true);
     expect(isExpected(new AppError('server', ''))).toBe(false);
     expect(isExpected(new AppError('unknown', ''))).toBe(false);
   });

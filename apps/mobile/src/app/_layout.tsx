@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { session, useSessionStatus } from '@/auth/session';
+import { useUpgradeRequired } from '@/features/update/upgrade';
 import { useScreenTracking } from '@/hooks/useScreenTracking';
 import { analytics } from '@/lib/analytics';
 import { configureNotifications } from '@/lib/notifications';
@@ -19,7 +20,10 @@ import { clearImageCaches, ErrorState, Screen, ThemeProvider } from '@/ui';
 // is known, so nobody sees a screen they are about to leave. The navigation
 // follows the state: three flows, each available only when its guard holds,
 // and Expo Router moves the user when a guard changes (sign-in, sign-out,
-// onboarding done). Screens never redirect on their own.
+// onboarding done). Screens never redirect on their own. The screens of
+// emailed links open with or without a session, and are declared last: never
+// the screen a guard falls back to. Once the API refuses this app version
+// (426), the update screen is the only one left.
 
 startObservability();
 configureNotifications();
@@ -44,6 +48,7 @@ session.onSignOut(() => {
 export default function RootLayout() {
   const status = useSessionStatus();
   const onboardingCompleted = usePreferences((state) => state.onboardingCompleted);
+  const upgradeRequired = useUpgradeRequired();
 
   useEffect(() => {
     void session.restore();
@@ -59,7 +64,11 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <Navigation onboardingCompleted={onboardingCompleted} signedIn={status === 'signedIn'} />
+          <Navigation
+            onboardingCompleted={onboardingCompleted}
+            signedIn={status === 'signedIn'}
+            upgradeRequired={upgradeRequired}
+          />
         </ThemeProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
@@ -69,21 +78,29 @@ export default function RootLayout() {
 function Navigation({
   onboardingCompleted,
   signedIn,
+  upgradeRequired,
 }: {
   onboardingCompleted: boolean;
   signedIn: boolean;
+  upgradeRequired: boolean;
 }) {
   useScreenTracking();
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!onboardingCompleted}>
+      <Stack.Protected guard={upgradeRequired}>
+        <Stack.Screen name="update-required" />
+      </Stack.Protected>
+      <Stack.Protected guard={!upgradeRequired && !onboardingCompleted}>
         <Stack.Screen name="(onboarding)" />
       </Stack.Protected>
-      <Stack.Protected guard={onboardingCompleted && !signedIn}>
+      <Stack.Protected guard={!upgradeRequired && onboardingCompleted && !signedIn}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
-      <Stack.Protected guard={onboardingCompleted && signedIn}>
+      <Stack.Protected guard={!upgradeRequired && onboardingCompleted && signedIn}>
         <Stack.Screen name="(app)" />
+      </Stack.Protected>
+      <Stack.Protected guard={!upgradeRequired}>
+        <Stack.Screen name="(links)" />
       </Stack.Protected>
       <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not found' }} />
     </Stack>

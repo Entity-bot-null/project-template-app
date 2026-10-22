@@ -1,9 +1,10 @@
 # End-to-end flows (Maestro)
 
 The critical journeys of the app, run by [Maestro](https://maestro.mobile.dev) against a release
-build of the `e2e` variant (application id `com.example.templateapp.e2e`) and the local mock API
-(`pnpm mock:api`). How to build and run them, locally and in CI:
-[docs/testing.md](../../../docs/testing.md#end-to-end).
+build of the `e2e` variant (application id `com.example.templateapp.e2e`), in two suites: against
+the local mock API (`pnpm mock:api`, `pnpm test:e2e:mobile`), and against the real API with Mailpit
+(`pnpm dev`, `pnpm test:e2e:mobile:stack`) for the journeys that need email. How to build and run
+them, locally and in CI: [docs/testing.md](../../../docs/testing.md#end-to-end).
 
 ```
 .maestro/
@@ -17,8 +18,15 @@ build of the `e2e` variant (application id `com.example.templateapp.e2e`) and th
     06-session-ends.yaml
     07-deep-links.yaml
     08-sign-out.yaml
+  stack/             the suite against the real API: its own config.yaml
+    01-sign-up.yaml
+    02-change-email.yaml
+    03-password-recovery.yaml
+    04-delete-account.yaml
+    helpers/open-emailed-link.yaml   waits for a link in Mailpit, then opens it (runFlow)
   scripts/
     mock-api.js      makes the mock API fail on demand (runScript)
+    mailpit-link.js  the newest link the API emailed to an address (runScript)
   results/           reports, screenshots and logs of the last run (git-ignored)
 ```
 
@@ -35,7 +43,9 @@ unordered set that ignores `continueOnFailure`.
   `-e APP_ID=… -e SCHEME=…` to `maestro test`).
 - Elements are found by `testID` (`id:`) or visible text. Wait with `extendedWaitUntil`, never with
   fixed sleeps.
-- The data comes from the mock API: its accounts and items are the fixtures.
+- The data comes from the mock API: its accounts and items are the fixtures. The stack suite signs
+  up a new address on every run (`e2e-<time>@example.test`): the API's database keeps the earlier
+  ones.
 - Failures come from the mock API too: `scripts/mock-api.js` sets a status (429, 5xx, or no answer
   at all) for a route, or expires or revokes every session. A flow that sets a fault clears it in
   `onFlowComplete`, so the next flow starts against a working API even when this one fails.

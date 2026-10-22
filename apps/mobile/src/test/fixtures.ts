@@ -16,13 +16,23 @@ export const user: Schemas['SessionUser'] = {
 /** The same account, as GET /api/users/me tells it. */
 export const account: Schemas['User'] = { ...user, createdAt: '2026-01-01T09:00:00.000Z' };
 
-export function tokens(suffix = '1'): Omit<Schemas['Session'], 'user'> {
-  return { accessToken: `access-${suffix}`, refreshToken: `refresh-${suffix}`, expiresIn: 900 };
+/** What sign-in and every renewal answer: a rotated pair, and who it belongs to. */
+export function session(suffix = '1', owner: Schemas['SessionUser'] = user): Schemas['Session'] {
+  return {
+    accessToken: `access-${suffix}`,
+    refreshToken: `refresh-${suffix}`,
+    expiresIn: 900,
+    user: owner,
+  };
 }
 
-export function session(suffix = '1'): Schemas['Session'] {
-  return { ...tokens(suffix), user };
-}
+/** A server that offers everything (it sends email, sign-up is open). */
+export const capabilities: Schemas['Capabilities'] = {
+  passwordReset: true,
+  signUp: true,
+  emailChange: true,
+  invitations: true,
+};
 
 export function item(index: number): Schemas['Item'] {
   return {

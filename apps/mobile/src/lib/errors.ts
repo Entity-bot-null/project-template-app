@@ -17,6 +17,7 @@ export type AppErrorKind =
   | 'validation' // 400 / 422: the input is wrong, field errors may say where
   | 'conflict' // 409
   | 'rateLimited' // 429
+  | 'upgradeRequired' // 426: this app version is no longer served (src/features/update)
   | 'server' // 5xx, or a response that breaks the contract
   | 'unknown'; // anything else, usually a bug
 
@@ -58,6 +59,7 @@ const STATUS_KINDS: Record<number, AppErrorKind> = {
   404: 'notFound',
   409: 'conflict',
   422: 'validation',
+  426: 'upgradeRequired',
   429: 'rateLimited',
 };
 
@@ -103,7 +105,8 @@ export function isExpected(error: AppError): boolean {
     error.kind === 'notFound' ||
     error.kind === 'validation' ||
     error.kind === 'conflict' ||
-    error.kind === 'rateLimited'
+    error.kind === 'rateLimited' ||
+    error.kind === 'upgradeRequired'
   );
 }
 
@@ -117,6 +120,7 @@ const USER_MESSAGES: Record<AppErrorKind, string> = {
   validation: 'Some fields need your attention.',
   conflict: 'This was changed elsewhere. Refresh and try again.',
   rateLimited: 'Too many attempts. Wait a moment and try again.',
+  upgradeRequired: 'This version of the app is no longer supported. Update it to continue.',
   server: 'Something went wrong on our side. Try again later.',
   unknown: 'Something went wrong. Try again.',
 };

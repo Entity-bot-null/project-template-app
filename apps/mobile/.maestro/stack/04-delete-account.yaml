@@ -1,0 +1,41 @@
+# Account deletion from Settings, as both stores require: the password, a
+# destructive confirmation, back to sign-in, and the account is gone.
+appId: ${APP_ID}
+name: Account deletion
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+  SCHEME: templateapp-e2e
+---
+- tapOn: Settings
+- scrollUntilVisible:
+    element:
+      id: settings-delete-account
+- tapOn:
+    id: settings-delete-account
+- assertVisible:
+    id: delete-account-screen
+- tapOn:
+    id: delete-account-password
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: delete-account-submit
+# The confirmation dialog (Android capitalizes its buttons on some themes).
+- tapOn: (?i)delete account
+- extendedWaitUntil:
+    visible:
+      id: sign-in-screen
+    timeout: 15000
+
+- tapOn:
+    id: sign-in-email
+- eraseText
+- inputText: ${output.email}
+- tapOn:
+    id: sign-in-password
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+- assertVisible: Wrong email or password.

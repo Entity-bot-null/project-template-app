@@ -1,0 +1,69 @@
+# A new account from a clean install: sign-up, the link from the email opened
+# on the phone, the password chosen at sign-up, and the app signed in.
+appId: ${APP_ID}
+name: Sign-up with an emailed link
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+  SCHEME: templateapp-e2e
+---
+# An address of its own for every run: the database keeps the earlier ones.
+- evalScript: ${output.email = 'e2e-' + Date.now() + '@example.test'}
+- evalScript: ${output.password = 'a long e2e passphrase'}
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- tapOn:
+    id: onboarding-continue
+- extendedWaitUntil:
+    visible:
+      id: sign-in-sign-up
+    timeout: 15000
+- tapOn:
+    id: sign-in-sign-up
+- assertVisible:
+    id: sign-up-screen
+- tapOn:
+    id: sign-up-name
+- inputText: E2E Person
+- tapOn:
+    id: sign-up-email
+- inputText: ${output.email}
+- tapOn:
+    id: sign-up-password
+- inputText: ${output.password}
+- tapOn:
+    id: sign-up-repeat-password
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: sign-up-submit
+- extendedWaitUntil:
+    visible:
+      id: sign-up-sent
+    timeout: 15000
+
+- runFlow:
+    file: helpers/open-emailed-link.yaml
+    env:
+      TO: ${output.email}
+      SCREEN: confirm-sign-up
+- extendedWaitUntil:
+    visible:
+      id: confirm-sign-up-screen
+    timeout: 15000
+- tapOn:
+    id: confirm-sign-up-password
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: confirm-sign-up-submit
+- extendedWaitUntil:
+    visible:
+      id: confirm-sign-up-done
+    timeout: 15000
+- assertVisible: Welcome, E2E Person. You are signed in.
+- tapOn: Continue
+- extendedWaitUntil:
+    visible: No items yet
+    timeout: 15000

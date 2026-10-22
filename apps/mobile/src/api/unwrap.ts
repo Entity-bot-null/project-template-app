@@ -67,3 +67,9 @@ export async function unwrapWith<D extends { data: unknown }, S extends z.ZodTyp
   }
   return result.data;
 }
+
+/** For an answer without a body (202, 204): resolves once it succeeded; throws an AppError otherwise. */
+export async function expectSuccess(call: Promise<ApiResult<unknown>>): Promise<void> {
+  const { error, response } = await call;
+  if (!response.ok) throw errorFromResponse(response, error);
+}

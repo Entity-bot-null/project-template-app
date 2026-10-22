@@ -11,7 +11,13 @@ import {
   STORAGE_KEYS,
 } from '@/lib/storage';
 
-import { type Credentials, SessionSchema, type Tokens, TokensSchema, type User } from './schemas';
+import {
+  type Credentials,
+  type Session as SessionBody,
+  SessionSchema,
+  type Tokens,
+  type User,
+} from './schemas';
 
 // The session (docs/mobile-architecture.md#authentication):
 //   - the access token lives in memory only, and is renewed shortly before
@@ -27,7 +33,12 @@ import { type Credentials, SessionSchema, type Tokens, TokensSchema, type User }
 //     renews nor ends the current session;
 //   - offline at launch, a stored session stays signed in: the first request
 //     renews it once the network is back. Only the server ending the session
-//     (401 on renewal) signs the user out.
+//     (401 on renewal) signs the user out;
+//   - a session the API hands over outside sign-in (a confirmed sign-up, an
+//     accepted invitation, a changed password) is adopted with the same
+//     guarantees: whatever the previous one was doing is dropped;
+//   - the signed-in user (id, email, name, role) comes with every session
+//     and every renewal, and is kept in memory only.
 // The navigation follows the state (src/app/_layout.tsx); screens never
 // decide on their own who is signed in.
 
@@ -37,11 +48,17 @@ interface SessionState {
   status: SessionStatus;
   /** Why the last session ended: the sign-in screen tells an expiry apart. */
   endedBy: 'user' | 'expired' | null;
+  /**
+   * Who is signed in, from the latest session or renewal; null while a
+   * session restored offline has not been renewed yet.
+   */
+  user: User | null;
 }
 
 export const useSessionStore = create<SessionState>()(() => ({
   status: 'restoring',
   endedBy: null,
+  user: null,
 }));
 
 /** Renew the access token this long before it expires: it must not die in flight. */
@@ -60,8 +77,18 @@ export interface Session extends AuthHandlers {
   /** At launch: picks up a stored session, if any. Always settles the status; never rejects. */
   restore(): Promise<void>;
   signIn(credentials: Credentials): Promise<User>;
+  /**
+   * Starts the session the API handed over (a confirmed sign-up, an accepted
+   * invitation, a changed password), replacing the current one if any.
+   */
+  adopt(session: SessionBody): Promise<User>;
   /** Ends the session on this device at once, and on the server when reachable. */
   signOut(): Promise<void>;
+  /**
+   * Ends the session on this device only, the way signOut() does, for one the
+   * server already ended (a deleted account): nothing is left to revoke.
+   */
+  forget(): Promise<void>;
   onSignIn(listener: (user: User) => void): () => void;
   onSignOut(listener: () => void): () => void;
 }
@@ -89,6 +116,30 @@ export function createSession({ storage, installation, api, now }: SessionDepend
     await storage.setItem(STORAGE_KEYS.refreshToken, tokens.refreshToken);
   }
 
+  /**
+   * A new session: everything of the previous one is dropped first. When it
+   * belongs to another account (an invitation accepted while signed in), the
+   * previous account is signed out as a sign-out would: its data is cleared
+   * (the sign-out listeners) and its refresh token revoked.
+   */
+  async function start(body: SessionBody): Promise<User> {
+    const previous = useSessionStore.getState();
+    // A session restored offline and not renewed yet has no known user: it
+    // counts as another account.
+    const anotherAccount = previous.status === 'signedIn' && previous.user?.id !== body.user.id;
+    const replaced = anotherAccount ? await storedRefreshToken() : null;
+    generation += 1;
+    access = null;
+    issued = new Set();
+    renewing = null;
+    if (anotherAccount) for (const listener of signOutListeners) listener();
+    await keep(body);
+    setState({ status: 'signedIn', endedBy: null, user: body.user });
+    for (const listener of signInListeners) listener(body.user);
+    if (replaced !== null) revoke(replaced);
+    return body.user;
+  }
+
   async function storedRefreshToken(): Promise<string | null> {
     try {
       return await storage.getItem(STORAGE_KEYS.refreshToken);
@@ -109,7 +160,7 @@ export function createSession({ storage, installation, api, now }: SessionDepend
     } catch {
       logger.warn('auth', 'Stored session could not be removed');
     }
-    setState({ status: 'signedOut', endedBy });
+    setState({ status: 'signedOut', endedBy, user: null });
     for (const listener of signOutListeners) listener();
   }
 
@@ -126,11 +177,11 @@ export function createSession({ storage, installation, api, now }: SessionDepend
       if (startedIn === generation) await end('expired');
       return null;
     }
-    let tokens: Tokens;
+    let renewed: SessionBody;
     try {
-      tokens = await unwrapWith(
+      renewed = await unwrapWith(
         api.POST('/api/auth/refresh', { body: { refreshToken } }),
-        TokensSchema,
+        SessionSchema,
       );
     } catch (error) {
       const appError = toAppError(error);
@@ -142,11 +193,13 @@ export function createSession({ storage, installation, api, now }: SessionDepend
       return null;
     }
     if (startedIn !== generation) {
-      revoke(tokens.refreshToken);
+      revoke(renewed.refreshToken);
       return null;
     }
-    await keep(tokens);
-    return tokens.accessToken;
+    await keep(renewed);
+    // A role changed on the server shows at the next renewal.
+    setState({ user: renewed.user });
+    return renewed.accessToken;
   }
 
   function renewOnce(): Promise<string | null> {
@@ -182,36 +235,37 @@ export function createSession({ storage, installation, api, now }: SessionDepend
   return {
     async restore() {
       if (!(await isKnownInstallation()) || (await storedRefreshToken()) === null) {
-        setState({ status: 'signedOut', endedBy: null });
+        setState({ status: 'signedOut', endedBy: null, user: null });
         return;
       }
       try {
         if ((await renewOnce()) !== null) setState({ status: 'signedIn', endedBy: null });
       } catch {
-        // Offline or server down: the session is probably still valid.
+        // Offline or server down: the session is probably still valid. Who
+        // it belongs to is known at the first renewal.
         logger.info('auth', 'Session restored without renewal (offline)');
         setState({ status: 'signedIn', endedBy: null });
       }
     },
 
     async signIn(credentials) {
-      const session = await unwrapWith(
-        api.POST('/api/auth/sign-in', { body: credentials }),
-        SessionSchema,
+      return start(
+        await unwrapWith(api.POST('/api/auth/sign-in', { body: credentials }), SessionSchema),
       );
-      generation += 1;
-      issued = new Set();
-      renewing = null;
-      await keep(session);
-      setState({ status: 'signedIn', endedBy: null });
-      for (const listener of signInListeners) listener(session.user);
-      return session.user;
+    },
+
+    async adopt(body) {
+      return start(SessionSchema.parse(body));
     },
 
     async signOut() {
       const refreshToken = await storedRefreshToken();
       await end('user');
       if (refreshToken !== null) revoke(refreshToken);
+    },
+
+    async forget() {
+      await end('user');
     },
 
     async getAccessToken() {
@@ -258,4 +312,9 @@ setAuthHandlers(session);
 
 export function useSessionStatus(): SessionStatus {
   return useSessionStore((state) => state.status);
+}
+
+/** Who is signed in; null while signed out, or restored offline and not renewed yet. */
+export function useSessionUser(): User | null {
+  return useSessionStore((state) => state.user);
 }

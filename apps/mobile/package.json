@@ -19,6 +19,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "maestro test .maestro",
+    "test:e2e:stack": "maestro test .maestro/stack",
     "expo:doctor": "node scripts/expo-doctor.mjs",
     "api:types": "node scripts/api-types.mjs",
     "build": "expo export --platform android --platform ios --output-dir dist",

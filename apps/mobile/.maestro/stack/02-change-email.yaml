@@ -1,0 +1,69 @@
+# A change of email: asked in Settings with the password, confirmed from the
+# link sent to the new address. Every session of the account ends; the user
+# signs in again with the new address.
+appId: ${APP_ID}
+name: Change of email
+env:
+  # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
+  APP_ID: com.example.templateapp.e2e
+  SCHEME: templateapp-e2e
+---
+- evalScript: ${output.newEmail = 'e2e-new-' + Date.now() + '@example.test'}
+- tapOn: Settings
+- extendedWaitUntil:
+    visible: ${output.email}
+    timeout: 15000
+- tapOn:
+    id: settings-change-email
+- assertVisible:
+    id: change-email-screen
+- tapOn:
+    id: change-email-new
+- inputText: ${output.newEmail}
+- tapOn:
+    id: change-email-password
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: change-email-submit
+- extendedWaitUntil:
+    visible:
+      id: change-email-sent
+    timeout: 15000
+- tapOn: Done
+
+- runFlow:
+    file: helpers/open-emailed-link.yaml
+    env:
+      TO: ${output.newEmail}
+      SCREEN: confirm-email-change
+- extendedWaitUntil:
+    visible:
+      id: confirm-email-change-screen
+    timeout: 15000
+- tapOn:
+    id: confirm-email-change-submit
+- extendedWaitUntil:
+    visible:
+      id: confirm-email-change-done
+    timeout: 15000
+- tapOn: Continue
+# The session on this phone ended with the others: the next request finds out.
+- extendedWaitUntil:
+    visible:
+      id: sign-in-screen
+    timeout: 20000
+- tapOn:
+    id: sign-in-email
+- inputText: ${output.newEmail}
+- tapOn:
+    id: sign-in-password
+- inputText: ${output.password}
+- hideKeyboard
+- tapOn:
+    id: sign-in-submit
+- extendedWaitUntil:
+    visible:
+      id: items-list
+    timeout: 15000
+- evalScript: ${output.email = output.newEmail}

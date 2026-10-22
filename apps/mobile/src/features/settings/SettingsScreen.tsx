@@ -1,9 +1,11 @@
 import * as Application from 'expo-application';
+import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
 import { Alert, Pressable, Switch, View } from 'react-native';
 
-import { session } from '@/auth/session';
+import { session, useSessionUser } from '@/auth/session';
 import { useMe } from '@/features/account/api';
+import { useCapabilities } from '@/features/auth/api';
 import { analytics } from '@/lib/analytics';
 import { getPushToken, notificationPermission } from '@/lib/notifications';
 import { logger } from '@/lib/observability';
@@ -49,6 +51,7 @@ export function SettingsScreen() {
   return (
     <Screen scroll edges={['left', 'right']} testID="settings-screen">
       <AccountSection />
+      <AdminSection />
       <AppearanceSection />
       <NotificationsSection />
       <PrivacySection />
@@ -77,12 +80,76 @@ export function SettingsScreen() {
 
 function AccountSection() {
   const me = useMe();
-  if (me.isPending) return <LoadingState label="Loading profile" />;
-  if (me.isError) return <ErrorState error={me.error} onRetry={() => void me.refetch()} />;
+  // Offered once the server says it can send the link (not while unknown).
+  const emailChange = useCapabilities().data?.emailChange === true;
   return (
     <Card>
-      <Text variant="heading">{me.data.name}</Text>
-      <Text tone="muted">{me.data.email}</Text>
+      {me.isPending && <LoadingState label="Loading profile" />}
+      {me.isError && <ErrorState error={me.error} onRetry={() => void me.refetch()} />}
+      {me.isSuccess && (
+        <>
+          <Text variant="heading">{me.data.name}</Text>
+          <Text tone="muted">{me.data.email}</Text>
+        </>
+      )}
+      <Button
+        label="Change password"
+        variant="secondary"
+        icon="key-outline"
+        testID="settings-change-password"
+        onPress={() => {
+          router.push('/account/change-password');
+        }}
+      />
+      {emailChange && (
+        <Button
+          label="Change email"
+          variant="secondary"
+          icon="mail-outline"
+          testID="settings-change-email"
+          onPress={() => {
+            router.push('/account/change-email');
+          }}
+        />
+      )}
+      <Button
+        label="Delete account"
+        variant="ghost"
+        icon="trash-outline"
+        testID="settings-delete-account"
+        onPress={() => {
+          router.push('/account/delete-account');
+        }}
+      />
+    </Card>
+  );
+}
+
+/** For an admin only: the users and the invitations. */
+function AdminSection() {
+  const isAdmin = useSessionUser()?.role === 'admin';
+  if (!isAdmin) return null;
+  return (
+    <Card>
+      <Text variant="heading">Administration</Text>
+      <Button
+        label="Users"
+        variant="secondary"
+        icon="people-outline"
+        testID="settings-admin-users"
+        onPress={() => {
+          router.push('/admin/users');
+        }}
+      />
+      <Button
+        label="Invitations"
+        variant="secondary"
+        icon="person-add-outline"
+        testID="settings-admin-invitations"
+        onPress={() => {
+          router.push('/admin/invitations');
+        }}
+      />
     </Card>
   );
 }

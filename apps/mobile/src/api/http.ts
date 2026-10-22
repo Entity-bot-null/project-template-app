@@ -6,6 +6,9 @@ import { addBreadcrumb } from '@/lib/observability/errorReporter';
 //     aborts queries nobody needs anymore);
 //   - an X-Request-Id, so a failure reported by a user can be found in the
 //     server's logs;
+//   - the app's platform, version and build (X-App-Platform, X-App-Version,
+//     X-App-Build): below the oldest version the API serves it answers 426,
+//     which is passed to onUpgradeRequired (src/features/update);
 //   - the session's access token, and after a 401 exactly one replay with a
 //     renewed token (no loops, one refresh shared by concurrent requests);
 //   - failures turned into AppError (network, timeout, cancelled) and left
@@ -13,6 +16,11 @@ import { addBreadcrumb } from '@/lib/observability/errorReporter';
 // HTTP error statuses are not thrown here: unwrap() reads them with the body.
 
 export const REQUEST_ID_HEADER = 'X-Request-Id';
+export const APP_PLATFORM_HEADER = 'X-App-Platform';
+export const APP_VERSION_HEADER = 'X-App-Version';
+export const APP_BUILD_HEADER = 'X-App-Build';
+/** The API's answer to an app version it no longer serves. */
+export const UPGRADE_REQUIRED_STATUS = 426;
 const DEFAULT_TIMEOUT_MS = 15_000;
 
 export interface AuthHandlers {
@@ -26,8 +34,19 @@ export interface AuthHandlers {
   refreshAfterRejection(rejected: string): Promise<string | null>;
 }
 
+/** What the app tells the API about itself on every request. */
+export interface ClientInfo {
+  platform: 'ios' | 'android';
+  /** The store version (1.4.0); null when unknown, then the header is left out. */
+  version: string | null;
+  build: string | null;
+}
+
 export interface HttpOptions {
   timeoutMs?: number;
+  client?: ClientInfo;
+  /** Called when the API answers 426: this app version is no longer served. */
+  onUpgradeRequired?: () => void;
   /** Absent for public endpoints: no token, no refresh. */
   auth?: AuthHandlers;
   /** Defaults to the global fetch, looked up per call so tests can stub it. */
@@ -47,6 +66,12 @@ export function createHttp(options: HttpOptions = {}): HttpFetch {
     headers.set('Accept', 'application/json');
     if (!headers.has(REQUEST_ID_HEADER)) headers.set(REQUEST_ID_HEADER, newRequestId());
     if (token !== null) headers.set('Authorization', `Bearer ${token}`);
+    const client = options.client;
+    if (client !== undefined) {
+      headers.set(APP_PLATFORM_HEADER, client.platform);
+      if (client.version !== null) headers.set(APP_VERSION_HEADER, client.version);
+      if (client.build !== null) headers.set(APP_BUILD_HEADER, client.build);
+    }
     const requestId = headers.get(REQUEST_ID_HEADER) ?? undefined;
 
     const controller = new AbortController();
@@ -65,6 +90,7 @@ export function createHttp(options: HttpOptions = {}): HttpFetch {
       const response = await doFetch(new Request(request, { headers, signal: controller.signal }));
       if (response.status >= 500)
         breadcrumb(request, 'error', { status: response.status, requestId });
+      if (response.status === UPGRADE_REQUIRED_STATUS) options.onUpgradeRequired?.();
       return response;
     } catch (error) {
       if (outcome.timedOut) {

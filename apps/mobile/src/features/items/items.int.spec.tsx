@@ -368,6 +368,32 @@ describe('NewItemScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/offline/);
   });
 
+  // The answer of a failed create may have been lost after the server saved
+  // the item: trying again must not create a second one.
+  it('tries the same item again with the same Idempotency-Key, new content with a new one', async () => {
+    fetchStub.on('POST /api/items', () => failure(503, 'Maintenance'));
+    await renderWithProviders(<NewItemScreen onCreated={jest.fn()} />);
+    await submit('Groceries');
+    await screen.findByText(/on our side/);
+    await userEvent.press(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => {
+      expect(posts()).toHaveLength(2);
+    });
+    await userEvent.type(screen.getByLabelText('Title'), ' and milk');
+    await userEvent.press(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => {
+      expect(posts()).toHaveLength(3);
+    });
+
+    const [first, retry, changed] = posts().map((request) =>
+      request.headers.get('Idempotency-Key'),
+    );
+    expect(first).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    expect(retry).toBe(first);
+    expect(changed).not.toBe(first);
+    expect(await bodyOf(posts()[2]!)).toEqual({ title: 'Groceries and milk' });
+  });
+
   // The sheet can be swiped away (or closed with Android's back button) while
   // the create is on its way: when it finishes, nothing moves the user.
   it('closes nothing when the sheet was closed before the create finished', async () => {

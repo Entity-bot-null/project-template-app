@@ -1,0 +1,28 @@
+# Opens the newest link the API emailed to TO for SCREEN, once it reached
+# Mailpit (the API's outbox sends within seconds): looks once a second, for
+# up to 30 seconds. Not a journey of its own: run by the others (runFlow).
+appId: ${APP_ID}
+env:
+  APP_ID: com.example.templateapp.e2e
+  SCHEME: templateapp-e2e
+---
+- evalScript: ${output.link = null}
+- repeat:
+    times: 30
+    while:
+      true: ${output.link == null}
+    commands:
+      - runScript:
+          file: ../../scripts/mailpit-link.js
+          env:
+            TO: ${TO}
+            SCREEN: ${SCREEN}
+            SCHEME: ${SCHEME}
+      # A second between looks: a wait for an element that never appears.
+      - extendedWaitUntil:
+          visible:
+            id: mailpit-never-shown
+          timeout: 1000
+          optional: true
+- assertTrue: ${output.link != null}
+- openLink: ${output.link}

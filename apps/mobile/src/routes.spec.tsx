@@ -5,6 +5,7 @@ import { ErrorBoundary } from '@/app/_layout';
 import ItemRoute from '@/app/(app)/items/[id]';
 import NotFoundRoute from '@/app/+not-found';
 import { redirectSystemPath } from '@/app/+native-intent';
+import { linkTokens } from '@/auth/linkTokens';
 import {
   disabledReporter,
   type ErrorReporter,
@@ -36,6 +37,22 @@ describe('routes', () => {
   it('rewrites incoming links through the allowlist, never throwing', () => {
     expect(redirectSystemPath({ path: 'templateapp://items/42', initial: true })).toBe('/items/42');
     expect(redirectSystemPath({ path: 'templateapp://admin', initial: false })).toBe('/');
+  });
+
+  it('keeps the token of an emailed link for its screen, out of the internal path', () => {
+    const token = 'x'.repeat(43);
+    expect(
+      redirectSystemPath({
+        path: `https://app.example.com/app/accept-invitation#token=${token}`,
+        initial: true,
+      }),
+    ).toBe('/accept-invitation');
+    expect(linkTokens.take('accept-invitation')).toBe(token);
+    expect(linkTokens.take('accept-invitation')).toBeNull();
+  });
+
+  it('opens home instead of throwing on a link it cannot read', () => {
+    expect(redirectSystemPath({ path: undefined as unknown as string, initial: true })).toBe('/');
   });
 
   it('reports a render crash and offers a retry instead of a blank screen', async () => {

@@ -40,6 +40,7 @@ pnpm --filter mobile test:watch                     # re-run on change
 pnpm --filter mobile test features/items            # the tests under a folder (a pattern of their path)
 pnpm --filter mobile test -t "rolls the optimistic" # tests whose name matches
 pnpm test:e2e:mobile                                # Maestro flows, on a running emulator/simulator (see End-to-end)
+pnpm test:e2e:mobile:stack                          # Maestro flows against the real API and Mailpit (see End-to-end)
 pnpm test:scripts                                   # the repository scripts' own tests (node --test), the mock API against the contract
 pnpm test:integration                               # the API on PostgreSQL, Redis and Mailpit (pnpm services:up first)
 pnpm --filter api test:watch                        # the API's unit tests, re-run on change
@@ -181,12 +182,18 @@ it does by any service method without a unit test. Report: `apps/api/coverage/in
 
 [Maestro](https://maestro.mobile.dev) drives a **release build of the `e2e` variant**: the same
 optimized JavaScript and native code as production, with its own application id
-(`com.example.templateapp.e2e`), plain HTTP allowed to the local mock API only, and OTA updates off.
-It talks to `apps/mobile/scripts/mock-api.mjs`, an in-memory implementation of the contract, so the
-flows are deterministic and need no backend or credentials.
+(`com.example.templateapp.e2e`), plain HTTP allowed to `localhost:4010` only, and OTA updates off.
+Two suites run on that build:
 
-The flows (`apps/mobile/.maestro/flows/`, run in order by `apps/mobile/.maestro/config.yaml`, each
-continuing the previous one's state like a user's first session):
+- **the mock suite** (`apps/mobile/.maestro/flows/`, `pnpm test:e2e:mobile`) against
+  `apps/mobile/scripts/mock-api.mjs`, an in-memory implementation of the contract: deterministic,
+  with failures on demand, no backend or credentials;
+- **the stack suite** (`apps/mobile/.maestro/stack/`, `pnpm test:e2e:mobile:stack`) against the
+  real API with PostgreSQL, Redis and Mailpit: the account journeys that need email, with the links
+  read from Mailpit.
+
+The mock suite's flows (run in order by `apps/mobile/.maestro/config.yaml`, each continuing the
+previous one's state like a user's first session):
 
 | Flow                          | Covers                                                                                                                                                                                              |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -198,6 +205,22 @@ continuing the previous one's state like a user's first session):
 | `06-session-ends`             | the server expires the access token (renewed, and the refused create sent again with its body), revokes the session in use (sign-in screen with the reason), and revokes it while the app is closed |
 | `07-deep-links`               | an accepted link opens its screen; an unknown route or a refused id lands on home; a link that starts the app opens its screen with the list below it                                               |
 | `08-sign-out`                 | sign-out with confirmation, still signed out after a restart, and a link into the app lands on sign-in                                                                                              |
+
+The stack suite's flows (run in order by `apps/mobile/.maestro/stack/config.yaml`, after the mock
+suite, from a clean install; every run signs up a new address):
+
+| Flow                   | Covers                                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `01-sign-up`           | sign-up from the sign-in screen, the link from the email opened on the phone, the password chosen then, the account signed in |
+| `02-change-email`      | a change of email from Settings, confirmed from the link to the new address; every session ends; sign-in with the new address |
+| `03-password-recovery` | signed out, a link asked from sign-in, a new password chosen on the phone, sign-in with it                                    |
+| `04-delete-account`    | deletion from Settings with the password and the destructive confirmation; the account can no longer sign in                  |
+
+`apps/mobile/.maestro/scripts/mailpit-link.js` reads the newest message to an address from
+Mailpit's API (`http://localhost:8045`, `MAILPIT_URL`) and hands the flow its link, rewritten to the
+e2e variant's scheme (the e2e build claims no https domain; the token travels in the fragment
+either way). `stack/helpers/open-emailed-link.yaml` looks once a second, for up to 30 seconds: the
+API's outbox sends within a few.
 
 **Failures on demand.** The mock API fails when a flow asks it to, through control endpoints outside
 the contract (listed at the top of `apps/mobile/scripts/mock-api.mjs`), which
@@ -227,9 +250,13 @@ sent):
 | App killed and restored                            | `02-session-survives-restart`, `06-session-ends`, `07-deep-links`, `08-sign-out`; `session.spec.ts`                                                                                                                  |
 | A response that breaks the contract                | `items.int.spec.tsx`, `session.spec.ts`: the mock API implements the contract and cannot break it                                                                                                                    |
 
-**In CI**: `.github/workflows/e2e-android.yml` builds the APK with Gradle, starts the mock API and
-an Android emulator, and runs the flows on every pull request that touches the app; screenshots,
-logs and a JUnit report are uploaded. The NDK React Native builds with (`ndkVersion` in
+**In CI**: `.github/workflows/e2e-android.yml` builds the APK with Gradle, starts the mock API, the
+API with its services (`pnpm services:up`, the migrations, `pnpm db:seed`, the API in development
+mode on `:3010`) and an Android emulator, and runs the mock suite, then the stack suite (the
+device's `localhost:4010` forwarded to the API instead of the mock), on every pull request that
+touches the app or the API; screenshots, logs and JUnit reports are uploaded. The API runs in
+development mode, as `pnpm dev` does: the `stack` profile of `docker-compose.yml` runs it in
+production mode, which refuses an SMTP server without TLS and so sends no email to Mailpit. The NDK React Native builds with (`ndkVersion` in
 `apps/mobile/node_modules/react-native/gradle/libs.versions.toml`) is not on the runner image: the
 workflow installs it with `sdkmanager` before the build, verified and with retries, instead of
 leaving it to Gradle's single download attempt. The emulator is a current phone (the `pixel_7`
@@ -298,6 +325,19 @@ Local requirements that CI (Linux) already meets:
     in the repository, and CI keeps checking the isolated layout;
   - or avoid all of this: build in WSL 2, or with EAS (`eas build --profile e2e --platform android`
     in `apps/mobile`), and run only the emulator and Maestro on Windows.
+
+**The stack suite locally**, on the same build, after the mock suite (or instead of it):
+
+```sh
+pnpm dev                                        # terminal 1: PostgreSQL, Redis, Mailpit, the API on :3010
+pnpm db:seed                                    # once: the example accounts
+adb reverse tcp:4010 tcp:3010                   # the emulator's localhost:4010 → the API
+pnpm test:e2e:mobile:stack
+adb reverse tcp:4010 tcp:4010                   # back to the mock API for the mock suite
+```
+
+On the iOS simulator, which reaches the Mac's `localhost` directly, run the API on `:4010` instead
+(`PORT=4010` in `apps/api/.env`), with the mock API stopped.
 
 **Locally, iOS** (macOS, Xcode, a simulator): build the `e2e` variant for the simulator, with
 `APP_VARIANT=e2e` and the variables above,

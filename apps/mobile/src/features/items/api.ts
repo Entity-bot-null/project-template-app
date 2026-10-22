@@ -8,6 +8,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 
+import { useRef } from 'react';
 import { z } from 'zod';
 
 import { api, type components } from '@/api/client';
@@ -128,13 +129,31 @@ function settleOptimistic(queryClient: QueryClient, id: string, created?: Item):
  * cache, and the next user may already be signed in): the create then
  * touches only what it wrote itself, its optimistic item, and never restores
  * a snapshot of the list, which would bring back the previous user's data.
+ *
+ * Every create carries an Idempotency-Key (docs/api-conventions.md#idempotency):
+ * a failure may come after the server saved the item (the answer was lost),
+ * so the user trying again with the same content sends the same key, and the
+ * server answers the first item instead of creating a second. Different
+ * content, or a new form, gets a new key.
  */
 export function useCreateItem() {
   const queryClient = useQueryClient();
+  const attempt = useRef<{ content: string; key: string } | null>(null);
   return useMutation({
     mutationKey: ['items', 'create'],
-    mutationFn: (input: CreateItemInput) =>
-      unwrapWith(api.POST('/api/items', { body: input }), ItemSchema),
+    mutationFn: (input: CreateItemInput) => {
+      const content = JSON.stringify(input);
+      if (attempt.current?.content !== content) {
+        attempt.current = { content, key: globalThis.expo.uuidv4() };
+      }
+      return unwrapWith(
+        api.POST('/api/items', {
+          body: input,
+          params: { header: { 'Idempotency-Key': attempt.current.key } },
+        }),
+        ItemSchema,
+      );
+    },
     onMutate: async (input) => {
       const key = itemKeys.list('');
       await queryClient.cancelQueries({ queryKey: key });
@@ -157,6 +176,7 @@ export function useCreateItem() {
       if (context?.optimisticId) settleOptimistic(queryClient, context.optimisticId);
     },
     onSuccess: (item, _input, context) => {
+      attempt.current = null;
       if (context.optimisticId && settleOptimistic(queryClient, context.optimisticId, item)) {
         queryClient.setQueryData(itemKeys.detail(item.id), item);
       }
