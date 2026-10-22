@@ -117,12 +117,12 @@ Grafana on 3011, Prometheus on 9100 ([observability.md](observability.md#local-b
 The app's HTTP client (`apps/mobile/src/api/`) prefixes every path of the contract (`/api/...`)
 with `EXPO_PUBLIC_API_URL`: the API's origin, without `/api` and without a trailing slash.
 
-| The app talks to                          | `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` | On Android                      |
-| ----------------------------------------- | ------------------------------------------- | ------------------------------- |
-| the mock API (`apps/mobile/.env.example`) | `http://localhost:4010`                     | `adb reverse tcp:4010 tcp:4010` |
-| the API's dev server (`pnpm dev`)         | `http://localhost:3010`                     | `adb reverse tcp:3010 tcp:3010` |
-| the production-like stack                 | `http://localhost:8090`                     | `adb reverse tcp:8090 tcp:8090` |
-| a deployed API (builds)                   | `https://api.<your-domain>`, set in EAS     |                                 |
+| The app talks to                                              | `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` | On Android                      |
+| ------------------------------------------------------------- | ------------------------------------------- | ------------------------------- |
+| the API's dev server (`pnpm dev`, `apps/mobile/.env.example`) | `http://localhost:3010`                     | `adb reverse tcp:3010 tcp:3010` |
+| the mock API (`pnpm mock:api`)                                | `http://localhost:4010`                     | `adb reverse tcp:4010 tcp:4010` |
+| the production-like stack                                     | `http://localhost:8090`                     | `adb reverse tcp:8090 tcp:8090` |
+| a deployed API (builds)                                       | `https://api.<your-domain>`, set in EAS     |                                 |
 
 `adb reverse` makes the emulator's or the USB device's `localhost` reach this machine; the iOS
 simulator reaches it directly. Plain HTTP is accepted for local hosts only, and production builds
@@ -130,9 +130,9 @@ require HTTPS (`apps/mobile/src/config/env.schema.ts`). Values are inlined into 
 `pnpm start` after changing them. Deployed values come from the EAS environments
 ([releases.md](releases.md#environment-variables)).
 
-The mock API (`apps/mobile/scripts/mock-api.mjs`) is the default: it implements the contract's
-session, profile and items routes in memory, with the seed's accounts and 45 items, and fails on
-demand for the Maestro flows. It is simpler than the API where the app cannot tell (a refresh token
+The mock API (`apps/mobile/scripts/mock-api.mjs`) is the way to work without the API: it implements
+every route of the contract in memory, with the seed's accounts and 45 items and an outbox for the
+links it would email, and fails on demand for the Maestro flows. It is simpler than the API where the app cannot tell (a refresh token
 works once, no reuse window, no rate limits), and `apps/mobile/scripts/mock-api.test.mjs` fails
 when it serves a route, a status or a body the contract does not declare
 ([openapi/README.md](../openapi/README.md#the-mock-api)).

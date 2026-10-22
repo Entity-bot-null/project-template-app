@@ -1,6 +1,7 @@
 # 0010. Refuse app versions below a configured minimum, in the API, with 426
 
-- **Status:** Accepted
+- **Status:** Accepted; the app's side shipped later (the headers, the `upgradeRequired` kind and
+  the update screen: [releases.md](../releases.md#minimum-supported-version))
 - **Date:** 2026-10-21
 - **Deciders:** template maintainers
 

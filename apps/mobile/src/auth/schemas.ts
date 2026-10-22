@@ -33,6 +33,7 @@ export const SessionSchema = TokensSchema.extend({
 
 export type Tokens = z.infer<typeof TokensSchema>;
 export type User = z.infer<typeof SessionUserSchema>;
+export type Session = z.infer<typeof SessionSchema>;
 
 export interface Credentials {
   email: string;

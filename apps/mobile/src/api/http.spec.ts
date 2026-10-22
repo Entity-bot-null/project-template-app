@@ -5,7 +5,15 @@ import {
   setErrorReporter,
 } from '@/lib/observability/errorReporter';
 
-import { type AuthHandlers, createHttp, pathOf, REQUEST_ID_HEADER } from './http';
+import {
+  APP_BUILD_HEADER,
+  APP_PLATFORM_HEADER,
+  APP_VERSION_HEADER,
+  type AuthHandlers,
+  createHttp,
+  pathOf,
+  REQUEST_ID_HEADER,
+} from './http';
 
 function request(path = '/api/items', init?: RequestInit): Request {
   return new Request(`https://api.example.com${path}`, init);
@@ -37,6 +45,35 @@ describe('createHttp', () => {
     const fetch = jest.fn((_request: Request) => Promise.resolve(respond(200)));
     await createHttp({ fetch })(request('/x', { headers: { [REQUEST_ID_HEADER]: 'abc' } }));
     expect(fetch.mock.calls[0]?.[0].headers.get(REQUEST_ID_HEADER)).toBe('abc');
+  });
+
+  it('tells the API its platform, version and build, leaving out what it does not know', async () => {
+    const fetch = jest.fn((_request: Request) => Promise.resolve(respond(200)));
+    await createHttp({ fetch, client: { platform: 'android', version: '1.4.0', build: '57' } })(
+      request(),
+    );
+    const sent = fetch.mock.calls[0]?.[0];
+    expect(sent?.headers.get(APP_PLATFORM_HEADER)).toBe('android');
+    expect(sent?.headers.get(APP_VERSION_HEADER)).toBe('1.4.0');
+    expect(sent?.headers.get(APP_BUILD_HEADER)).toBe('57');
+
+    await createHttp({ fetch, client: { platform: 'ios', version: null, build: null } })(request());
+    const unknown = fetch.mock.calls[1]?.[0];
+    expect(unknown?.headers.get(APP_PLATFORM_HEADER)).toBe('ios');
+    expect(unknown?.headers.has(APP_VERSION_HEADER)).toBe(false);
+    expect(unknown?.headers.has(APP_BUILD_HEADER)).toBe(false);
+  });
+
+  it('passes a 426 on, once, and still answers with it', async () => {
+    const fetch = jest.fn((_request: Request) => Promise.resolve(respond(426)));
+    const onUpgradeRequired = jest.fn();
+    const response = await createHttp({ fetch, onUpgradeRequired })(request());
+    expect(response.status).toBe(426);
+    expect(onUpgradeRequired).toHaveBeenCalledTimes(1);
+    // Any other answer says nothing about the version.
+    fetch.mockResolvedValueOnce(respond(400));
+    await createHttp({ fetch, onUpgradeRequired })(request());
+    expect(onUpgradeRequired).toHaveBeenCalledTimes(1);
   });
 
   it("adds the session's token", async () => {

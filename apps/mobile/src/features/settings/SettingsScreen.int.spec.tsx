@@ -1,22 +1,32 @@
 import { fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 import { Alert } from 'react-native';
 
 import { useSessionStore } from '@/auth/session';
+import { capabilitiesKey } from '@/features/auth/api';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { DEFAULT_PREFERENCES, usePreferences } from '@/store/preferences';
-import { account } from '@/test/fixtures';
-import { ok, stubFetch, type StubbedFetch } from '@/test/http';
+import { account, capabilities } from '@/test/fixtures';
+import { failure, ok, stubFetch, type StubbedFetch } from '@/test/http';
 import { renderWithProviders } from '@/test/render';
 import { endTestSession, signInForTest } from '@/test/session';
 
 import { SettingsScreen } from './SettingsScreen';
 
+jest.mock('expo-router', () => ({
+  ...jest.requireActual<object>('expo-router'),
+  router: { push: jest.fn() },
+}));
+
 let fetchStub: StubbedFetch;
 
 beforeEach(async () => {
   usePreferences.setState(DEFAULT_PREFERENCES);
-  fetchStub = stubFetch({ 'GET /api/users/me': () => ok(account) });
+  fetchStub = stubFetch({
+    'GET /api/users/me': () => ok(account),
+    'GET /api/auth/capabilities': () => ok(capabilities),
+  });
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
   await signInForTest(fetchStub);
 });
@@ -31,6 +41,49 @@ describe('SettingsScreen', () => {
     await renderWithProviders(<SettingsScreen />);
     expect(await screen.findByRole('header', { name: account.name })).toBeOnTheScreen();
     expect(screen.getByText(account.email)).toBeOnTheScreen();
+  });
+
+  it('leads to the account’s screens: password, email, deletion', async () => {
+    await renderWithProviders(<SettingsScreen />);
+    await userEvent.press(await screen.findByRole('button', { name: 'Change email' }));
+    expect(router.push).toHaveBeenCalledWith('/account/change-email');
+    await userEvent.press(screen.getByRole('button', { name: 'Change password' }));
+    expect(router.push).toHaveBeenCalledWith('/account/change-password');
+    await userEvent.press(screen.getByRole('button', { name: 'Delete account' }));
+    expect(router.push).toHaveBeenCalledWith('/account/delete-account');
+  });
+
+  it('offers no change of email on a server that sends no email, and keeps the rest when the profile fails', async () => {
+    fetchStub.on('GET /api/auth/capabilities', () => ok({ ...capabilities, emailChange: false }));
+    fetchStub.on('GET /api/users/me', () => failure(503, 'Maintenance'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { queryClient } = await renderWithProviders(<SettingsScreen />);
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeOnTheScreen();
+    await waitFor(() => {
+      expect(queryClient.getQueryState(capabilitiesKey)?.status).toBe('success');
+    });
+    expect(screen.getByRole('button', { name: 'Change password' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Change email' })).toBeNull();
+
+    fetchStub.on('GET /api/users/me', () => ok(account));
+    await userEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByText(account.email)).toBeOnTheScreen();
+  });
+
+  it('shows the administration to an admin only', async () => {
+    const memberView = await renderWithProviders(<SettingsScreen />);
+    await screen.findByText(account.email);
+    expect(screen.queryByRole('header', { name: 'Administration' })).toBeNull();
+    await memberView.unmount();
+
+    await endTestSession(fetchStub);
+    await signInForTest(fetchStub, { role: 'admin' });
+    await renderWithProviders(<SettingsScreen />);
+    expect(await screen.findByRole('header', { name: 'Administration' })).toBeOnTheScreen();
+    await userEvent.press(screen.getByRole('button', { name: 'Users' }));
+    expect(router.push).toHaveBeenCalledWith('/admin/users');
+    await userEvent.press(screen.getByRole('button', { name: 'Invitations' }));
+    expect(router.push).toHaveBeenCalledWith('/admin/invitations');
   });
 
   it('tells support which binary and update it runs', async () => {
@@ -80,7 +133,11 @@ describe('SettingsScreen', () => {
     const buttons = alert.mock.calls[0]![2]!;
     buttons.find((button) => button.style === 'destructive')?.onPress?.();
     await waitFor(() => {
-      expect(useSessionStore.getState()).toEqual({ status: 'signedOut', endedBy: 'user' });
+      expect(useSessionStore.getState()).toEqual({
+        status: 'signedOut',
+        endedBy: 'user',
+        user: null,
+      });
     });
   });
 });

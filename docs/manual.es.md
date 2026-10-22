@@ -124,13 +124,13 @@ para que se instalen una junto a otra ([releases.md](releases.md#build-variants-
 La app se ejecuta como **development build** (el binario de tu propia app con herramientas para
 desarrolladores), no en Expo Go.
 
-| Objetivo                                         | Comandos                                                                                                                                                   |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| La primera vez en Android                        | `pnpm install`, `cp apps/mobile/.env.example apps/mobile/.env`, `pnpm mock:api` (terminal 1), `adb reverse tcp:4010 tcp:4010`, `pnpm android` (terminal 2) |
-| La primera vez en iOS (macOS)                    | lo mismo con `pnpm ios` (el simulador llega a `localhost` directamente)                                                                                    |
-| Los demás días                                   | `pnpm mock:api` y `pnpm start`, y después abre la app instalada                                                                                            |
-| Después de un cambio nativo                      | `pnpm prebuild`, y después `pnpm android` / `pnpm ios` (no regeneran nada mientras existan `apps/mobile/android/` e `apps/mobile/ios/`)                    |
-| Un development build sin Android Studio ni Xcode | `eas build --profile development --platform android` (o `development-simulator` para el simulador de iOS) e instálalo desde el enlace                      |
+| Objetivo                                         | Comandos                                                                                                                                                                                                                                |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| La primera vez en Android                        | `pnpm install`, `cp apps/mobile/.env.example apps/mobile/.env` y en él `EXPO_PUBLIC_API_URL=http://localhost:4010` (trae la API, sección 5), `pnpm mock:api` (terminal 1), `adb reverse tcp:4010 tcp:4010`, `pnpm android` (terminal 2) |
+| La primera vez en iOS (macOS)                    | lo mismo con `pnpm ios` (el simulador llega a `localhost` directamente)                                                                                                                                                                 |
+| Los demás días                                   | `pnpm mock:api` y `pnpm start`, y después abre la app instalada                                                                                                                                                                         |
+| Después de un cambio nativo                      | `pnpm prebuild`, y después `pnpm android` / `pnpm ios` (no regeneran nada mientras existan `apps/mobile/android/` e `apps/mobile/ios/`)                                                                                                 |
+| Un development build sin Android Studio ni Xcode | `eas build --profile development --platform android` (o `development-simulator` para el simulador de iOS) e instálalo desde el enlace                                                                                                   |
 
 La API mock (`apps/mobile/scripts/mock-api.mjs`) implementa el contrato en memoria: las cuentas
 `member@example.com` / `member-password` y `admin@example.com` / `admin-password`, 45 elementos de
@@ -138,7 +138,10 @@ ejemplo. `MOCK_ACCESS_TTL_SEC=20 pnpm mock:api` hace que los tokens caduquen ens
 se renueva la sesión); `MOCK_LATENCY_MS=1500` ralentiza todas las respuestas (verás los estados de
 carga). También falla a demanda, para ver un estado de error:
 `curl -X POST localhost:4010/__mock/sessions/revoke` termina la sesión en la siguiente petición de
-la app ([testing.md](testing.md#end-to-end) lista las demás).
+la app ([testing.md](testing.md#end-to-end) lista las demás). No envía correo: los enlaces que
+enviaría (alta, recuperación de contraseña, cambio de correo, invitación) se imprimen en su terminal
+con el esquema del build de desarrollo y se guardan en `GET localhost:4010/__mock/outbox`; ábrelos en
+el emulador con `adb shell am start -a android.intent.action.VIEW -d '<enlace>'`.
 
 Con la app en marcha: `r` en la terminal de `pnpm start` recarga, `j` abre React Native DevTools,
 `m` abre el menú de desarrollador en el dispositivo.
@@ -195,6 +198,13 @@ pnpm --filter api mail test --to tu@example.com    # encola un mensaje de prueba
 pnpm --filter api mail status [--to <dirección>]   # la cola, o los mensajes de una dirección
 pnpm --filter api mail retry --id <id> | --failed  # reenvía los mensajes fallidos
 ```
+
+Los enlaces de esos mensajes (`<APP_ORIGIN>/app/<pantalla>#token=…`) abren las pantallas de la app
+en un teléfono cuando `APP.linkDomain` es ese dominio
+([mobile-architecture.md](mobile-architecture.md#deep-links)). Un build de desarrollo no reclama
+ningún dominio: abre el enlace con su esquema, conservando la pantalla y el fragmento,
+`adb shell am start -a android.intent.action.VIEW -d 'templateapp-dev://reset-password#token=…'`
+(`xcrun simctl openurl booted '…'` en el simulador de iOS).
 
 Un servidor SMTP real, el remitente y los límites: [environment.md](environment.md); cómo funciona
 el outbox: [architecture.md](architecture.md#email).
@@ -265,6 +275,7 @@ borrar la suya ([adr/0012-account-deletion.md](adr/0012-account-deletion.md)).
 | Modo watch                                     | `pnpm --filter mobile test:watch`, `pnpm --filter api test:watch`                                       |                                                     |
 | Una carpeta o un test                          | `pnpm --filter mobile test features/items`, `pnpm --filter api exec vitest run src/items`               |                                                     |
 | End-to-end en un dispositivo                   | `pnpm test:e2e:mobile` (con un build de release de la variante `e2e` instalado y la API mock en marcha) | `apps/mobile/.maestro/flows/`                       |
+| End-to-end contra la API y Mailpit             | `pnpm test:e2e:mobile:stack` (el mismo build, `pnpm dev`, `adb reverse tcp:4010 tcp:3010`)              | `apps/mobile/.maestro/stack/`                       |
 
 Cómo escribirlos y los helpers: [testing.md](testing.md).
 
@@ -323,6 +334,7 @@ sus valores por defecto y sus reglas: [environment.md](environment.md).
 | `pnpm test` / `pnpm test:coverage`          | Jest (app) y Vitest (unitarios de la API); `pnpm --filter <paquete> test:watch` para el modo watch                                                                                                             |
 | `pnpm test:integration`                     | la suite de integración de la API contra PostgreSQL, Redis y Mailpit                                                                                                                                           |
 | `pnpm test:e2e:mobile`                      | flujos de Maestro                                                                                                                                                                                              |
+| `pnpm test:e2e:mobile:stack`                | flujos de Maestro contra la API real y Mailpit (alta, cambio de correo, recuperación de contraseña, borrado de cuenta)                                                                                         |
 | `pnpm test:scripts`                         | los tests de los scripts del repositorio (`scripts/*.test.mjs` y `apps/*/scripts/*.test.mjs`: el motor de Doberman, la política de dependencias, las imágenes de herramientas, la API mock contra el contrato) |
 | `pnpm expo:doctor`                          | expo-doctor, todas las comprobaciones; las versiones de las dependencias contra el manifiesto del SDK instalado (el lockfile), no contra los últimos parches publicados                                        |
 | `pnpm security`                             | `pnpm audit` (high), política de dependencias y licencias, escaneo de secretos                                                                                                                                 |

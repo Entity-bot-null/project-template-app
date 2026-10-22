@@ -363,7 +363,7 @@ export default defineConfig([
       },
     },
   },
-  // Maestro's JavaScript (runScript in apps/mobile/.maestro/flows): its own globals, and
+  // Maestro's JavaScript (runScript in apps/mobile/.maestro): its own globals, and
   // each variable of the flow's `env` as a global of the same name.
   {
     files: ['apps/mobile/.maestro/**/*.js'],
@@ -378,6 +378,10 @@ export default defineConfig([
         CONTROL: 'readonly',
         ROUTE: 'readonly',
         STATUS: 'readonly',
+        MAILPIT_URL: 'readonly',
+        SCHEME: 'readonly',
+        SCREEN: 'readonly',
+        TO: 'readonly',
       },
     },
   },

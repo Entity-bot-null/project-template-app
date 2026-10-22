@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -6,7 +7,10 @@ import { z } from 'zod';
 import { session, useSessionStore } from '@/auth/session';
 import { analytics } from '@/lib/analytics';
 import { toAppError, userMessage } from '@/lib/errors';
+import { showFieldErrors } from '@/lib/forms';
 import { AlertText, Button, Card, Screen, Text, TextField } from '@/ui';
+
+import { useCapabilities } from './api';
 
 // A form the template's way (docs/mobile-architecture.md#forms): React Hook Form
 // with a Zod schema, errors under each field and announced, the keyboard
@@ -26,6 +30,8 @@ type SignInValues = z.input<typeof SignInSchema>;
 
 export function SignInScreen() {
   const endedBy = useSessionStore((state) => state.endedBy);
+  // Offered only once the server says it offers them (not while unknown).
+  const capabilities = useCapabilities().data;
   const [formError, setFormError] = useState<string | null>(null);
   const {
     control,
@@ -48,13 +54,7 @@ export function SignInScreen() {
       if (appError.kind === 'unauthenticated') {
         // One message for an unknown email and a wrong password.
         setFormError('Wrong email or password.');
-      } else if (appError.kind === 'validation' && appError.details.fieldErrors) {
-        for (const field of appError.details.fieldErrors) {
-          if (field.path === 'email' || field.path === 'password') {
-            setError(field.path, { message: field.message });
-          }
-        }
-      } else {
+      } else if (!showFieldErrors(appError, ['email', 'password'], setError)) {
         setFormError(userMessage(appError));
       }
     }
@@ -122,6 +122,26 @@ export function SignInScreen() {
         loading={isSubmitting}
         onPress={() => void submit()}
       />
+      {capabilities?.passwordReset === true && (
+        <Button
+          label="Forgot your password?"
+          variant="ghost"
+          testID="sign-in-forgot-password"
+          onPress={() => {
+            router.push('/forgot-password');
+          }}
+        />
+      )}
+      {capabilities?.signUp === true && (
+        <Button
+          label="Create an account"
+          variant="secondary"
+          testID="sign-in-sign-up"
+          onPress={() => {
+            router.push('/sign-up');
+          }}
+        />
+      )}
     </Screen>
   );
 }

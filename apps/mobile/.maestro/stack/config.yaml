@@ -1,0 +1,12 @@
+# The Maestro flows against the real API (pnpm test:e2e:mobile:stack): the
+# account journeys that need email, read from the local Mailpit. Run after the
+# mock suite (../config.yaml), on the same e2e build, with the API reachable as
+# localhost:4010 on the device (adb reverse tcp:4010 tcp:3010). See
+# apps/mobile/.maestro/README.md and docs/testing.md#end-to-end.
+#
+# One flow, account-journeys.yaml, runs the journeys (journeys/) in order on
+# one account; helpers/ holds what they share.
+flows:
+  - '*.yaml'
+executionOrder:
+  continueOnFailure: false

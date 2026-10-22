@@ -39,8 +39,10 @@ const APP: AppIdentity = {
   // dependency: README.md#commands). Empty: EAS Update off.
   easProjectId: '',
   owner: undefined,
-  // Domain of universal links / Android App Links (https://<domain>/items/42),
-  // once it serves apple-app-site-association and assetlinks.json. Empty: off.
+  // Domain of universal links / Android App Links (https://<domain>/app/items/42),
+  // once it serves apple-app-site-association and assetlinks.json (the `web`
+  // image generates both: docs/mobile-architecture.md#deep-links). Empty: off.
+  // REQUIERE CONFIGURACIÓN.
   linkDomain: '',
   colors: {
     splashBackground: '#FFFFFF',
@@ -179,7 +181,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
               {
                 action: 'VIEW',
                 autoVerify: true,
-                // The paths src/lib/links.ts accepts, one per route (links.spec.ts).
+                // The paths src/lib/links.ts accepts, one per route, all under
+                // /app/: the rest of the domain is the website (links.spec.ts).
                 data: APP_LINK_PATHS.map((path) => ({
                   scheme: 'https',
                   host: APP.linkDomain,

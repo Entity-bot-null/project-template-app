@@ -113,8 +113,8 @@ what it does with the API's answers.
 - **API calls:** `unwrap(call)` and `unwrapWith(call, Schema)` (`apps/mobile/src/api/unwrap.ts`)
   return the envelope's `data`, or throw an `AppError` (`apps/mobile/src/lib/errors.ts`). An error
   status becomes `errorFromResponse()`: the kind from the status (`kindForStatus`: 400 and 422
-  `validation`, 401 `unauthenticated`, 403 `forbidden`, 404 `notFound`, 409 `conflict`, 429
-  `rateLimited`, 5xx `server`, any other `unknown`), with `details.status`, `details.requestId`,
+  `validation`, 401 `unauthenticated`, 403 `forbidden`, 404 `notFound`, 409 `conflict`, 426
+  `upgradeRequired`, 429 `rateLimited`, 5xx `server`, any other `unknown`), with `details.status`, `details.requestId`,
   `details.serverMessage` (the envelope's `message`) and `details.fieldErrors` (its `errors`). A
   success without the expected body, or `data` that does not match the schema, is a `server` error:
   it never reaches a screen as data. Network failures, timeouts (15 s) and cancellations get kinds
@@ -130,10 +130,12 @@ what it does with the API's answers.
   ([mobile-architecture.md](mobile-architecture.md#authentication)).
 - **Reporting:** `reportError()` sends the unexpected kinds (`server`, `unknown`) to the error
   tracker and records the expected ones as a breadcrumb, redacted either way.
-- **Statuses without a kind:** 413, 415 and 426 arrive as `unknown`, reported as a bug, with
-  "Something went wrong. Try again.". The app sends no `X-App-Platform`, so the API never answers
-  it 426; the update screen it would need, and its kind, are described in
-  [releases.md](releases.md#minimum-supported-version).
+- **A version the API no longer serves:** every request carries `X-App-Platform`, `X-App-Version`
+  and `X-App-Build`; a 426 is `upgradeRequired`, expected and never retried, and the root layout
+  leaves the update screen as the only one
+  ([releases.md](releases.md#minimum-supported-version)).
+- **Statuses without a kind:** 413 and 415 arrive as `unknown`, reported as a bug, with "Something
+  went wrong. Try again.".
 
 ### From a field error to a form field
 

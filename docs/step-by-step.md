@@ -221,7 +221,8 @@ pnpm install
 cp apps/mobile/.env.example apps/mobile/.env
 ```
 
-It already points at the mock API (`http://localhost:4010`). Nothing else to set.
+It points at this repository's API (`http://localhost:3010`, phase 3.5). Until then, without
+Docker, point it at the mock API: in `apps/mobile/.env`, `EXPO_PUBLIC_API_URL=http://localhost:4010`.
 
 **Check:** `git status` does not list `apps/mobile/.env` (ignored: never commit it).
 
@@ -292,7 +293,8 @@ pnpm dev                      # terminal 1, instead of pnpm mock:api
 `http://127.0.0.1:3010/api/health/ready` answers `"status":"ok"`; `http://localhost:8045` (Mailpit)
 opens.
 
-Point the app at it: `EXPO_PUBLIC_API_URL=http://localhost:3010` in `apps/mobile/.env`, then
+Point the app at it: `EXPO_PUBLIC_API_URL=http://localhost:3010` in `apps/mobile/.env` (the value
+`.env.example` ships), then
 `adb reverse tcp:3010 tcp:3010` and `pnpm start` (terminal 2). Sign in with
 `member@example.com` / `member-password`: the same 45 items, now from PostgreSQL. Back to the mock
 API: `http://localhost:4010` and `pnpm mock:api`.
@@ -348,6 +350,18 @@ pnpm test:e2e:mobile
 ```
 
 **Check:** `8/8 Flows Passed`. CI runs the same on every pull request.
+
+Then the flows against the real API and Mailpit, on the same build (`pnpm dev` in terminal 1
+instead of the mock API, and the example accounts once):
+
+```
+pnpm db:seed
+adb reverse tcp:4010 tcp:3010
+pnpm test:e2e:mobile:stack
+```
+
+**Check:** `1/1 Flow Passed`: the account journeys (sign-up, change of email, password recovery,
+account deletion).
 
 `apps/mobile/android/` now holds the `e2e` variant: run `pnpm prebuild` before going back to
 `pnpm android`.
@@ -486,9 +500,15 @@ own links.
 
 ### 6.4 Optional pieces
 
-- **Deep links from your domain:** `APP.linkDomain`, the paths in `apps/mobile/src/lib/links.ts`,
-  and the files `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` on that
-  domain ([mobile-architecture.md](mobile-architecture.md#deep-links)).
+- **Deep links from your domain:** `APP.linkDomain` (the domain of the API's `APP_ORIGIN`: the
+  links in its emails point to `/app/…` there), the paths in `apps/mobile/src/lib/links.ts`, and the
+  files `/.well-known/apple-app-site-association` (claiming `/app/*`) and
+  `/.well-known/assetlinks.json` on that domain
+  ([mobile-architecture.md](mobile-architecture.md#deep-links)).
+- **The update screen's store links:** once the store pages exist, `EXPO_PUBLIC_STORE_URL_IOS` and
+  `EXPO_PUBLIC_STORE_URL_ANDROID` in each EAS environment
+  ([releases.md](releases.md#environment-variables)); the API's `MOBILE_MIN_VERSION_*` decide who
+  sees it ([releases.md](releases.md#minimum-supported-version)).
 - **Push notifications:** implement `PushTokenRegistrar` with your backend's endpoint
   ([mobile-architecture.md](mobile-architecture.md#notifications)); credentials in phase 7.4.
 - **Analytics:** a provider in `apps/mobile/src/lib/analytics/providers.ts`.
