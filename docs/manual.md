@@ -468,9 +468,9 @@ All of it in detail: [releases.md](releases.md).
 ## 15. When something fails
 
 The README has a troubleshooting table ([README.md](../README.md#troubleshooting)); the end-to-end
-specifics are in [testing.md](testing.md#end-to-end); the server's messages (the web image, the
-deployment, its checks) in [troubleshooting.md](troubleshooting.md), and what to do when
-production misbehaves in [incident-response.md](incident-response.md). The most common:
+specifics are in [testing.md](testing.md#end-to-end); every message the tools print, with its
+fix, in [troubleshooting.md](troubleshooting.md), and what to do when production misbehaves in
+[incident-response.md](incident-response.md). The most common:
 
 | Message                                                                        | Fix                                                                                                    |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
@@ -499,19 +499,21 @@ production misbehaves in [incident-response.md](incident-response.md). The most 
 
 ### 16.2 The other documents
 
-| Document                                                                                                                                          | For                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [step-by-step.md](step-by-step.md)                                                                                                                | what to do, in order, from zero to the stores                                      |
-| [mobile-architecture.md](mobile-architecture.md)                                                                                                  | how the app's code is organized and why                                            |
-| [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [authorization.md](authorization.md), [database.md](database.md)    | the API: modules, HTTP conventions, access rules, data                             |
-| [error-handling.md](error-handling.md), [observability.md](observability.md), [environment.md](environment.md), [security.md](security.md)        | errors end to end; logs, traces, metrics; API variables; the API's security design |
-| [adr/](adr/README.md)                                                                                                                             | the decisions and their reasons                                                    |
-| [testing.md](testing.md), [performance.md](performance.md)                                                                                        | tests; performance and the bundle budget                                           |
-| [releases.md](releases.md), [ci-cd.md](ci-cd.md)                                                                                                  | builds, stores, updates; workflows and settings                                    |
-| [deploy-vps.md](deploy-vps.md), [disaster-recovery.md](disaster-recovery.md), [load-testing.md](load-testing.md)                                  | the server: setting it up and running it; backups and restores; load tests         |
-| [alerting.md](alerting.md), [incident-response.md](incident-response.md), [troubleshooting.md](troubleshooting.md)                                | SLOs and alerts; the runbooks; the server's error messages                         |
-| [production-readiness.md](production-readiness.md), [store-compliance.md](store-compliance.md)                                                    | the release checklist; what the stores require                                     |
-| [accessibility.md](accessibility.md), [localization.md](localization.md)                                                                          | the accessibility gate; translating the app (optional)                             |
-| [SECURITY.md](../SECURITY.md)                                                                                                                     | threat model, MASVS, data inventory, secrets, dependencies                         |
-| [ENGINEERING_STANDARDS.md](../ENGINEERING_STANDARDS.md), [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md), [CONTRIBUTING.md](../CONTRIBUTING.md) | the rules; when a change is done; the workflow                                     |
-| [AGENTS.md](../AGENTS.md)                                                                                                                         | instructions for AI coding agents                                                  |
+| Document                                                                                                                                                                 | For                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| [step-by-step.md](step-by-step.md)                                                                                                                                       | what to do, in order, from zero to the stores                                      |
+| [mobile-architecture.md](mobile-architecture.md)                                                                                                                         | how the app's code is organized and why                                            |
+| [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [authorization.md](authorization.md), [database.md](database.md)                           | the API: modules, HTTP conventions, access rules, data                             |
+| [error-handling.md](error-handling.md), [observability.md](observability.md), [environment.md](environment.md), [security.md](security.md)                               | errors end to end; logs, traces, metrics; API variables; the API's security design |
+| [adr/](adr/README.md)                                                                                                                                                    | the decisions and their reasons                                                    |
+| [testing.md](testing.md), [performance.md](performance.md)                                                                                                               | tests; performance and the bundle budget                                           |
+| [releases.md](releases.md), [ci-cd.md](ci-cd.md)                                                                                                                         | builds, stores, updates; workflows and settings                                    |
+| [deploy-vps.md](deploy-vps.md), [disaster-recovery.md](disaster-recovery.md), [load-testing.md](load-testing.md)                                                         | the server: setting it up and running it; backups and restores; load tests         |
+| [alerting.md](alerting.md), [incident-response.md](incident-response.md), [troubleshooting.md](troubleshooting.md)                                                       | SLOs and alerts; the runbooks; every error message and its fix                     |
+| [production-readiness.md](production-readiness.md), [store-compliance.md](store-compliance.md)                                                                           | the release checklist; what the stores require                                     |
+| [accessibility.md](accessibility.md), [localization.md](localization.md)                                                                                                 | the accessibility gate; translating the app (optional)                             |
+| [SECURITY.md](../SECURITY.md)                                                                                                                                            | threat model, MASVS, data inventory, secrets, dependencies                         |
+| [ENGINEERING_STANDARDS.md](../ENGINEERING_STANDARDS.md), [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md), [CONTRIBUTING.md](../CONTRIBUTING.md)                        | the rules; when a change is done; the workflow                                     |
+| [how-to.md](how-to.md), [template/bootstrap.md](template/bootstrap.md)                                                                                                   | recipes for the usual changes; starting a project and its placeholders             |
+| [branching.md](branching.md), [commits.md](commits.md), [code-review.md](code-review.md), [git-hooks.md](git-hooks.md), [definition-of-ready.md](definition-of-ready.md) | branches, commit titles, review, hooks, when a story can start                     |
+| [AGENTS.md](../AGENTS.md)                                                                                                                                                | instructions for AI coding agents                                                  |
