@@ -8,7 +8,7 @@ env:
   APP_ID: com.example.templateapp.e2e
   SCHEME: templateapp-e2e
 ---
-- openLink: ${SCHEME}://items/item-3
+- openLink: ${SCHEME}://items/00000000-0000-7000-8000-000000000003
 - extendedWaitUntil:
     visible:
       id: item-detail-screen
@@ -25,7 +25,7 @@ env:
     id: item-detail-screen
 
 # A known route with an id the allowlist refuses (markup): home as well.
-- openLink: ${SCHEME}://items/item-3
+- openLink: ${SCHEME}://items/00000000-0000-7000-8000-000000000003
 - extendedWaitUntil:
     visible:
       id: item-detail-screen
@@ -41,7 +41,7 @@ env:
 # The link starts the app: the session is restored first, then the item
 # opens, with the list below it (the anchor of src/app/(app)/_layout.tsx).
 - stopApp
-- openLink: ${SCHEME}://items/item-5
+- openLink: ${SCHEME}://items/00000000-0000-7000-8000-000000000005
 - extendedWaitUntil:
     visible:
       id: item-detail-screen

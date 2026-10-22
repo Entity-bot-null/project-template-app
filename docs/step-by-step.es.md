@@ -53,10 +53,9 @@ Cómo usarla:
       **no se puede cambiar después de la primera publicación en las tiendas**.
 - [ ] **El esquema de URL** (URL scheme) para los deep links, por ejemplo `acmeportal`
       (`acmeportal://items/42`).
-- [ ] **El backend**: la API con la que habla la app, sus URL HTTPS de staging y de producción, y su
-      contrato OpenAPI. Si todavía no existe, la app funciona contra la API mock incluida hasta que
-      exista. Si es la API de la plantilla web de esta familia de repositorios, planifica los
-      endpoints de sesión para móvil (fase 6.1).
+- [ ] **El backend**: la API incluida (`apps/api`), que amplías con tus funcionalidades, o la tuya;
+      y dónde va a funcionar, con sus URL HTTPS de staging y de producción. Mientras no funcione en
+      ningún sitio, la app funciona contra la API en tu máquina o contra la API mock incluida.
 - [ ] **Enlaces desde la web** (opcional): un dominio para universal links/App Links (que
       `app.acme.com/items/42` abra la app).
 - [ ] **Qué datos recoge la app** (para los formularios de privacidad de las tiendas) y si usa
@@ -115,6 +114,7 @@ Apple y de Google están, como mínimo, solicitadas.
 | Node.js 24         | nvm/fnm o el instalador oficial (24 LTS)                                                        | `node --version`                              | `v24.15.0` o posterior                                             |
 | pnpm               | `corepack enable` (Node.js 25 y posteriores no traen Corepack: antes `npm install -g corepack`) | `pnpm --version` (dentro del proyecto)        | `12.5.1`                                                           |
 | GitHub CLI         | cli.github.com                                                                                  | `gh auth status` (después de `gh auth login`) | `Logged in to github.com`                                          |
+| Docker             | Docker Desktop (Windows, macOS) o Docker Engine con el plugin de Compose (Linux)                | `docker compose version`                      | `Docker Compose version v2…`                                       |
 | EAS CLI            | `npm install -g eas-cli`                                                                        | `eas --version`                               | `eas-cli/…` (24 o posterior)                                       |
 | VS Code (sugerido) | code.visualstudio.com                                                                           |                                               | ofrece las extensiones recomendadas (Expo Tools, ESLint, Prettier) |
 
@@ -286,6 +286,34 @@ A partir de ahora: `pnpm mock:api` y `pnpm start`, y después abre la app instal
 cambio nativo, `pnpm prebuild` y luego `pnpm android`: `pnpm android` solo genera
 `apps/mobile/android/` cuando no existe.
 
+### 3.5 La API real (Docker arrancado)
+
+La app ha funcionado contra la API mock. Ahora la API de este repositorio, en tu máquina:
+
+```
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+openssl rand -hex 32          # pégalo como JWT_ACCESS_SECRET en apps/api/.env
+pnpm services:up              # PostgreSQL, Redis y Mailpit
+pnpm db:migrate
+pnpm db:seed
+pnpm dev                      # terminal 1, en lugar de pnpm mock:api
+```
+
+**Comprobación:** `pnpm dev` muestra un recuadro con `API   http://127.0.0.1:3010/api`;
+`http://127.0.0.1:3010/api/health/ready` responde `"status":"ok"`; `http://localhost:8045`
+(Mailpit) se abre.
+
+Apunta la app a ella: `EXPO_PUBLIC_API_URL=http://localhost:3010` en `apps/mobile/.env`, después
+`adb reverse tcp:3010 tcp:3010` y `pnpm start` (terminal 2). Inicia sesión con
+`member@example.com` / `member-password`: los mismos 45 elementos, ahora desde PostgreSQL. Para
+volver a la API mock: `http://localhost:4010` y `pnpm mock:api`.
+
+**Si falla:** un puerto ocupado por otro proyecto (`port is already allocated`): otro puerto en el
+`.env` de la raíz y el mismo en `apps/api/.env`; la API se detiene al arrancar nombrando una
+variable: defínela en `apps/api/.env` ([environment.md](environment.md)). Más en
+[manual.es.md](manual.es.md#5-ejecutar-la-api).
+
 ---
 
 ## Fase 4. Comprueba que pasan todos los gates
@@ -296,11 +324,20 @@ cambio nativo, `pnpm prebuild` y luego `pnpm android`: `pnpm android` solo gener
 pnpm verify
 ```
 
-**Comprobación:** termina sin errores: más de 200 tests pasados, la cobertura por encima de los
-umbrales, `expo-doctor` `21/21 checks passed`, las comprobaciones de seguridad OK, las cuatro líneas
-del presupuesto de bundle en `ok`.
+**Comprobación:** termina sin errores: los tests de la app y de la API pasados, la cobertura por
+encima de los umbrales de las dos, `expo-doctor` `21/21 checks passed`, las comprobaciones de
+seguridad OK, las cuatro líneas del presupuesto de bundle en `ok`.
 
-### 4.2 Comprobaciones con Docker (Docker arrancado)
+### 4.2 Los tests de integración de la API (con los servicios arrancados)
+
+```
+pnpm test:integration
+```
+
+**Comprobación:** pasan todos los ficheros; se ejecutan en la base de datos `app_test`, nunca en tus
+datos de desarrollo.
+
+### 4.3 Comprobaciones con Docker (Docker arrancado)
 
 ```
 pnpm sast
@@ -309,7 +346,7 @@ pnpm lint:workflows
 
 **Comprobación:** `0 findings`; `No findings to report`.
 
-### 4.3 Los flujos end-to-end (opcional ahora, recomendado)
+### 4.4 Los flujos end-to-end (opcional ahora, recomendado)
 
 Con el emulador arrancado y `pnpm mock:api` en la terminal 1:
 
@@ -416,20 +453,26 @@ después). Déjalo abierto hasta la fase 10.
 
 Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diario).
 
-### 6.1 Conecta tu backend
+### 6.1 Tu backend
 
-1. Pon el documento OpenAPI de tu API en `openapi/openapi.json`, y después `pnpm contract`.
-2. `pnpm typecheck` lista cada sitio que ya no coincide: corrige los esquemas Zod y los hooks de
-   `apps/mobile/src/features/*/api.ts` y `apps/mobile/src/auth/schemas.ts`.
-3. La app espera los endpoints de sesión de
-   [openapi/README.md](../openapi/README.md#what-the-app-expects-from-the-api) (un inicio de sesión
-   que devuelve un access token y un refresh token, la renovación con el refresh token **en el
-   cuerpo de la petición**, rotación). Un backend hecho solo para navegadores (como la API de la
-   plantilla web, con una cookie HTTP-only) necesita que se le añadan esos endpoints para los
-   clientes móviles.
-4. Apunta tu `apps/mobile/.env` local a tu API de staging
+La API incluida es el backend de la app: tus funcionalidades le añaden módulos, y el contrato los
+sigue (`pnpm contract`, [openapi/README.md](../openapi/README.md)).
+
+1. Ponla a funcionar donde la alcancen tus usuarios, detrás de HTTPS, con su configuración de
+   producción ([environment.md](environment.md), [security.md](security.md#https)): primero
+   staging. **REQUIERE CONFIGURACIÓN**.
+2. Apunta tu `apps/mobile/.env` local a staging
    (`EXPO_PUBLIC_API_URL=https://staging-api.acme.com`) y prueba la app contra ella; conserva la API
-   mock para los tests.
+   mock para los flujos end-to-end.
+3. Crea allí el primer administrador
+   ([manual.es.md](manual.es.md#56-cuentas-y-administradores)).
+
+**Otro backend en su lugar:** pon su documento OpenAPI en `openapi/openapi.json`, haz que
+`pnpm contract` solo regenere los tipos de la app (`pnpm --filter mobile api:types`) y quita
+`apps/api` con sus scripts y sus jobs de CI. Tiene que ofrecer los endpoints de sesión de
+[openapi/README.md](../openapi/README.md) (un inicio de sesión que devuelve un access token y un
+refresh token, la renovación con el refresh token **en el cuerpo de la petición**, rotación);
+`pnpm typecheck` lista cada sitio de la app que ya no coincide.
 
 **Comprobación:** el inicio de sesión, las listas y los formularios funcionan contra staging;
 `pnpm verify` pasa.
@@ -452,14 +495,17 @@ Todo cambio a partir de aquí pasa por [el ciclo diario](#fase-14-el-ciclo-diari
 
 ### 6.3 Tus funcionalidades
 
-Añade cada una junto a `apps/mobile/src/features/items`, siguiendo
-[mobile-architecture.md](mobile-architecture.md#adding-a-feature): contrato → hooks de datos →
-pantalla → ruta → tests → un flujo de Maestro para un recorrido crítico. Cuando las tuyas cubran la
-app, borra el ejemplo: `apps/mobile/src/features/items`, sus rutas en `apps/mobile/src/app/(app)`
-(incluida la pestaña de inicio, `(tabs)/index.tsx`), los enlaces `/items` de
-`apps/mobile/src/lib/links.ts` y sus tests, el flag `newItemForm`, el evento de analítica
-`item_created`, sus tests, las rutas de items del contrato y de la API mock, y
-`apps/mobile/.maestro/flows/03-items.yaml`. Los flujos `01` y `02` esperan `items-list` después del
+Añade cada una junto al ejemplo de items, siguiendo
+[mobile-architecture.md](mobile-architecture.md#adding-a-feature): el módulo de la API (esquemas,
+servicio, controlador, migración, tests: [architecture.md](architecture.md)) → `pnpm contract` →
+hooks de datos → pantalla → ruta → tests → un flujo de Maestro para un recorrido crítico. Cuando las
+tuyas cubran la app, borra el ejemplo: `apps/mobile/src/features/items`, sus rutas en
+`apps/mobile/src/app/(app)` (incluida la pestaña de inicio, `(tabs)/index.tsx`), los enlaces
+`/items` de `apps/mobile/src/lib/links.ts` y sus tests, el flag `newItemForm`, el evento de
+analítica `item_created`, sus tests, las rutas de items de la API mock, y
+`apps/mobile/.maestro/flows/03-items.yaml`; en la API, `apps/api/src/items` (y después
+`pnpm contract`), los elementos del seed, y la tabla `items` mediante una migración nueva
+([database.md](database.md#expand-and-contract)). Los flujos `01` y `02` esperan `items-list` después del
 inicio de sesión, y `04` abre un enlace de un item: apúntalos a tu pantalla de inicio y a tus
 propios enlaces.
 
@@ -831,10 +877,10 @@ anterior en Settings → About.
 
 | Paso                                              | Haz                                                                                                                                                                                 | Comprobación                                         |
 | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 1. Empieza                                        | `git switch main && git pull && pnpm install`, `pnpm mock:api`, `pnpm start`                                                                                                        | la app funciona                                      |
+| 1. Empieza                                        | `git switch main && git pull && pnpm install`, `pnpm dev` (o `pnpm mock:api`), `pnpm start`                                                                                         | la app funciona                                      |
 | 2. Rama                                           | `git switch -c feat/<descripción>`                                                                                                                                                  |                                                      |
 | 3. Cambio                                         | código y tests ([mobile-architecture.md](mobile-architecture.md#adding-a-feature)); `pnpm contract` si cambió la API; `pnpm --filter mobile exec expo install` para una dependencia | funciona en Android y en iOS                         |
-| 4. Verifica                                       | `pnpm verify`                                                                                                                                                                       | en verde                                             |
+| 4. Verifica                                       | `pnpm verify`; `pnpm test:integration` si cambió la API                                                                                                                             | en verde                                             |
 | 5. Pull request                                   | `git commit`, `git push -u origin HEAD`, `gh pr create --fill`; marca el impacto en la release (OTA o build nuevo)                                                                  | **CI passed** y **E2E (Android)** en verde, aprobado |
 | 6. Merge                                          | **Squash and merge**                                                                                                                                                                |                                                      |
 | 7a. Cambio solo de JavaScript                     | EAS update a `preview`, prueba, después `production` con un despliegue gradual                                                                                                      | el nuevo id de actualización en los dispositivos     |
@@ -853,15 +899,17 @@ anterior en Settings → About.
 | Cada trimestre                      | Revisa `audit.ignore` y los `overrides` de seguridad en `pnpm-workspace.yaml`; las versiones fijadas de EAS CLI, Maestro, Node.js y pnpm, y TypeScript ([ci-cd.md](ci-cd.md#keeping-the-stack-current)); la caducidad de `EXPO_TOKEN`, y la de `RELEASE_PLEASE_TOKEN` si lo configuraste. |
 | Cada año                            | Renueva la membresía de Apple Developer y el certificado de distribución (`eas credentials -p ios`) antes de que caduquen.                                                                                                                                                                |
 | Cada agosto                         | La fecha límite de Google Play para el target API level: publica antes un build con un SDK de Expo actual.                                                                                                                                                                                |
+| Una major de PostgreSQL o Redis     | A mano, junto con `docker-compose.yml` y las imágenes de CI; los datos de PostgreSQL se exportan y se restauran entre majors ([ci-cd.md](ci-cd.md#keeping-the-stack-current)).                                                                                                            |
 
 ---
 
 ## Cuando algo no está en esta guía
 
-| Situación                                               | Dónde                                                                          |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Un mensaje de error                                     | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end) |
-| Cómo funciona algo                                      | [manual.es.md](manual.es.md)                                                   |
-| Builds, versiones, tiendas y actualizaciones en detalle | [releases.md](releases.md)                                                     |
-| Workflows y ajustes de GitHub                           | [ci-cd.md](ci-cd.md)                                                           |
-| Seguridad                                               | [SECURITY.md](../SECURITY.md)                                                  |
+| Situación                                               | Dónde                                                                                                                                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Un mensaje de error                                     | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end)                                                                   |
+| Cómo funciona algo                                      | [manual.es.md](manual.es.md)                                                                                                                     |
+| La API: módulos, convenciones, datos, errores           | [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [database.md](database.md), [error-handling.md](error-handling.md) |
+| Builds, versiones, tiendas y actualizaciones en detalle | [releases.md](releases.md)                                                                                                                       |
+| Workflows y ajustes de GitHub                           | [ci-cd.md](ci-cd.md)                                                                                                                             |
+| Seguridad                                               | [SECURITY.md](../SECURITY.md), la de la API: [security.md](security.md)                                                                          |

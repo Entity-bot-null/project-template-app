@@ -49,10 +49,9 @@ How to use it:
       is the Android package and the iOS bundle id and **cannot change after the first store
       release**.
 - [ ] **The URL scheme** for deep links, e.g. `acmeportal` (`acmeportal://items/42`).
-- [ ] **The backend**: the API the app talks to, its staging and production HTTPS URLs, and its
-      OpenAPI contract. If it does not exist yet, the app works against the included mock API
-      until it does. If it is this repository family's web template API, plan the mobile session
-      endpoints (phase 6.1).
+- [ ] **The backend**: the included API (`apps/api`), which you extend with your features, or your
+      own; and where it will run, with its staging and production HTTPS URLs. Until it runs
+      somewhere, the app works against the API on your machine or the included mock API.
 - [ ] **Links from the web** (optional): a domain for universal links/App Links
       (`app.acme.com/items/42` opening the app).
 - [ ] **What data the app collects** (for the stores' privacy forms) and whether it uses analytics
@@ -111,6 +110,7 @@ least requested.
 | Node.js 24          | nvm/fnm or the official installer (24 LTS)                                                      | `node --version`                         | `v24.15.0` or later                                              |
 | pnpm                | `corepack enable` (Node.js 25 and later ship without Corepack: `npm install -g corepack` first) | `pnpm --version` (inside the project)    | `12.5.1`                                                         |
 | GitHub CLI          | cli.github.com                                                                                  | `gh auth status` (after `gh auth login`) | `Logged in to github.com`                                        |
+| Docker              | Docker Desktop (Windows, macOS) or Docker Engine with the Compose plugin (Linux)                | `docker compose version`                 | `Docker Compose version v2…`                                     |
 | EAS CLI             | `npm install -g eas-cli`                                                                        | `eas --version`                          | `eas-cli/…` (24 or later)                                        |
 | VS Code (suggested) | code.visualstudio.com                                                                           |                                          | offers the recommended extensions (Expo Tools, ESLint, Prettier) |
 
@@ -274,6 +274,33 @@ From now on: `pnpm mock:api` and `pnpm start`, then open the installed app. Afte
 `pnpm prebuild`, then `pnpm android`: `pnpm android` generates `apps/mobile/android/` only when it
 is missing.
 
+### 3.5 The real API (Docker running)
+
+The app ran against the mock API. Now the API of this repository, on your machine:
+
+```
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+openssl rand -hex 32          # paste it as JWT_ACCESS_SECRET in apps/api/.env
+pnpm services:up              # PostgreSQL, Redis and Mailpit
+pnpm db:migrate
+pnpm db:seed
+pnpm dev                      # terminal 1, instead of pnpm mock:api
+```
+
+**Check:** `pnpm dev` prints a box with `API   http://127.0.0.1:3010/api`;
+`http://127.0.0.1:3010/api/health/ready` answers `"status":"ok"`; `http://localhost:8045` (Mailpit)
+opens.
+
+Point the app at it: `EXPO_PUBLIC_API_URL=http://localhost:3010` in `apps/mobile/.env`, then
+`adb reverse tcp:3010 tcp:3010` and `pnpm start` (terminal 2). Sign in with
+`member@example.com` / `member-password`: the same 45 items, now from PostgreSQL. Back to the mock
+API: `http://localhost:4010` and `pnpm mock:api`.
+
+**If it fails:** a port taken by another project (`port is already allocated`): another port in the
+root `.env` and the same in `apps/api/.env`; the API stops at boot naming a variable: set it in
+`apps/api/.env` ([environment.md](environment.md)). More in [manual.md](manual.md#5-running-the-api).
+
 ---
 
 ## Phase 4. Prove every gate passes
@@ -284,10 +311,19 @@ is missing.
 pnpm verify
 ```
 
-**Check:** it ends without errors: 200+ tests passed, coverage above the thresholds,
-`expo-doctor` `21/21 checks passed`, the security checks OK, the four bundle budget lines `ok`.
+**Check:** it ends without errors: the app's and the API's tests passed, coverage above the
+thresholds of both, `expo-doctor` `21/21 checks passed`, the security checks OK, the four bundle
+budget lines `ok`.
 
-### 4.2 Docker-based checks (Docker running)
+### 4.2 The API's integration tests (services up)
+
+```
+pnpm test:integration
+```
+
+**Check:** every file passes; they run on the database `app_test`, never your development data.
+
+### 4.3 Docker-based checks (Docker running)
 
 ```
 pnpm sast
@@ -296,7 +332,7 @@ pnpm lint:workflows
 
 **Check:** `0 findings`; `No findings to report`.
 
-### 4.3 The end-to-end flows (optional now, recommended)
+### 4.4 The end-to-end flows (optional now, recommended)
 
 With the emulator running and `pnpm mock:api` in terminal 1:
 
@@ -399,19 +435,25 @@ phase 10.
 
 Every change from here goes through [the daily loop](#phase-14-the-daily-loop).
 
-### 6.1 Connect your backend
+### 6.1 Your backend
 
-1. Put your API's OpenAPI document in `openapi/openapi.json`, then `pnpm contract`.
-2. `pnpm typecheck` lists every place that no longer matches: fix the Zod schemas and hooks in
-   `apps/mobile/src/features/*/api.ts` and `apps/mobile/src/auth/schemas.ts`.
-3. The app expects the session endpoints of
-   [openapi/README.md](../openapi/README.md#what-the-app-expects-from-the-api) (sign-in returning an
-   access and a refresh token, renewal with the refresh token **in the body**, rotation). A backend
-   built for browsers only (like the web template's API, with an HTTP-only cookie) needs those
-   endpoints added for mobile clients.
-4. Point your local `apps/mobile/.env` at your staging API
+The included API is the app's backend: your features add modules to it, and the contract follows
+(`pnpm contract`, [openapi/README.md](../openapi/README.md)).
+
+1. Run it where your users can reach it, behind HTTPS, with its production settings
+   ([environment.md](environment.md), [security.md](security.md#https)): staging first.
+   **REQUIERE CONFIGURACIÓN**.
+2. Point your local `apps/mobile/.env` at staging
    (`EXPO_PUBLIC_API_URL=https://staging-api.acme.com`) and try the app against it; keep the mock
-   API for tests.
+   API for the end-to-end flows.
+3. Create the first administrator there ([manual.md](manual.md#56-accounts-and-administrators)).
+
+**Another backend instead:** put its OpenAPI document in `openapi/openapi.json`, have `pnpm contract`
+regenerate only the app's types (`pnpm --filter mobile api:types`), and remove `apps/api` with its
+scripts and CI jobs. It must offer the session endpoints of
+[openapi/README.md](../openapi/README.md) (sign-in returning an access and a refresh token, renewal
+with the refresh token **in the body**, rotation); `pnpm typecheck` lists every place in the app
+that no longer matches.
 
 **Check:** sign-in, the lists and the forms work against staging; `pnpm verify` passes.
 
@@ -429,13 +471,16 @@ Every change from here goes through [the daily loop](#phase-14-the-daily-loop).
 
 ### 6.3 Your features
 
-Add each one next to `apps/mobile/src/features/items`, following
-[mobile-architecture.md](mobile-architecture.md#adding-a-feature): contract → data hooks → screen →
-route → tests → a Maestro flow for a critical journey. When yours cover the app, delete the example:
-`apps/mobile/src/features/items`, its routes in `apps/mobile/src/app/(app)` (the home tab,
-`(tabs)/index.tsx`, included), the `/items` links of `apps/mobile/src/lib/links.ts` and their tests,
-the `newItemForm` flag, the `item_created` analytics event, its tests, the items paths of the
-contract and the mock API, and `apps/mobile/.maestro/flows/03-items.yaml`. Flows `01` and `02` wait
+Add each one next to the items example, following
+[mobile-architecture.md](mobile-architecture.md#adding-a-feature): the API's module (schemas,
+service, controller, migration, tests: [architecture.md](architecture.md)) → `pnpm contract` → data
+hooks → screen → route → tests → a Maestro flow for a critical journey. When yours cover the app,
+delete the example: `apps/mobile/src/features/items`, its routes in `apps/mobile/src/app/(app)` (the
+home tab, `(tabs)/index.tsx`, included), the `/items` links of `apps/mobile/src/lib/links.ts` and
+their tests, the `newItemForm` flag, the `item_created` analytics event, its tests, the items routes
+of the mock API, and `apps/mobile/.maestro/flows/03-items.yaml`; in the API, `apps/api/src/items`
+(then `pnpm contract`), the seed's items, and the `items` table through a new migration
+([database.md](database.md#expand-and-contract)). Flows `01` and `02` wait
 for `items-list` after sign-in, and `04` opens an item link: point them at your home screen and your
 own links.
 
@@ -795,10 +840,10 @@ gh workflow run eas-rollback.yml --ref main -f channel=preview -f target=earlier
 
 | Step                                  | Do                                                                                                                                                                                | Check                                               |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 1. Start                              | `git switch main && git pull && pnpm install`, `pnpm mock:api`, `pnpm start`                                                                                                      | the app runs                                        |
+| 1. Start                              | `git switch main && git pull && pnpm install`, `pnpm dev` (or `pnpm mock:api`), `pnpm start`                                                                                      | the app runs                                        |
 | 2. Branch                             | `git switch -c feat/<description>`                                                                                                                                                |                                                     |
 | 3. Change                             | code and tests ([mobile-architecture.md](mobile-architecture.md#adding-a-feature)); `pnpm contract` if the API changed; `pnpm --filter mobile exec expo install` for a dependency | works on Android and iOS                            |
-| 4. Verify                             | `pnpm verify`                                                                                                                                                                     | green                                               |
+| 4. Verify                             | `pnpm verify`; `pnpm test:integration` if the API changed                                                                                                                         | green                                               |
 | 5. Pull request                       | `git commit`, `git push -u origin HEAD`, `gh pr create --fill`; mark the release impact (OTA or new build)                                                                        | **CI passed** and **E2E (Android)** green, approved |
 | 6. Merge                              | **Squash and merge**                                                                                                                                                              |                                                     |
 | 7a. JavaScript-only change            | EAS update to `preview`, test, then `production` with a staged rollout                                                                                                            | the new update id on devices                        |
@@ -817,15 +862,17 @@ gh workflow run eas-rollback.yml --ref main -f channel=preview -f target=earlier
 | Every quarter                       | Review `audit.ignore` and the security `overrides` in `pnpm-workspace.yaml`; the pinned EAS CLI, Maestro, Node.js and pnpm versions, and TypeScript ([ci-cd.md](ci-cd.md#keeping-the-stack-current)); `EXPO_TOKEN`'s expiration, and `RELEASE_PLEASE_TOKEN`'s if set. |
 | Every year                          | Renew the Apple Developer membership and the distribution certificate (`eas credentials -p ios`) before they expire.                                                                                                                                                  |
 | Every August                        | Google Play's target API level deadline: ship a build of a current Expo SDK before it.                                                                                                                                                                                |
+| A PostgreSQL or Redis major         | By hand, with `docker-compose.yml` and the CI images; PostgreSQL's data is dumped and restored across majors ([ci-cd.md](ci-cd.md#keeping-the-stack-current)).                                                                                                        |
 
 ---
 
 ## When something is not in this guide
 
-| Situation                                   | Where                                                                          |
-| ------------------------------------------- | ------------------------------------------------------------------------------ |
-| An error message                            | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end) |
-| How something works                         | [manual.md](manual.md)                                                         |
-| Builds, versions, stores, updates in detail | [releases.md](releases.md)                                                     |
-| Workflows and GitHub settings               | [ci-cd.md](ci-cd.md)                                                           |
-| Security                                    | [SECURITY.md](../SECURITY.md)                                                  |
+| Situation                                   | Where                                                                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| An error message                            | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end)                                                                   |
+| How something works                         | [manual.md](manual.md)                                                                                                                           |
+| The API: modules, conventions, data, errors | [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [database.md](database.md), [error-handling.md](error-handling.md) |
+| Builds, versions, stores, updates in detail | [releases.md](releases.md)                                                                                                                       |
+| Workflows and GitHub settings               | [ci-cd.md](ci-cd.md)                                                                                                                             |
+| Security                                    | [SECURITY.md](../SECURITY.md), the API's: [security.md](security.md)                                                                             |

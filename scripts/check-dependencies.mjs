@@ -44,7 +44,7 @@ const locked = new Set();
 for (const line of lockfile.split('\n')) {
   // Package keys sit at two spaces of indentation: "  name@version:".
   const key = /^ {2}'?([^\s'][^']*?)'?:\s*$/.exec(line);
-  if (key) {
+  if (key?.[1] !== undefined) {
     current = key[1];
     locked.add(current.replace(/@[^@]+$/, ''));
   }

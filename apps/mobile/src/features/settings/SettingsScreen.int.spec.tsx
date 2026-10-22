@@ -5,7 +5,7 @@ import { Alert } from 'react-native';
 import { useSessionStore } from '@/auth/session';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { DEFAULT_PREFERENCES, usePreferences } from '@/store/preferences';
-import { user } from '@/test/fixtures';
+import { account } from '@/test/fixtures';
 import { ok, stubFetch, type StubbedFetch } from '@/test/http';
 import { renderWithProviders } from '@/test/render';
 import { endTestSession, signInForTest } from '@/test/session';
@@ -16,7 +16,7 @@ let fetchStub: StubbedFetch;
 
 beforeEach(async () => {
   usePreferences.setState(DEFAULT_PREFERENCES);
-  fetchStub = stubFetch({ 'GET /api/users/me': () => ok(user) });
+  fetchStub = stubFetch({ 'GET /api/users/me': () => ok(account) });
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
   await signInForTest(fetchStub);
 });
@@ -29,8 +29,8 @@ afterEach(async () => {
 describe('SettingsScreen', () => {
   it("shows the signed-in user's profile", async () => {
     await renderWithProviders(<SettingsScreen />);
-    expect(await screen.findByRole('header', { name: user.name })).toBeOnTheScreen();
-    expect(screen.getByText(user.email)).toBeOnTheScreen();
+    expect(await screen.findByRole('header', { name: account.name })).toBeOnTheScreen();
+    expect(screen.getByText(account.email)).toBeOnTheScreen();
   });
 
   it('tells support which binary and update it runs', async () => {

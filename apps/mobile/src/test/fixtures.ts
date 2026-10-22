@@ -5,14 +5,18 @@ import type { components } from '@/api/client';
 
 type Schemas = components['schemas'];
 
-export const user: Schemas['User'] = {
+/** The user a session belongs to. */
+export const user: Schemas['SessionUser'] = {
   id: 'user-1',
   email: 'member@example.com',
   name: 'Member',
   role: 'member',
 };
 
-export function tokens(suffix = '1'): Schemas['Tokens'] {
+/** The same account, as GET /api/users/me tells it. */
+export const account: Schemas['User'] = { ...user, createdAt: '2026-01-01T09:00:00.000Z' };
+
+export function tokens(suffix = '1'): Omit<Schemas['Session'], 'user'> {
   return { accessToken: `access-${suffix}`, refreshToken: `refresh-${suffix}`, expiresIn: 900 };
 }
 

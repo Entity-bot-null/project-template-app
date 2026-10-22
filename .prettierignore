@@ -4,6 +4,7 @@
 pnpm-lock.yaml
 openapi/openapi.json
 apps/mobile/src/api/schema.d.ts
+apps/api/prisma/migrations/
 # Written by release-please (.github/workflows/release.yml).
 CHANGELOG.md
 .release-please-manifest.json

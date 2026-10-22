@@ -95,7 +95,17 @@ describe('reading pnpm-workspace.yaml', () => {
     assert.equal(settings.minimumReleaseAge, 10080);
     assert.equal(settings.blockExoticSubdeps, true);
     assert.equal(settings.trustPolicy, 'no-downgrade');
-    assert.deepEqual({ ...settings.allowBuilds }, { '@sentry/cli': false, 'unrs-resolver': false });
+    assert.deepEqual(
+      { .../** @type {object} */ (settings.allowBuilds) },
+      {
+        '@prisma/engines': true,
+        '@scarf/scarf': false,
+        '@sentry/cli': false,
+        argon2: true,
+        prisma: true,
+        'unrs-resolver': false,
+      },
+    );
   });
 
   test('reads a file an editor saved with a byte order mark', () => {

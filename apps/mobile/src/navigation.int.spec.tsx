@@ -8,8 +8,8 @@ import { errorReporter } from '@/lib/observability';
 import { queryClient } from '@/lib/query/queryClient';
 import { persistentStorage, secureStorage, STORAGE_KEYS } from '@/lib/storage';
 import { DEFAULT_PREFERENCES, usePreferences } from '@/store/preferences';
-import { item, page, session as sessionFixture, tokens, user } from '@/test/fixtures';
-import { deferred, failure, ok, stubFetch, type StubbedFetch } from '@/test/http';
+import { account, item, page, session as sessionFixture, tokens, user } from '@/test/fixtures';
+import { deferred, failure, noContent, ok, stubFetch, type StubbedFetch } from '@/test/http';
 import { renderApp } from '@/test/router';
 import { endTestSession } from '@/test/session';
 
@@ -30,8 +30,8 @@ beforeEach(() => {
   fetchStub = stubFetch({
     'GET /api/items': () => ok(page(0, 2, 2)),
     'GET /api/items/:id': () => ok(item(1)),
-    'GET /api/users/me': () => ok(user),
-    'POST /api/auth/logout': () => ok(null),
+    'GET /api/users/me': () => ok(account),
+    'POST /api/auth/logout': () => noContent(),
   });
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
 });

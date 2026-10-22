@@ -32,7 +32,7 @@ env:
 
 # A link to an item starts the app: the guards send it to the sign-in screen.
 - stopApp
-- openLink: ${SCHEME}://items/item-3
+- openLink: ${SCHEME}://items/00000000-0000-7000-8000-000000000003
 - extendedWaitUntil:
     visible:
       id: sign-in-screen
