@@ -1,5 +1,12 @@
 # Dependencies
 node_modules/
+.pnpm-store/
+
+# Build output (dist-dev: what `pnpm dev` runs for the API, apart from its build)
+dist-dev/
+
+# Generated at install/build time (prisma generate)
+apps/api/src/prisma/generated/
 
 # Expo
 .expo/
@@ -44,7 +51,12 @@ e2e-results/
 
 # Logs
 *.log
+logs/
 npm-debug.*
+
+# Whole-repository dumps for AI tools (Repomix and the like): stale copies of
+# the code, local .env values included. Never committed.
+repomix-output.*
 
 # OS and editors (the shared VS Code settings are committed)
 .DS_Store
@@ -54,8 +66,10 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/extensions.json
 
-# Coding agents' local data (Serena: project config, cache and memories)
+# Local state of code-intelligence tools (Serena's project index and memories,
+# codebase-memory's persisted graph): per machine, never committed.
 .serena/
+.codebase-memory/
 
 # TypeScript
 *.tsbuildinfo

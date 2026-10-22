@@ -7,4 +7,7 @@ export default {
   '*': 'secretlint --maskSecrets --no-gitignore',
   '*.{ts,tsx,js,mjs,cjs}': ['eslint --fix --max-warnings=0 --no-warn-ignored', 'prettier --write'],
   '*.{json,md,yml,yaml}': 'prettier --write',
+  // A contract step (dropping or renaming what the running version reads)
+  // needs its reason (docs/database.md#expand-and-contract).
+  'apps/api/prisma/migrations/**/migration.sql': 'node scripts/check-migrations.mjs',
 };

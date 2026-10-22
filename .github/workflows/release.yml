@@ -3,10 +3,11 @@ name: Release
 # Release management (docs/releases.md#versioning). release-please reads the
 # Conventional Commits that reach main (the squashed pull request titles) and
 # keeps one release pull request open: the next semantic version, one for the
-# whole repository (package.json, and apps/mobile/package.json, the app's
-# user-visible version that apps/mobile/app.config.ts reads, as extra-files of
-# release-please-config.json), and the CHANGELOG.md entry. Merging it, after review and CI like any pull
-# request, tags vX.Y.Z (immutable, .github/rulesets/tags.json), publishes the
+# whole repository (package.json; as extra-files of release-please-config.json,
+# apps/mobile/package.json, the app's user-visible version that
+# apps/mobile/app.config.ts reads, apps/api/package.json and the contract's
+# info.version in openapi/openapi.json), and the CHANGELOG.md entry. Merging
+# it, after review and CI like any pull request, tags vX.Y.Z (immutable, .github/rulesets/tags.json), publishes the
 # GitHub release with those notes and attaches the SBOM. Building and
 # submitting that version is a separate, manual step (eas-build.yml with the
 # tag): nothing here touches EAS or the stores.

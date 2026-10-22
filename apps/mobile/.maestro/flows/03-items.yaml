@@ -17,7 +17,7 @@ env:
     notVisible: Item 45
     timeout: 5000
 - tapOn:
-    id: item-item-7
+    id: item-00000000-0000-7000-8000-000000000007
 - assertVisible:
     id: item-detail-screen
 - assertVisible: Example item number 7.

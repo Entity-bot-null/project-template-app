@@ -339,25 +339,29 @@ release cannot be rolled back on users' phones.
 
 ## Minimum supported version
 
-**REQUIRES CONFIGURATION** (backend and app), when a release must stop old versions: a security
-fix, an API change older apps cannot handle, a store policy. Stores cannot force updates, so the
-backend does:
+When a release must stop old versions: a security fix, an API change older apps cannot handle, a
+store policy. Stores cannot force updates, so the API does:
 
 ```
-app version < minimum supported version  →  the API refuses (for example 426 Upgrade Required)  →  the app shows "Update the app" with a store link
+app version < minimum supported version  →  the API refuses (426 Upgrade Required)  →  the app shows "Update the app" with a store link
 ```
 
-What each side needs (none of it ships in the template, which has no backend to enforce it):
+What each side needs:
 
-1. **The app tells its version**: a header on every request in `apps/mobile/src/api/http.ts`, for
-   example `X-App-Version: <nativeApplicationVersion>` and `X-App-Build: <nativeBuildVersion>` from
-   `expo-application` (already a dependency), plus the platform.
-2. **The backend compares** it with a minimum per platform kept in its configuration (not in the
-   app), and answers a dedicated status or error code for anything older, before any other check.
-3. **The app handles that answer**: a new `AppError` kind in `apps/mobile/src/lib/errors.ts`
-   (`kindForStatus`), not retried, and a blocking screen with the store link (`Linking.openURL` to
-   the Play Store or App Store page), shown from the root layout. Test it like the other error
-   kinds.
+1. **The app tells its version** (**REQUIRES CONFIGURATION** in the app): headers on every request
+   in `apps/mobile/src/api/http.ts`, `X-App-Platform: ios|android`, `X-App-Version:
+<nativeApplicationVersion>` and `X-App-Build: <nativeBuildVersion>` from `expo-application`
+   (already a dependency).
+2. **The API compares** it (**in the template**): with `MOBILE_MIN_VERSION_IOS` and
+   `MOBILE_MIN_VERSION_ANDROID` (its configuration, not the app's; unset: any version), it answers
+   426 to anything older, before any other check; requests without `X-App-Platform` and the health
+   probes pass ([adr/0010-minimum-supported-app-version.md](adr/0010-minimum-supported-app-version.md)).
+   Try it locally with the stack: `STACK_MOBILE_MIN_VERSION_ANDROID=99.0.0`
+   ([manual.md](manual.md#55-the-production-like-stack)).
+3. **The app handles that answer** (**REQUIRES CONFIGURATION** in the app): a new `AppError` kind
+   in `apps/mobile/src/lib/errors.ts` (`kindForStatus`), not retried, and a blocking screen with the
+   store link (`Linking.openURL` to the Play Store or App Store page), shown from the root layout.
+   Test it like the other error kinds.
 4. **Raise the minimum only after** the new version has reached most users (store rollout at 100 %
    and a few days); announce it in the release notes when possible.
 

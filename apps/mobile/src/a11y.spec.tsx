@@ -12,7 +12,7 @@ import { SignInScreen } from '@/features/auth/SignInScreen';
 import { DEFAULT_PREFERENCES, usePreferences } from '@/store/preferences';
 import { inaccessibleControls } from '@/test/a11y';
 import { contrastProblems } from '@/test/contrast';
-import { item, page, user } from '@/test/fixtures';
+import { account, item, page } from '@/test/fixtures';
 import { deferred, failure, ok, stubFetch, type StubbedFetch } from '@/test/http';
 import { renderWithProviders } from '@/test/render';
 import { endTestSession, signInForTest } from '@/test/session';
@@ -35,7 +35,7 @@ let fetchStub: StubbedFetch;
 
 beforeEach(async () => {
   fetchStub = stubFetch({
-    'GET /api/users/me': () => ok(user),
+    'GET /api/users/me': () => ok(account),
     'GET /api/items': () => ok(page(0, 3, 3)),
     'GET /api/items/:id': () => ok(item(1)),
   });
@@ -157,7 +157,7 @@ describe.each(['light', 'dark'] as const)('every screen and state, in %s mode', 
 
   it('settings: loaded, and with the profile failing', async () => {
     const view = await renderWithProviders(<SettingsScreen />);
-    await screen.findByText(user.email);
+    await screen.findByText(account.email);
     expectUsable();
     await view.unmount();
 

@@ -3,6 +3,7 @@
 - [Reporting a vulnerability](#reporting-a-vulnerability)
 - [Supported versions](#supported-versions)
 - [Threat model](#threat-model)
+- [The API](#the-api)
 - [OWASP MASVS](#owasp-masvs)
 - [Secrets](#secrets)
 - [Storage](#storage)
@@ -35,9 +36,12 @@ credit you in the advisory if you wish. <!-- REQUIERE CONFIGURACIÓN: adjust the
 
 The latest store release receives fixes. Fixes in JavaScript reach installed builds of supported
 runtime versions as OTA updates; native fixes need a store release, and a minimum supported version
-enforced by the API (an "update required" answer) for vulnerabilities that cannot wait for users to
-update ([docs/releases.md](docs/releases.md#minimum-supported-version), REQUIRES CONFIGURATION).
-Each release lists its npm dependencies in the SBOM attached to its GitHub release.
+enforced by the API for vulnerabilities that cannot wait for users to update: below
+`MOBILE_MIN_VERSION_<PLATFORM>` every request from the app answers 426
+([docs/adr/0010-minimum-supported-app-version.md](docs/adr/0010-minimum-supported-app-version.md);
+the app's side: [docs/releases.md](docs/releases.md#minimum-supported-version)). The API runs one
+version at a time: the latest deployed. Each release lists its npm dependencies in the SBOM attached
+to its GitHub release.
 
 ## Threat model
 
@@ -53,21 +57,32 @@ A mobile app runs on a device the publisher does not control. What follows from 
   an old server, a bug), clipboard. Everything is validated before use.
 - **The network is hostile**: HTTPS only, no cleartext outside local development.
 
+## The API
+
+The API (`apps/api`) is where every authorization decision happens. Its design, in detail, is in
+[docs/security.md](docs/security.md): sessions with rotating refresh tokens sent in the body and
+family revocation on reuse ([ADR 0007](docs/adr/0007-mobile-sessions-with-refresh-tokens-in-the-body.md)),
+access tokens ended at once by a password change, argon2 password hashing and policy, object-level
+authorization in every query, rate limits that count a person or an account rather than a shared
+carrier address, validated input, one-time links hashed at rest, an email outbox that never leaks
+whether an account exists, account deletion ([ADR 0012](docs/adr/0012-account-deletion.md)),
+redacted logs and error reports, and its own supply chain checks (the images scanned by Trivy).
+
 ## OWASP MASVS
 
 How the template addresses the [OWASP Mobile Application Security Verification
 Standard](https://mas.owasp.org/MASVS/) (v2). Testing guidance: the OWASP MASTG.
 
-| Control group    | In the template                                                                                                                                                                               | Project's responsibility                                                                                                      |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| MASVS-STORAGE    | refresh token in Keychain/Keystore (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`), access token in memory only, no AsyncStorage, Android backups off, caches cleared at sign-out, no secrets in logs | classify new data before storing it ([Storage](#storage))                                                                     |
-| MASVS-CRYPTO     | no custom cryptography: platform keystores and TLS                                                                                                                                            | use platform APIs (`expo-crypto`, keystore) if cryptography is needed                                                         |
-| MASVS-AUTH       | server-side sessions, rotating single-use refresh tokens, renewal race handling, sign-out on server rejection, keychain wipe on fresh install                                                 | enforce authorization, refresh token reuse detection and revocation on the server; MFA and biometrics as the product requires |
-| MASVS-NETWORK    | HTTPS required outside localhost (validated at build and startup), cleartext refused in Android release builds, timeouts                                                                      | TLS configuration of the API; certificate pinning if the threat model requires it ([below](#advanced-device-controls))        |
-| MASVS-PLATFORM   | deep link allowlist with parameter validation, links never perform actions, notification URLs validated, permissions asked in context, minimal declared permissions, no WebView               | review new permissions, intents, WebViews (if added: no JavaScript bridges to untrusted content)                              |
-| MASVS-CODE       | strict TypeScript, Zod validation of every external input, dependency policy and audits, SDK kept current, R8 on Android                                                                      | keep dependencies and the SDK updated; enforce a minimum app version server-side                                              |
-| MASVS-RESILIENCE | Hermes bytecode and R8 minification (not protections, only cost for an attacker)                                                                                                              | add attestation or tamper detection only with server-side verification ([below](#advanced-device-controls))                   |
-| MASVS-PRIVACY    | analytics only after consent, opaque user ids, no personal data in events or reports, `sendDefaultPii` off, screenshots of reports off                                                        | privacy policy, App Store privacy labels, Play data safety, data deletion requests                                            |
+| Control group    | In the template                                                                                                                                                                                                                                                                                                       | Project's responsibility                                                                                               |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| MASVS-STORAGE    | refresh token in Keychain/Keystore (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`), access token in memory only, no AsyncStorage, Android backups off, caches cleared at sign-out, no secrets in logs                                                                                                                         | classify new data before storing it ([Storage](#storage))                                                              |
+| MASVS-CRYPTO     | no custom cryptography: platform keystores and TLS                                                                                                                                                                                                                                                                    | use platform APIs (`expo-crypto`, keystore) if cryptography is needed                                                  |
+| MASVS-AUTH       | server-side sessions, rotating single-use refresh tokens, renewal race handling, sign-out on server rejection, keychain wipe on fresh install; in the API: authorization in every query, refresh token reuse detection with family revocation, `securityVersion` revocation of access tokens, rate limits per account | MFA and biometrics as the product requires; the authorization rules of each new feature                                |
+| MASVS-NETWORK    | HTTPS required outside localhost (validated at build and startup), cleartext refused in Android release builds, timeouts                                                                                                                                                                                              | TLS configuration of the API; certificate pinning if the threat model requires it ([below](#advanced-device-controls)) |
+| MASVS-PLATFORM   | deep link allowlist with parameter validation, links never perform actions, notification URLs validated, permissions asked in context, minimal declared permissions, no WebView                                                                                                                                       | review new permissions, intents, WebViews (if added: no JavaScript bridges to untrusted content)                       |
+| MASVS-CODE       | strict TypeScript, Zod validation of every external input, dependency policy and audits, SDK kept current, R8 on Android; the API's minimum app version (426)                                                                                                                                                         | keep dependencies and the SDK updated; raise the minimum app version when a vulnerable release must stop being served  |
+| MASVS-RESILIENCE | Hermes bytecode and R8 minification (not protections, only cost for an attacker)                                                                                                                                                                                                                                      | add attestation or tamper detection only with server-side verification ([below](#advanced-device-controls))            |
+| MASVS-PRIVACY    | analytics only after consent, opaque user ids, no personal data in events or reports, `sendDefaultPii` off, screenshots of reports off; account deletion in the API                                                                                                                                                   | privacy policy, App Store privacy labels, Play data safety, a deletion request path outside the app                    |
 
 ## Secrets
 
@@ -126,6 +141,23 @@ row, and the store privacy forms follow this table
 **No personal data in telemetry** (analytics, error reports, logs) unless a product requirement
 justifies it, it is configured on purpose, declared in the store privacy forms and covered by the
 privacy policy. Identifiers are opaque ids, never emails or names.
+
+### Data the API keeps
+
+What the app sends ends up here; the store privacy forms and the privacy policy cover it too. A
+feature that adds data adds its row.
+
+| Data                                          | Sensitivity                   | Where                                                                   | Protection at rest                                  | Kept until                                                                                 | On account deletion                                   |
+| --------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| Account: email, name, role, password          | personal; the password secret | PostgreSQL `users`                                                      | the password as an argon2id hash only               | deletion                                                                                   | deleted                                               |
+| Sessions (refresh tokens)                     | secret                        | PostgreSQL `sessions`                                                   | SHA-256 of the token only                           | their expiry (swept), revoked ones too until then                                          | deleted (cascade)                                     |
+| One-time links (password reset, email change) | secret                        | PostgreSQL `account_tokens`, the address they concern                   | SHA-256 of the token only                           | used or expired                                                                            | deleted (cascade)                                     |
+| Pending sign-ups and invitations              | personal (email, name)        | PostgreSQL `sign_ups`, `invitations`                                    | link token hashed; the sign-up's password as a hash | confirmed, replaced, revoked or expired                                                    | not tied to an account                                |
+| Items (the example resource)                  | depends on the product        | PostgreSQL `items`, with the create's `Idempotency-Key` and a body hash | none beyond the database's                          | deletion                                                                                   | deleted (cascade)                                     |
+| Email outbox                                  | personal (the address)        | PostgreSQL `mail_messages`                                              | a keyed hash of the address for limits and lookups  | the address until the message is sent or dropped (a failed one's: 7 days); the row 30 days | queued messages deleted; the deletion notice is sent  |
+| Rate-limit counters, cache, locks             | none (hashed keys)            | memory or Redis                                                         | addresses and tokens hashed in keys                 | their window or TTL                                                                        | expire on their own                                   |
+| Logs, traces, error reports                   | request ids, user ids, routes | the API's output, the OpenTelemetry backend, Sentry (all optional)      | redacted: no tokens, passwords or bodies            | the platform's retention                                                                   | the user id remains in past entries                   |
+| Backups of the database (the project's)       | all of the above              | the backup storage (REQUIERE CONFIGURACIÓN)                             | the storage's                                       | their rotation                                                                             | kept until they rotate (say so in the privacy policy) |
 
 ## Network
 
@@ -203,7 +235,8 @@ a `faceIDPermission` text in `apps/mobile/app.config.ts`); screenshot blocking w
   least **seven days old** (`minimumReleaseAge`), a package whose provenance or trust level drops
   is refused (`trustPolicy: no-downgrade`), transitive dependencies from outside the registry are
   refused (`blockExoticSubdeps`), and **no install script runs** unless listed in `allowBuilds`
-  (every entry is `false`, each with its reason).
+  (every entry is `false` except the API's reviewed native builds, argon2 and Prisma's engines,
+  each with its reason in `scripts/dependency-policy.json`).
 - For an urgent security fix younger than seven days, exempt that exact version
   (`minimumReleaseAgeExclude: [name@1.2.3]`, never a name or a pattern) and record it in
   `scripts/dependency-policy.json` with its reason and `expires`, the date the version is old
@@ -223,14 +256,16 @@ a `faceIDPermission` text in `apps/mobile/app.config.ts`); screenshot blocking w
 `pnpm audit --audit-level=high` runs in `pnpm security` and CI. When an advisory cannot be fixed
 yet, it is handled in the open, in `pnpm-workspace.yaml`, never by lowering the audit level:
 
-| Advisory                                            | Package (path)                                       | Handling                                                                                                                                                                                                                                                                          |
-| --------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GHSA-pqg4-j6r4-53mv (critical)                      | shell-quote (`react-devtools-core` in React Native)  | fixed: `overrides` forces 1.11.0 or later; remove the override once React Native's tree resolves it without                                                                                                                                                                       |
-| GHSA-68fv-2mgg-jv7q (high)                          | source-map-js (postcss in Expo's Metro config)       | fixed: `overrides` forces 1.2.2; remove the override once Expo's tree resolves it without                                                                                                                                                                                         |
-| GHSA-86w9-cpqp-85rv (high)                          | node-forge (`@expo/cli` update code-signing helpers) | `audit.ignore`: no fixed version exists; development tool, not in the app binary                                                                                                                                                                                                  |
-| GHSA-vfj7-8cjw-p6xm (high)                          | braces (Metro's file watcher)                        | `audit.ignore`: no fixed version exists; build tool fed by the project's own configuration                                                                                                                                                                                        |
-| GHSA-vcc3-ghjq-m6fr (moderate)                      | decode-uri-component (`query-string` in Expo Router) | in the app; the fix (0.5.0) is incompatible with the version range Expo Router requires. Mitigated: every incoming link passes the allowlist of `apps/mobile/src/lib/links.ts` (query strings dropped, path parameters restricted to `[A-Za-z0-9_-]`) before the router parses it |
-| GHSA-w5hq-g745-h8pq, GHSA-hp3w-g68c-fv3c (moderate) | uuid (`xcode`, prebuild), sprintf-js (Jest coverage) | build and test tools only                                                                                                                                                                                                                                                         |
+| Advisory                                                   | Package (path)                                                     | Handling                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GHSA-pqg4-j6r4-53mv (critical)                             | shell-quote (`react-devtools-core` in React Native)                | fixed: `overrides` forces 1.11.0 or later; remove the override once React Native's tree resolves it without                                                                                                                                                                       |
+| GHSA-68fv-2mgg-jv7q (high)                                 | source-map-js (postcss in Expo's Metro config)                     | fixed: `overrides` forces 1.2.2; remove the override once Expo's tree resolves it without                                                                                                                                                                                         |
+| GHSA-ggr8-5vv4-36mx (high)                                 | deepmerge-ts (`@prisma/config`, the API)                           | fixed: `overrides` forces 8.0.2 or later; remove the override once Prisma resolves it without                                                                                                                                                                                     |
+| GHSA-3f6p-5ww8-9rcr (high), GHSA-rgwj-5xj2-c3m3 (moderate) | mysql2 (the `prisma` CLI's MySQL support; the API uses PostgreSQL) | fixed: `overrides` forces 3.24.5 or later; remove the override once Prisma resolves it without                                                                                                                                                                                    |
+| GHSA-86w9-cpqp-85rv (high)                                 | node-forge (`@expo/cli` update code-signing helpers)               | `audit.ignore`: no fixed version exists; development tool, not in the app binary                                                                                                                                                                                                  |
+| GHSA-vfj7-8cjw-p6xm (high)                                 | braces (Metro's file watcher)                                      | `audit.ignore`: no fixed version exists; build tool fed by the project's own configuration                                                                                                                                                                                        |
+| GHSA-vcc3-ghjq-m6fr (moderate)                             | decode-uri-component (`query-string` in Expo Router)               | in the app; the fix (0.5.0) is incompatible with the version range Expo Router requires. Mitigated: every incoming link passes the allowlist of `apps/mobile/src/lib/links.ts` (query strings dropped, path parameters restricted to `[A-Za-z0-9_-]`) before the router parses it |
+| GHSA-w5hq-g745-h8pq, GHSA-hp3w-g68c-fv3c (moderate)        | uuid (`xcode`, prebuild), sprintf-js (Jest coverage)               | build and test tools only                                                                                                                                                                                                                                                         |
 
 `pnpm deps:check` prints the ignored advisories and the release-age exemptions on every run. Each
 entry is removed as soon as a fix ships; the Expo SDK upgrades usually bring them. A release-age
@@ -268,13 +303,14 @@ Changing the policy is a reviewed decision (CODEOWNERS).
 
 ## Static analysis
 
-| Tool                      | Runs                                                    | Scope                                                                       |
-| ------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
-| TypeScript strict, ESLint | pre-commit (ESLint, staged files), pre-push (types), CI | type safety, architecture rules, React and hooks rules                      |
-| Semgrep (`pnpm sast`)     | CI, on demand (Docker)                                  | curated rulesets: OWASP Top 10, TypeScript, React, Node.js scripts, secrets |
-| CodeQL                    | CI, opt-in (`ENABLE_CODEQL`)                            | `security-extended` queries                                                 |
-| zizmor, actionlint        | CI, `pnpm lint:workflows` (Docker)                      | the workflows themselves                                                    |
-| secretlint, gitleaks      | pre-commit and CI; gitleaks on history                  | secrets                                                                     |
+| Tool                      | Runs                                                    | Scope                                                                                                 |
+| ------------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| TypeScript strict, ESLint | pre-commit (ESLint, staged files), pre-push (types), CI | type safety, architecture rules, React and hooks rules                                                |
+| Semgrep (`pnpm sast`)     | CI, on demand (Docker)                                  | curated rulesets: OWASP Top 10, TypeScript, React, Node.js, Express, JWT, Dockerfiles, nginx, secrets |
+| Trivy                     | CI (the Images job)                                     | the API's images: operating system packages and Node.js packages; fixable HIGH and CRITICAL fail      |
+| CodeQL                    | CI, opt-in (`ENABLE_CODEQL`)                            | `security-extended` queries                                                                           |
+| zizmor, actionlint        | CI, `pnpm lint:workflows` (Docker)                      | the workflows themselves                                                                              |
+| secretlint, gitleaks      | pre-commit and CI; gitleaks on history                  | secrets                                                                                               |
 
 Any finding fails. A false positive is suppressed where it occurs with the reason on the same line
 (`// nosemgrep: <rule> -- why`), so review sees it.

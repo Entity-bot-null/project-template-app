@@ -46,8 +46,8 @@ Option 3, as in the web template:
   repository's own scripts get ESLint's and the import plugin's recommended rules, plus the core
   rules Expo's configuration applied to them before the move.
 - **One version for the whole repository:** release-please bumps the root `package.json` and, as
-  extra files, each app's `package.json` (and `openapi/openapi.json` `info.version` once the API
-  generates it). `apps/mobile/app.config.ts` keeps reading its own `package.json`. The next release
+  extra files, each app's `package.json` and `openapi/openapi.json` `info.version` (the API
+  generates the contract with its own version). `apps/mobile/app.config.ts` keeps reading its own `package.json`. The next release
   is 0.2.0 (`bump-minor-pre-major`).
 - **EAS runs from `apps/mobile`**, where `eas.json` and the app config are; it uploads the workspace.
 - **Docs are named in lowercase with hyphens** (`docs/mobile-architecture.md`), like the web

@@ -1,0 +1,291 @@
+// Database conventions (docs/database.md): snake_case tables and columns
+// through @@map/@map, UUIDv7 primary keys, timestamptz(3) in UTC,
+// created_at on every table and updated_at on every table edited in place.
+// Every change ships as a committed migration (pnpm db:migrate).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/prisma/generated"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Least to most privileged. Keep in sync with ROLES in
+// src/common/types/request-user.ts (a unit spec checks it).
+enum Role {
+  member
+  admin
+}
+
+model User {
+  id              String   @id @default(uuid(7)) @db.Uuid
+  // Stored trimmed and lowercased (normalizeEmail) so the unique index is
+  // case-insensitive in practice.
+  email           String   @unique
+  name            String
+  passwordHash    String   @map("password_hash")
+  role            Role     @default(member)
+  // Raised by every change that must end what was granted before it (a new
+  // password): access tokens carry it (claim sv) and are refused once it moved
+  // on, and one-time tokens minted under an older value no longer work.
+  securityVersion Int      @default(0) @map("security_version")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sessions        Session[]
+  mailMessages    MailMessage[]
+  accountTokens   AccountToken[]
+  invitationsSent Invitation[]
+  items           Item[]
+
+  @@map("users")
+}
+
+// One row per refresh token, grouped in families: a sign-in starts a family and
+// every rotation adds the successor to it. Only the token's SHA-256 is stored,
+// so a leaked table cannot be replayed.
+model Session {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  // Every token descended from one sign-in. A replayed rotated token (theft)
+  // and a logout revoke the whole family.
+  familyId        String    @map("family_id") @db.Uuid
+  // Absolute end of the family: rotations slide expiresAt, never past this.
+  familyExpiresAt DateTime  @map("family_expires_at") @db.Timestamptz(3)
+  tokenHash       String    @unique @map("token_hash")
+  expiresAt       DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt       DateTime? @map("revoked_at") @db.Timestamptz(3)
+  // True when revokedAt came from a rotation (a successor exists): only those
+  // rows get the reuse window; logout and theft revocations do not.
+  rotated         Boolean   @default(false)
+  // The session this one's rotation started. A renewal retried within the
+  // reuse window (its answer was lost) replaces it, since it was never used.
+  replacedById    String?   @unique @map("replaced_by_id") @db.Uuid
+  // A successor replaced by such a retry: presenting it later means a second
+  // holder of the token, and ends the family like any reuse.
+  superseded      Boolean   @default(false)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  replacedBy Session? @relation("SessionRotation", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces   Session? @relation("SessionRotation")
+
+  @@index([userId])
+  @@index([familyId])
+  // The sweep deletes rows past their own expiry. Revoked rows stay until
+  // then, so a token replayed at any point of its life still reads as reuse.
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// What a message is about: the worker renders it at send time from its kind
+// and the rows it points at (src/infrastructure/mail/templates). Adding a kind
+// is an expand step (ALTER TYPE ... ADD VALUE).
+enum MailKind {
+  // An operator's delivery check (pnpm --filter api mail:test).
+  test
+  // A link to choose a new password (anyone can ask for one: limited).
+  password_reset
+  // The password of an account was changed or reset (a security notice).
+  password_changed
+  // A link to confirm a sign-up (anyone can ask for one: limited).
+  sign_up_confirmation
+  // Someone signed up with an address that already has an account: a notice
+  // to its owner instead of a link (anyone can cause one: limited).
+  sign_up_existing
+  // A link to confirm a new address, sent to it (an account holder with
+  // their password can cause one: limited).
+  email_change_confirmation
+  // Someone tried to move an account to an address that has one: a notice to
+  // its owner instead of a link (limited).
+  email_change_existing
+  // The address of an account was changed: a notice to the previous address,
+  // with a link to undo it (a security notice, never held back).
+  email_changed
+  // An administrator's invitation to create an account (limited per address).
+  invitation
+  // The account was deleted: a notice to its last address (a security notice,
+  // never held back). Queued without the user, which no longer exists.
+  account_deleted
+}
+
+enum MailStatus {
+  // Waiting for its next attempt (nextAttemptAt).
+  pending
+  // Claimed by a worker until lockedUntil; past it, another worker takes it over.
+  sending
+  // The SMTP server accepted it.
+  sent
+  // A permanent error, or out of attempts: kept for inspection and retry.
+  failed
+  // Not sent before expiresAt, or no longer relevant: dropped, never sent late.
+  expired
+}
+
+// The transactional outbox (docs/architecture.md#email): a business change
+// and the message it calls for are written in one transaction, and a worker
+// of the API delivers it afterwards, with retries. A row holds no body and no
+// secret: the worker renders the message when it sends it, and a link's token
+// is minted then, so only its hash is ever stored. The address is kept until
+// the message is sent or dropped, then only its keyed hash. CHECK constraints
+// in the migration enforce the states: a lease on every claimed row, sentAt
+// exactly on sent rows, no address left on sent or expired rows.
+model MailMessage {
+  id            String     @id @default(uuid(7)) @db.Uuid
+  kind          MailKind
+  status        MailStatus @default(pending)
+  // The address while it may still be needed (pending, sending, failed);
+  // cleared once the message is sent or dropped.
+  recipient     String?
+  // HMAC-SHA256 of the normalized address (mail.recipient.ts): per-address
+  // limits and lookups without keeping the address.
+  recipientHash String     @map("recipient_hash")
+  // The account the message is about, when there is one.
+  userId        String?    @map("user_id") @db.Uuid
+  // Ids the template needs (never a secret, a token, an address or a body).
+  payload       Json       @default("{}")
+  // Set by callers that could enqueue the same message twice: the second
+  // enqueue is a no-op.
+  dedupeKey     String?    @unique @map("dedupe_key")
+  attempts      Int        @default(0)
+  nextAttemptAt DateTime   @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  lockedUntil   DateTime?  @map("locked_until") @db.Timestamptz(3)
+  // Category of the last failure (smtp_4xx_451, connection, ...): never the
+  // server's text, which can quote the address.
+  lastError     String?    @map("last_error")
+  expiresAt     DateTime   @map("expires_at") @db.Timestamptz(3)
+  sentAt        DateTime?  @map("sent_at") @db.Timestamptz(3)
+  // The request that enqueued it, to follow one message through the logs.
+  requestId     String?    @map("request_id")
+  createdAt     DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The worker's claim: due pending rows, and sending rows whose lease ended.
+  @@index([status, nextAttemptAt])
+  // Per-address limits count an address's recent messages.
+  @@index([recipientHash, createdAt])
+  // The retention sweep deletes old finished rows.
+  @@index([createdAt])
+  @@index([userId])
+  @@map("mail_messages")
+}
+
+// What a one-time token is for.
+enum AccountTokenPurpose {
+  password_reset
+  // Moves the account to targetEmail: sent to that new address.
+  email_change
+  // Puts targetEmail (the previous address) back, with a new password: sent
+  // to that previous address after a change. Not bound to the account's
+  // later state, so whoever took the account cannot void it.
+  email_revert
+}
+
+// One-time tokens sent in emailed links (docs/security.md#one-time-tokens).
+// Only the SHA-256 of the token is stored: the token itself exists in the
+// message on its way, never in the database or the outbox. A token works
+// once (usedAt), until expiresAt, and only while the account is as it was
+// when it was minted: the same securityVersion and, for an address-bound
+// purpose, the same email. Minting one deletes the previous unused ones of
+// the same purpose, so at most one link works.
+model AccountToken {
+  id              String              @id @default(uuid(7)) @db.Uuid
+  userId          String              @map("user_id") @db.Uuid
+  purpose         AccountTokenPurpose
+  tokenHash       String              @unique @map("token_hash")
+  securityVersion Int                 @map("security_version")
+  // The account's address when the token was minted.
+  email           String
+  // email_change: the new address; email_revert: the address to put back.
+  targetEmail     String?             @map("target_email")
+  expiresAt       DateTime            @map("expires_at") @db.Timestamptz(3)
+  usedAt          DateTime?           @map("used_at") @db.Timestamptz(3)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  // The sweep deletes expired and used tokens.
+  @@index([expiresAt])
+  @@map("account_tokens")
+}
+
+// A sign-up waiting for its address to be confirmed. No account exists until
+// it is: sign-in, recovery and the admin list never see an unconfirmed one.
+// One per address; a new sign-up replaces it (and its link). The link's token
+// is minted when the message is sent, only its SHA-256 stored; confirming
+// takes the token AND the password chosen here, so whoever opens a link they
+// did not ask for cannot finish someone else's sign-up
+// (docs/security.md#sign-up).
+model SignUp {
+  id             String    @id @default(uuid(7)) @db.Uuid
+  // normalizeEmail()'d, like users.email.
+  email          String    @unique
+  name           String
+  passwordHash   String    @map("password_hash")
+  // Null until the message is sent.
+  tokenHash      String?   @unique @map("token_hash")
+  expiresAt      DateTime? @map("expires_at") @db.Timestamptz(3)
+  // Wrong passwords given with the link: the sign-up is dropped at the limit.
+  failedAttempts Int       @default(0) @map("failed_attempts")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@map("sign_ups")
+}
+
+// An administrator's invitation to create an account with a given role. No
+// account exists until it is accepted (with a name and a password chosen by
+// the person invited): sign-in, recovery and the user list never see it. One
+// per address; inviting again replaces it, and its link. The link's token is
+// minted when the message is sent, only its SHA-256 stored
+// (docs/security.md#invitations).
+model Invitation {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  // normalizeEmail()'d, like users.email.
+  email       String    @unique
+  // Fixed by the administrator: accepting cannot change it.
+  role        Role
+  // Who invited; kept when that account is deleted, as unknown.
+  invitedById String?   @map("invited_by_id") @db.Uuid
+  // Null until the message is sent.
+  tokenHash   String?   @unique @map("token_hash")
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  invitedBy User? @relation(fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  // Deleting a user sets its invitations' invitedById to null.
+  @@index([invitedById])
+  @@map("invitations")
+}
+
+// The example resource (docs/authorization.md): every item belongs to one
+// user, the only one who lists or reads it. Deleted with its owner.
+model Item {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  ownerId        String   @map("owner_id") @db.Uuid
+  title          String   @db.VarChar(120)
+  description    String?  @db.VarChar(2000)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  // The Idempotency-Key its creation carried, if any, and a SHA-256 of what
+  // was asked (items.service.ts): a retry with the key gets this item back
+  // instead of a second one, the same key with another body is refused.
+  idempotencyKey String?  @map("idempotency_key") @db.VarChar(255)
+  requestHash    String?  @map("request_hash") @db.Char(64)
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // One item per key and owner, whatever the instances or the cache did.
+  @@unique([ownerId, idempotencyKey])
+  // An owner's page, newest first: createdAt, then id for equal timestamps.
+  @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("items")
+}

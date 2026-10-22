@@ -1,13 +1,14 @@
 # Testing
 
-What is tested where, how to write tests that catch real defects, and how to run every level,
-end-to-end on a device included.
+What is tested where, in the app and in the API, how to write tests that catch real defects, and
+how to run every level, end-to-end on a device included.
 
 - [Levels](#levels)
 - [Commands](#commands)
 - [Writing tests](#writing-tests)
 - [Test helpers](#test-helpers)
 - [Native modules in tests](#native-modules-in-tests)
+- [The API's tests](#the-apis-tests)
 - [Coverage](#coverage)
 - [End-to-end](#end-to-end)
 - [Manual testing on devices](#manual-testing-on-devices)
@@ -15,13 +16,16 @@ end-to-end on a device included.
 
 ## Levels
 
-| Level       | Tool                                   | What it proves                                                                                                                            | Where                                                                        |
-| ----------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Unit        | Jest (jest-expo)                       | logic: errors, links, redaction, env schema, session, flags, storage                                                                      | `apps/mobile/src/**/<name>.spec.ts` next to the code                         |
-| Component   | React Native Testing Library (RNTL 14) | a component renders, is accessible, reacts to the user                                                                                    | `apps/mobile/src/ui/components/components.spec.tsx`                          |
-| Integration | RNTL + stubbed `fetch`                 | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                                     | `apps/mobile/src/features/**/*.int.spec.tsx`                                 |
-| Navigation  | RNTL + the real routes (`renderApp`)   | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                                                   | `apps/mobile/src/navigation.int.spec.tsx`, `apps/mobile/src/routes.spec.tsx` |
-| End-to-end  | Maestro on an emulator / simulator     | the release build works for a user: the critical journeys, and their failures on a device (offline, 429, 5xx, a session the server ended) | `apps/mobile/.maestro/flows/`                                                |
+| Level           | Tool                                     | What it proves                                                                                                                            | Where                                                                                                                        |
+| --------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Unit            | Jest (jest-expo)                         | logic: errors, links, redaction, env schema, session, flags, storage                                                                      | `apps/mobile/src/**/<name>.spec.ts` next to the code                                                                         |
+| Component       | React Native Testing Library (RNTL 14)   | a component renders, is accessible, reacts to the user                                                                                    | `apps/mobile/src/ui/components/components.spec.tsx`                                                                          |
+| Integration     | RNTL + stubbed `fetch`                   | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                                     | `apps/mobile/src/features/**/*.int.spec.tsx`                                                                                 |
+| Navigation      | RNTL + the real routes (`renderApp`)     | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                                                   | `apps/mobile/src/navigation.int.spec.tsx`, `apps/mobile/src/routes.spec.tsx`                                                 |
+| End-to-end      | Maestro on an emulator / simulator       | the release build works for a user: the critical journeys, and their failures on a device (offline, 429, 5xx, a session the server ended) | `apps/mobile/.maestro/flows/`                                                                                                |
+| API unit        | Vitest                                   | one service, guard, pipe, filter or utility, its dependencies faked                                                                       | `apps/api/src/**/<name>.spec.ts` next to the code                                                                            |
+| API integration | Vitest + supertest                       | the real API over HTTP on a real PostgreSQL; the Redis adapters on a real Redis; the email outbox through a real Mailpit                  | `apps/api/src/**/*.int.spec.ts`                                                                                              |
+| Contract        | Vitest spec, typecheck script, node:test | the API's controllers, `openapi/openapi.json`, the app's types and the mock API agree                                                     | `apps/api/src/openapi/openapi.spec.ts`, `apps/mobile/scripts/api-types.mjs --check`, `apps/mobile/scripts/mock-api.test.mjs` |
 
 The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
 End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
@@ -36,8 +40,15 @@ pnpm --filter mobile test:watch                     # re-run on change
 pnpm --filter mobile test features/items            # the tests under a folder (a pattern of their path)
 pnpm --filter mobile test -t "rolls the optimistic" # tests whose name matches
 pnpm test:e2e:mobile                                # Maestro flows, on a running emulator/simulator (see End-to-end)
-pnpm test:scripts                                   # the repository scripts' own tests (node --test)
+pnpm test:scripts                                   # the repository scripts' own tests (node --test), the mock API against the contract
+pnpm test:integration                               # the API on PostgreSQL, Redis and Mailpit (pnpm services:up first)
+pnpm --filter api test:watch                        # the API's unit tests, re-run on change
+pnpm --filter api exec vitest run src/items         # the API's unit tests under a folder
+pnpm --filter api exec vitest run --config vitest.config.int.ts src/items   # one integration folder
 ```
+
+`pnpm test` and `pnpm test:coverage` run both packages: Jest for the app, Vitest for the API's unit
+tests (no database, no network).
 
 ## Writing tests
 
@@ -77,7 +88,7 @@ shows the field error the server sent'`), with the arrange/act/assert visible.
 | `deferred()`                                    | a response the test resolves when it wants: assert the loading state in between                                                                                |
 | `bodyOf(request)`                               | the parsed JSON body of a recorded request                                                                                                                     |
 | `signInForTest(stub)`, `endTestSession(stub)`   | a signed-in session (tokens in the mocked secure storage) and its clean end                                                                                    |
-| `fixtures.ts`                                   | `user`, `tokens()`, `session()`, `item()`, `page()`, typed from the contract: a contract change breaks a stale fixture at compile time                         |
+| `fixtures.ts`                                   | `user`, `account`, `tokens()`, `session()`, `item()`, `page()`, typed from the contract: a contract change breaks a stale fixture at compile time              |
 
 Example, from `apps/mobile/src/features/items/items.int.spec.tsx`:
 
@@ -105,6 +116,41 @@ stub:
 module loads. A new native module gets its mock in `setup.ts` (shared) or in the spec that needs it
 (`jest.mock(...)`), never a real native call.
 
+## The API's tests
+
+Unit tests construct the class with fakes (`new ItemsService(fakePrisma, fakeIdempotency)`) rather
+than a Nest testing module; `vi.fn()` for spies; real `JwtService` and real argon2 where they are
+cheap. The order of the decisions (what is checked, what is written, under which lock) is the unit
+test's subject; the SQL, the locks and the races are the integration test's.
+
+Integration tests run the real application, with the production HTTP pipeline (`configureApp`),
+over HTTP with supertest:
+
+- **Plumbing** in `apps/api/test/`: `createTestApp(customize)` (each suite its own app, so in-memory
+  rate-limit counters never cross suites; `customize` overrides providers, such as the Redis options
+  or the mail options), `resetDatabase` (empties every table), `auth.ts` (`seedUser` with a real
+  argon2 hash, `signIn` returning the session the app would keep, `sessionOf(response)`, `asUser`
+  minting a token without a sign-in), `access.ts` (`expectRecordAccess`, the object-level
+  authorization matrix of a route on one record: [authorization.md](authorization.md#tests)),
+  `mailpit.ts` (addresses of their own, read and deleted through Mailpit's API), `redis.ts`.
+- **The database**: `<db>_test` on the server `DATABASE_URL` names (CI) or `apps/api/.env`, created
+  and migrated by the global setup with the committed migrations; suites run one file at a time.
+  Never point them at a database you care about.
+- **Redis and Mailpit**: the development ones (`pnpm services:up`) or `REDIS_TEST_URL`,
+  `MAIL_TEST_SMTP_URL` and `MAILPIT_TEST_URL` (CI starts throwaway ones). Each spec writes under its
+  own key prefix or addresses and deletes only those. Without them the specs that need them are
+  skipped locally and fail in CI, where skipping would hide a broken adapter.
+- **Limits and versions**: the integration environment (`apps/api/vitest.config.int.ts`) loosens the
+  global rate limit (the route limits keep theirs, and have their own spec) and serves Android 2.0.0
+  and up, so the minimum-version spec has a floor to test.
+- **Observability in specs**: in-memory exporters or a loopback collector, a stubbed `fetch` for
+  Sentry: nothing leaves the machine.
+
+Rules on top of [Writing tests](#writing-tests): test through HTTP, never the private details; for
+every protected route, the allowed role, a forbidden role, anonymous and another user's record;
+every race the code claims to handle (two renewals of one token, two deletions of the last two
+administrators, two creates with one `Idempotency-Key`) has a test that runs it for real.
+
 ## Coverage
 
 `pnpm test:coverage` fails below the thresholds in `apps/mobile/jest.config.js`:
@@ -118,6 +164,18 @@ so the numbers hold; they are raised when coverage grows and never lowered to ma
 pass (a reviewer of `apps/mobile/jest.config.js` decides). Coverage measures what ran, not what was
 checked: a test without meaningful assertions raises it and proves nothing. The HTML report is in
 `apps/mobile/coverage/index.html` (CI uploads it as an artifact).
+
+The API's unit coverage (V8) has its own thresholds in `apps/api/vitest.config.ts`, the same kind of
+ratchet:
+
+| Lines | Statements | Functions | Branches |
+| ----- | ---------- | --------- | -------- |
+| 95 %  | 94 %       | 91 %      | 87 %     |
+
+It measures the logic (services, guards, pipes, filters, utilities, the env schema). Controllers and
+modules are excluded: they are wiring, verified by the integration suite, which needs a database and
+is not part of the fast coverage gate. A new module does not lower coverage by its controller, but
+it does by any service method without a unit test. Report: `apps/api/coverage/index.html`.
 
 ## End-to-end
 

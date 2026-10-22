@@ -11,8 +11,9 @@
 // it as something else.
 
 /**
- * @typedef {null | boolean | number | string | YamlValue[] | YamlMapping} YamlValue
  * @typedef {{ [key: string]: YamlValue }} YamlMapping
+ * @typedef {YamlValue[]} YamlList
+ * @typedef {null | boolean | number | string | YamlList | YamlMapping} YamlValue
  * @typedef {{ number: number; indent: number; content: string }} Line
  * @typedef {{ reason: string; expires?: string }} SettingException
  * @typedef {{

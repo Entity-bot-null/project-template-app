@@ -2,6 +2,7 @@
 # defaults, so tests are scanned too. Untracked files are skipped anyway.
 node_modules/
 dist/
+dist-dev/
 coverage/
 .expo/
 apps/mobile/.maestro/results/
@@ -9,7 +10,9 @@ apps/mobile/.maestro/results/
 android/
 ios/
 .env
-# Generated from openapi/openapi.json and committed: checked by the contract
-# drift gate (pnpm typecheck) instead.
+apps/api/src/prisma/generated/
+# Generated and committed: checked by the contract drift gates instead
+# (the API's drift spec, pnpm typecheck).
+openapi/openapi.json
 apps/mobile/src/api/schema.d.ts
 pnpm-lock.yaml

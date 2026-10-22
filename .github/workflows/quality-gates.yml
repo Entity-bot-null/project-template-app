@@ -1,9 +1,10 @@
 name: Quality gates
 
 # Reusable: every gate a commit must pass, the same ones `pnpm verify` runs
-# locally (docs/ci-cd.md). Called by CI on every pull request and push to
-# main, and by the EAS build and update workflows for the exact commit they
-# ship. No secrets: nothing here talks to EAS or the stores.
+# locally plus the API's integration suite and the server images
+# (docs/ci-cd.md). Called by CI on every pull request and push to main, and by
+# the EAS build and update workflows for the exact commit they ship. No
+# secrets: nothing here talks to EAS, the stores or a registry.
 on:
   workflow_call:
     inputs:
@@ -16,12 +17,47 @@ permissions:
   contents: read
 
 env:
-  # Tool images hosted on Docker Hub are pulled through this mirror, by digest
-  # (scripts/tool-image.mjs): Docker Hub limits anonymous pulls per address,
-  # and runners share theirs.
+  # The integration suite derives `<db>_test` from it.
+  DATABASE_URL: postgresql://app:app@localhost:5432/app
+  # Tool images hosted on Docker Hub or ECR Public are pulled through this
+  # mirror, by digest (scripts/tool-image.mjs): both limit anonymous pulls per
+  # address, and runners share theirs.
   TOOL_IMAGE_MIRROR: mirror.gcr.io
+  # No update check or usage data from the Prisma CLI (prisma generate, the
+  # integration suite's migrations), as in the images.
+  CHECKPOINT_DISABLE: '1'
 
 jobs:
+  # The pinned PostgreSQL, Redis and Mailpit images of scripts/tool-images/Dockerfile
+  # (updated by Dependabot, tag and digest), for the service containers below,
+  # which cannot read a file themselves: the mirror's copy, by the same
+  # digest, when the mirror has it (a service container cannot fall back to
+  # another registry), the pinned reference otherwise.
+  tool-images:
+    name: Tool images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      postgres: ${{ steps.images.outputs.postgres }}
+      redis: ${{ steps.images.outputs.redis }}
+      mailpit: ${{ steps.images.outputs.mailpit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/tool-images
+            scripts/tool-image.mjs
+          sparse-checkout-cone-mode: false
+      - id: images
+        run: |
+          {
+            echo "postgres=$(node scripts/tool-image.mjs --mirrored postgres)"
+            echo "redis=$(node scripts/tool-image.mjs --mirrored redis)"
+            echo "mailpit=$(node scripts/tool-image.mjs --mirrored mailpit)"
+          } >> "$GITHUB_OUTPUT"
+
   static:
     name: Format, lint, types, workflows
     runs-on: ubuntu-24.04
@@ -35,11 +71,12 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       # Includes the contract check: apps/mobile/src/api/schema.d.ts matches
-      # openapi/openapi.json.
+      # openapi/openapi.json (the API's side is its drift spec, in the unit job).
       - run: pnpm typecheck
       # The repository tooling's own tests (scripts/*.test.mjs and
       # apps/*/scripts/*.test.mjs): Doberman's engine, the dependency policy,
-      # the tool images.
+      # the tool images, the migrations' contract steps, the mock API against
+      # the contract.
       - run: pnpm test:scripts
       # actionlint, zizmor and shellcheck on the Git hooks: the pinned images
       # of scripts/tool-images/Dockerfile (docs/ci-cd.md#workflow-security).
@@ -85,15 +122,76 @@ jobs:
           ref: ${{ inputs.ref }}
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # Fails below the coverage thresholds of apps/mobile/jest.config.js.
+      # Fails below the coverage thresholds of apps/mobile/jest.config.js and
+      # apps/api/vitest.config.ts; includes the API's OpenAPI drift spec.
       - run: pnpm test:coverage
-      - name: Upload the coverage report
+      - name: Upload the coverage reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: coverage
-          path: apps/mobile/coverage/
+          path: apps/*/coverage/
           retention-days: 14
+
+  integration:
+    name: Integration tests (API + PostgreSQL + Redis + Mailpit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: tool-images
+    env:
+      # The Redis-backed adapters' specs and the mail outbox's run against
+      # these throwaway servers; in CI a missing one fails them instead of
+      # skipping them.
+      REDIS_TEST_URL: redis://localhost:6379
+      MAIL_TEST_SMTP_URL: smtp://localhost:1025
+      MAILPIT_TEST_URL: http://localhost:8025
+    services:
+      postgres:
+        # Digest-pinned: scripts/tool-image.mjs refuses a reference without one.
+        image: ${{ needs.tool-images.outputs.postgres }} # zizmor: ignore[unpinned-images]
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        # Digest-pinned: scripts/tool-image.mjs refuses a reference without one.
+        image: ${{ needs.tool-images.outputs.redis }} # zizmor: ignore[unpinned-images]
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mailpit:
+        # Digest-pinned: scripts/tool-image.mjs refuses a reference without one.
+        image: ${{ needs.tool-images.outputs.mailpit }} # zizmor: ignore[unpinned-images]
+        env:
+          # Lets the outbox specs make it refuse messages (451, 550) on demand.
+          MP_ENABLE_CHAOS: 'true'
+          MP_SMTP_DISABLE_RDNS: 'true'
+        ports:
+          - 1025:1025
+          - 8025:8025
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: pnpm test:integration
 
   security:
     name: Security (dependencies, licenses, secrets)
@@ -117,7 +215,7 @@ jobs:
           git /repo --redact --no-banner
 
   build:
-    name: Bundle, budget and native projects
+    name: Build, budget and native projects
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -132,8 +230,8 @@ jobs:
           ref: ${{ inputs.ref }}
           persist-credentials: false
       - uses: ./.github/actions/setup
-      # Hermes bytecode for both platforms (the app's export), then
-      # apps/mobile/bundle-budget.json.
+      # The API, and Hermes bytecode for both platforms (the app's export),
+      # then apps/mobile/bundle-budget.json.
       - run: pnpm build
       - run: pnpm perf:check
       # The config plugins produce both native projects (no compilation:
@@ -141,3 +239,10 @@ jobs:
       - name: Generate the native projects
         working-directory: apps/mobile
         run: pnpm exec expo prebuild --no-install --platform all
+
+  images:
+    name: Images
+    uses: ./.github/workflows/docker-images.yml
+    with:
+      ref: ${{ inputs.ref }}
+      push: false

@@ -36,7 +36,7 @@ onFlowComplete:
     visible: 1 item found
     timeout: 15000
 - assertVisible:
-    id: item-item-9
+    id: item-00000000-0000-7000-8000-000000000009
 - tapOn:
     id: items-search
 - eraseText

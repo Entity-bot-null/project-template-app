@@ -66,6 +66,11 @@ export function ok(data: unknown, status = 200): Response {
   return json(status, { data, message: 'OK' });
 }
 
+/** An answer without a body (204), as the API gives to a logout. */
+export function noContent(): Response {
+  return new Response(null, { status: 204 });
+}
+
 /** An error envelope. */
 export function failure(
   status: number,

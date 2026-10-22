@@ -82,6 +82,25 @@
       },
       {
         "file": "apps/mobile/bundle-budget.json"
+      },
+      {
+        "dependency": "@nestjs/core",
+        "package": "apps/api/package.json"
+      },
+      {
+        "file": "apps/api/prisma/schema.prisma"
+      },
+      {
+        "file": "apps/api/vitest.config.int.ts"
+      },
+      {
+        "file": "apps/api/src/auth/sessions.service.ts"
+      },
+      {
+        "file": "apps/api/src/env/env.ts"
+      },
+      {
+        "file": "docker-compose.yml"
       }
     ],
     "minSupporting": 0.6
@@ -105,11 +124,11 @@
       "tags": ["static"]
     },
     "typecheck": {
-      "name": "Typecheck (contract drift, typed routes)",
+      "name": "Typecheck (contract drift, typed routes, the tooling scripts)",
       "tags": ["static"]
     },
     "test:coverage": {
-      "name": "Tests (unit, component, integration, accessibility) + coverage thresholds",
+      "name": "Tests (app: unit, component, integration, accessibility; API: unit, OpenAPI drift spec) + coverage thresholds",
       "tags": ["tests"]
     },
     "expo:doctor": {
@@ -123,7 +142,7 @@
       "requires": ["network"]
     },
     "build": {
-      "name": "Build (the app's export: Hermes bytecode for Android and iOS)",
+      "name": "Build (the API, and the app's export: Hermes bytecode for Android and iOS)",
       "tags": ["build"]
     },
     "perf:check": {
@@ -157,7 +176,7 @@
     {
       "id": "test:scripts",
       "script": "test:scripts",
-      "name": "Repository script tests (Doberman engine)",
+      "name": "Repository script tests (Doberman engine, Semgrep file selection, mock API against the contract)",
       "command": "pnpm test:scripts",
       "source": ".github/workflows/quality-gates.yml › Format, lint, types, workflows",
       "required": true,
@@ -176,10 +195,41 @@
       "tags": ["security"]
     },
     {
+      "id": "test:integration",
+      "script": "test:integration",
+      "name": "Integration tests (API + PostgreSQL + Redis + Mailpit)",
+      "command": "pnpm test:integration",
+      "source": ".github/workflows/quality-gates.yml › Integration tests (API + PostgreSQL + Redis + Mailpit)",
+      "required": true,
+      "when": "always",
+      "requires": ["database"],
+      "tags": ["tests"],
+      "note": "Runs on <db>_test, never the development database. The Redis adapter specs and the outbox specs run against the development Redis and Mailpit (REDIS_URL and MAIL_SMTP_URL of apps/api/.env, or REDIS_TEST_URL and MAIL_TEST_SMTP_URL), each under its own key prefix or mailbox; required in CI, skipped locally without a URL: say so."
+    },
+    {
+      "id": "images",
+      "name": "Container images (build + Trivy scan)",
+      "command": "per .github/workflows/docker-images.yml: docker build of apps/api/Dockerfile (targets runtime and migrate), tagged doberman-scan/<image>, then the Trivy scan of each with `node scripts/tool-image.mjs trivy` and the workflow's flags; remove the doberman-scan images afterwards",
+      "source": ".github/workflows/docker-images.yml (called by quality-gates.yml › Images)",
+      "required": true,
+      "when": "paths",
+      "paths": [
+        "apps/api/**",
+        ".dockerignore",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tsconfig.base.json",
+        "scripts/tool-images/**"
+      ],
+      "requires": ["docker", "network"],
+      "tags": ["security", "build"]
+    },
+    {
       "id": "prebuild",
       "name": "Native projects (expo prebuild, Android + iOS)",
       "command": "pnpm --filter mobile exec expo prebuild --no-install --platform all",
-      "source": ".github/workflows/quality-gates.yml › Bundle, budget and native projects",
+      "source": ".github/workflows/quality-gates.yml › Build, budget and native projects",
       "required": true,
       "when": "always",
       "isolation": "sandbox",
@@ -237,6 +287,79 @@
   ],
   "areas": [
     {
+      "id": "api-auth",
+      "paths": ["apps/api/src/auth/**"],
+      "focus": "mobile sessions with tokens in the body: refresh rotation with family revocation, the 30 s reuse window and superseded successors, the user row lock, sign-in timing, password hashing, token claims and securityVersion",
+      "docs": [
+        "docs/security.md",
+        "docs/adr/0007-mobile-sessions-with-refresh-tokens-in-the-body.md"
+      ]
+    },
+    {
+      "id": "authorization",
+      "paths": [
+        "apps/api/src/**/*.controller.ts",
+        "apps/api/src/common/decorators/**",
+        "apps/api/src/auth/*.guard.ts",
+        "apps/api/src/auth/auth.decorator.ts"
+      ],
+      "focus": "@Auth(...) on every non-public route, roles, ownership in the query (another user's id → 404), no IDOR",
+      "docs": ["docs/authorization.md", "docs/api-conventions.md"]
+    },
+    {
+      "id": "api-modules",
+      "paths": ["apps/api/src/**/*.service.ts", "apps/api/src/**/dto/**", "apps/api/src/common/**"],
+      "focus": "Zod DTOs with bounds and named fields in errors[], explicit select, pagination limits, error paths, transactions and locks, idempotency keys, account deletion cascades",
+      "docs": ["docs/api-conventions.md", "docs/error-handling.md", "docs/architecture.md"]
+    },
+    {
+      "id": "database",
+      "paths": [
+        "apps/api/prisma/**",
+        "apps/api/prisma.config.ts",
+        "apps/api/src/prisma/**",
+        "apps/api/src/seed/**"
+      ],
+      "focus": "committed migration, never an edited one, expand/contract safety while the previous version runs, indexes for new queries, no unbounded queries, no $queryRawUnsafe",
+      "docs": ["docs/database.md"]
+    },
+    {
+      "id": "api-config",
+      "paths": [
+        "apps/api/src/env/**",
+        ".env.example",
+        "apps/api/.env.example",
+        "docs/environment.md"
+      ],
+      "focus": "process.env read only in env.ts, schema + .env.example + docs together, optional integrations off by default and never stopping the boot",
+      "docs": ["docs/environment.md"]
+    },
+    {
+      "id": "api-infrastructure",
+      "paths": [
+        "apps/api/src/infrastructure/**",
+        "apps/api/src/health/**",
+        "apps/api/src/lifecycle/**",
+        "apps/api/src/common/http/**"
+      ],
+      "focus": "CacheService/LockService/IdempotencyService only, degradation when Redis is absent, readiness probe, the outbox, external calls through createExternalHttpClient (timeouts, SSRF), the minimum app version gate",
+      "docs": ["docs/architecture.md", "docs/security.md"]
+    },
+    {
+      "id": "http-hardening",
+      "paths": [
+        "apps/api/src/common/guards/**",
+        "apps/api/src/common/http/json-only.middleware.ts",
+        "apps/api/src/app.module.ts",
+        "apps/api/src/main.ts",
+        "apps/api/src/server.ts",
+        "apps/api/src/app.setup.ts",
+        "apps/api/Dockerfile"
+      ],
+      "focus": "rate limits per account or signed-in user behind carrier NAT, with IP ceilings; Fetch Metadata guard, CORS, security and cache headers; the images: pinned bases, non-root, no package managers",
+      "docs": ["docs/security.md"]
+    },
+    {
       "id": "auth-session",
       "paths": ["apps/mobile/src/auth/**"],
       "focus": "one renewal at a time, generation guard against late renewals, refresh token rotation, restore offline, sign-out cleanup",
@@ -254,10 +377,12 @@
         "openapi/**",
         "apps/mobile/src/api/schema.d.ts",
         "apps/mobile/scripts/api-types.mjs",
-        "apps/mobile/scripts/mock-api.mjs"
+        "apps/mobile/scripts/mock-api.mjs",
+        "apps/api/src/openapi/**",
+        "apps/api/src/common/openapi/**"
       ],
-      "focus": "regenerated types, backwards compatibility with installed app versions, mock API and fixtures in step",
-      "docs": ["docs/mobile-architecture.md", "DEFINITION_OF_DONE.md"]
+      "focus": "regenerated by pnpm contract, backwards compatibility with installed app versions (additive changes, the minimum version for anything else), status codes, envelope and errors[], named schemas, mock API and fixtures in step",
+      "docs": ["docs/api-conventions.md", "docs/mobile-architecture.md", "DEFINITION_OF_DONE.md"]
     },
     {
       "id": "server-state",
@@ -316,10 +441,13 @@
       "paths": [
         "apps/mobile/src/lib/observability/**",
         "apps/mobile/src/lib/analytics/**",
-        "apps/mobile/src/lib/errors.ts"
+        "apps/mobile/src/lib/errors.ts",
+        "apps/api/src/observability/**",
+        "apps/api/src/common/logging/**",
+        "observability/**"
       ],
-      "focus": "redaction: no tokens, passwords or personal data in logs, breadcrumbs, reports or events",
-      "docs": ["SECURITY.md", "docs/mobile-architecture.md"]
+      "focus": "redaction: no tokens, passwords or personal data in logs, breadcrumbs, reports or events; API: redaction, ids not personal data, errorTracker once, low-cardinality metric attributes, observability/api-metrics.json in step with the code",
+      "docs": ["SECURITY.md", "docs/mobile-architecture.md", "docs/observability.md"]
     },
     {
       "id": "ui-kit",
@@ -339,7 +467,13 @@
         "apps/mobile/bundle-budget.json",
         ".semgrepignore",
         ".secretlintrc.json",
-        "apps/mobile/.maestro/config.yaml"
+        "apps/mobile/.maestro/config.yaml",
+        "apps/api/vitest.config.ts",
+        "apps/api/vitest.config.int.ts",
+        "tsconfig.json",
+        "tsconfig.base.json",
+        "docker-compose.yml",
+        ".dockerignore"
       ],
       "focus": "no gate, threshold, rule or permission weakened; workflows least privilege, pinned, no PR path to releases",
       "docs": ["docs/ci-cd.md", "SECURITY.md"]
@@ -350,7 +484,9 @@
         "apps/mobile/src/**/*.spec.ts",
         "apps/mobile/src/**/*.spec.tsx",
         "apps/mobile/src/test/**",
-        "apps/mobile/.maestro/**"
+        "apps/mobile/.maestro/**",
+        "apps/api/src/**/*.spec.ts",
+        "apps/api/test/**"
       ],
       "focus": "would the tests fail if the code were wrong: realistic stubs, failure paths, races, no snapshots",
       "docs": ["docs/testing.md"]
@@ -362,26 +498,38 @@
       "docs": ["AGENTS.md"]
     }
   ],
-  "artifacts": ["apps/mobile/coverage", "apps/mobile/dist", "apps/mobile/.maestro/results"],
+  "artifacts": [
+    "apps/mobile/coverage",
+    "apps/mobile/dist",
+    "apps/mobile/.maestro/results",
+    "apps/api/coverage",
+    "apps/api/dist"
+  ],
   "coverage": {
     "lcov": [
       {
         "file": "apps/mobile/coverage/lcov.info",
         "base": "apps/mobile"
+      },
+      {
+        "file": "apps/api/coverage/lcov.info",
+        "base": "apps/api"
       }
     ],
-    "include": ["apps/mobile/src/**/*.ts", "apps/mobile/src/**/*.tsx"],
+    "include": ["apps/mobile/src/**/*.ts", "apps/mobile/src/**/*.tsx", "apps/api/src/**/*.ts"],
     "exclude": [
       "apps/mobile/src/**/*.spec.ts",
       "apps/mobile/src/**/*.spec.tsx",
       "apps/mobile/src/test/**",
-      "apps/mobile/src/**/*.d.ts"
+      "apps/mobile/src/**/*.d.ts",
+      "apps/api/src/**/*.spec.ts",
+      "apps/api/src/prisma/generated/**"
     ]
   },
   "reproduction": {
-    "fileSuffix": ".doberman.spec.tsx (or .doberman.spec.ts)",
-    "location": "inside apps/mobile/src/, next to the code under test (jest only collects apps/mobile/src/**/*.spec.ts(x))",
-    "runOne": "pnpm --filter mobile exec jest --coverage=false --runTestsByPath <path from apps/mobile>",
+    "fileSuffix": ".doberman.spec.tsx (or .doberman.spec.ts) for the app; .doberman.spec.ts for API units, .doberman.int.spec.ts for API integration",
+    "location": "next to the code under test: inside apps/mobile/src/ (jest only collects apps/mobile/src/**/*.spec.ts(x)) or apps/api/src/ (each runner only collects its app's src/)",
+    "runOne": "app: pnpm --filter mobile exec jest --coverage=false --runTestsByPath <path from apps/mobile> · API unit: pnpm --filter api exec vitest run <path from apps/api> · API integration (database): pnpm --filter api exec vitest run --config vitest.config.int.ts <path from apps/api>",
     "guide": "reference/reproduction.md"
   }
 }
