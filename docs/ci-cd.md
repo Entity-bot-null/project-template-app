@@ -20,20 +20,20 @@ up a new repository. What a release is (profiles, versions, updates, rollbacks) 
 
 ## Workflows
 
-| Workflow                    | Trigger                                        | Secrets                           | Does                                                                                        |
-| --------------------------- | ---------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- |
-| `ci.yml`                    | pull request, push to `main`, manual           | none                              | dependency review (opt-in), the quality gates, "CI passed"                                  |
-| `conventions.yml`           | pull request, again when its title is edited   | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required      |
-| `quality-gates.yml`         | called by CI, EAS build and EAS update         | none                              | the gates below, on a given commit                                                          |
-| `docker-images.yml`         | called by the quality gates                    | none                              | builds the API's images (`api`, `api-migrate`) and scans them with Trivy; never pushes      |
-| `e2e-android.yml`           | pull request and push touching the app, manual | none                              | release APK of the `e2e` variant, mock API, emulator, Maestro flows                         |
-| `codeql.yml`                | pull request, push, weekly (opt-in)            | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                  |
-| `release.yml`               | push to `main`                                 | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                   |
-| `main-guard.yml`            | push to `main`                                 | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue |
-| `dependabot-auto-merge.yml` | approval of a Dependabot pull request          | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)       |
-| `eas-build.yml`             | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                      |
-| `eas-update.yml`            | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                       |
-| `eas-rollback.yml`          | manual, from `main` only                       | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                             |
+| Workflow                    | Trigger                                                   | Secrets                           | Does                                                                                                              |
+| --------------------------- | --------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                    | pull request, push to `main`, manual                      | none                              | dependency review (opt-in), the quality gates, "CI passed"                                                        |
+| `conventions.yml`           | pull request, again when its title is edited              | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required                            |
+| `quality-gates.yml`         | called by CI, EAS build and EAS update                    | none                              | the gates below, on a given commit                                                                                |
+| `docker-images.yml`         | called by the quality gates                               | none                              | builds the images (`api`, `api-migrate`, `web`) and scans them with Trivy; never pushes                           |
+| `e2e-android.yml`           | pull request and push touching the app or the API, manual | none                              | release APK of the `e2e` variant, emulator, Maestro flows against the mock API, then against the API with Mailpit |
+| `codeql.yml`                | pull request, push, weekly (opt-in)                       | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                                        |
+| `release.yml`               | push to `main`                                            | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                                         |
+| `main-guard.yml`            | push to `main`                                            | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue                       |
+| `dependabot-auto-merge.yml` | approval of a Dependabot pull request                     | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)                             |
+| `eas-build.yml`             | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                                            |
+| `eas-update.yml`            | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                                             |
+| `eas-rollback.yml`          | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                                                   |
 
 The quality gates: the checks `pnpm verify` runs locally, plus the Docker-based ones, the
 repository scripts' tests (`pnpm test:scripts`), the API's integration suite and images, and the
@@ -45,11 +45,12 @@ native projects (`expo prebuild`):
 | Format, lint, types, workflows        | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` (contract drift included), `pnpm test:scripts` (the migrations' contract steps and the mock API against the contract included), `node scripts/lint-workflows.mjs`                 |
 | Expo doctor                           | `pnpm expo:doctor`: SDK compatibility of dependencies (against the installed SDK's manifest, so the result depends on the lockfile, not on the day Expo publishes a patch), config, duplicate native modules, React Native Directory |
 | Static analysis (Semgrep)             | `node scripts/sast.mjs`                                                                                                                                                                                                              |
-| Unit, component and integration tests | `pnpm test:coverage` with the thresholds of both packages (the API's OpenAPI drift spec included); the HTML reports as an artifact                                                                                                   |
+| Unit, component and integration tests | `pnpm test:coverage` with the thresholds of every package (the API's OpenAPI drift spec included); the HTML reports as an artifact                                                                                                   |
 | Integration tests                     | `pnpm test:integration`: the API over HTTP on PostgreSQL 18, with Redis 8 and Mailpit, all service containers; a missing one fails the suite instead of skipping it                                                                  |
 | Security                              | `pnpm security` (audit, dependency policy, secrets in the tree) and gitleaks on the full history                                                                                                                                     |
-| Build, budget and native projects     | `pnpm build` (the API, and the app's production export), `pnpm perf:check` (bundle budget), `expo prebuild` of both platforms in `apps/mobile`                                                                                       |
-| Images                                | `docker-images.yml`: `apps/api/Dockerfile` built (targets `runtime` and `migrate`) and scanned by Trivy (fixable HIGH and CRITICAL fail); nothing is pushed                                                                          |
+| Build, budget and native projects     | `pnpm build` (the API, the landing, and the app's production export), `pnpm perf:check` (the landing's and the app's budgets), `expo prebuild` of both platforms in `apps/mobile`                                                    |
+| End-to-end tests (browser)            | `pnpm test:e2e`: Playwright against the built landing and the web image built from its Dockerfile (base images through the mirror); the report and traces as an artifact on failure ([testing.md](testing.md#browser-end-to-end))    |
+| Images                                | `docker-images.yml`: `apps/api/Dockerfile` (targets `runtime` and `migrate`) and `apps/landing/Dockerfile` built and scanned by Trivy (fixable HIGH and CRITICAL fail); nothing is pushed                                            |
 
 Pull requests from Dependabot run the same gates; they skip only the conventions job (bots name
 branches their own way).
@@ -224,8 +225,9 @@ Once, after creating the repository from this template (REQUIERE CONFIGURACIÓN)
 
 ## Images
 
-`docker-images.yml` builds `api` and `api-migrate` (the `migrate` stage of `apps/api/Dockerfile`:
-the Prisma CLI with its schema engine and the committed migrations), tagged with the commit SHA and
+`docker-images.yml` builds `api`, `api-migrate` (the `migrate` stage of `apps/api/Dockerfile`:
+the Prisma CLI with its schema engine and the committed migrations) and `web` (`apps/landing/Dockerfile`:
+the landing, the app's links and their files, behind nginx), tagged with the commit SHA and
 built with `APP_RELEASE=<commit SHA>`, the release every log line, error report and span of the
 image carries ([observability.md](observability.md#identity)), cached in the GitHub Actions cache,
 and scans each one with Trivy before any push: a fixable HIGH or CRITICAL advisory fails the job
@@ -238,8 +240,9 @@ example `ghcr.io/owner/repo`), add the registry login step marked in the file (a
 provenance as attestations; signed GitHub attestations are one commented step away
 ([security.md](security.md#artifact-integrity)).
 
-Locally: `docker compose --profile stack up --build` builds the same Dockerfile, runs the
-migrations and serves the API on `http://localhost:8090/api`, on the compose Redis
+Locally: `docker compose --profile stack up --build` builds the same Dockerfiles, runs the
+migrations and serves everything on `http://localhost:8090` (the API at `/api`), on the compose
+Redis; `pnpm smoke --url http://localhost:8090` checks it
 ([manual.md](manual.md#55-the-production-like-stack)). Add `--profile observability` (and
 `STACK_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318` in the root `.env`) to see its traces and
 metrics in Grafana.

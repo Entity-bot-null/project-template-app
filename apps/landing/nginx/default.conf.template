@@ -1,0 +1,183 @@
+# One origin for everything public: the landing at / (static pages), the
+# app's links at /app/*, the files that let the phones claim those links at
+# /.well-known/, and the API at /api/, forwarded. ${API_UPSTREAM} and the
+# other ${...} below are substituted when the container starts (templates of
+# the official nginx image), after 18-validate-runtime-config.sh checked them;
+# nginx's own $variables are left alone.
+
+# Access log without query strings (they can carry personal data or tokens),
+# with the request id the API logs too. The app's links carry their token in
+# the fragment, which never reaches a server.
+map $request_uri $request_path {
+    "~^(?<path>[^?]*)" $path;
+}
+log_format app '$remote_addr [$time_local] "$request_method $request_path" $status '
+               '$body_bytes_sent $request_time "$http_user_agent" request_id=$request_id';
+
+# The landing's not-found page in the language of the address: one line per
+# language besides the default (apps/landing/src/i18n/locales.ts; the
+# repository's tests check that the two agree).
+map $uri $landing_not_found {
+    default /404.html;
+    ~^/es/ /es/404/index.html;
+}
+
+server {
+    listen 8080;
+    server_name _;
+    # API_UPSTREAM is looked up again every 10 s, not once at start: a
+    # redeployed API gets a new address, and its old one may by then belong to
+    # another service, which would receive the requests (tokens included).
+    # The nameservers come from /etc/resolv.conf (Docker's or the cluster's
+    # DNS: NGINX_ENTRYPOINT_LOCAL_RESOLVERS in the Dockerfile).
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s;
+    root /usr/share/nginx/html;
+    server_tokens off;
+    access_log /var/log/nginx/access.log app;
+    # Redirects name a path, never an address built from this request: the
+    # browser resolves it against the address it used. An absolute one would
+    # carry this container's port (8080) and the Host header a client chose.
+    absolute_redirect off;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # ^~: API paths that end like a file name (/api/files/report.pdf) are
+    # proxied too, never matched by the static-file locations below.
+    location ^~ /api/ {
+        # The API's probes are for the orchestrator, which reaches the API
+        # directly; from outside, this server's /healthz answers. In any
+        # letter case: the API matches routes case-insensitively.
+        location ~* ^/api/health/ {
+            # nginx's own 404 page is HTML: it gets the headers too.
+            include /etc/nginx/snippets/security-headers.conf;
+            return 404;
+        }
+
+        # Through a variable, so the resolver above is used on every request.
+        # Semgrep reads any proxied variable as a possible SSRF and asks for
+        # `internal`, which would close /api/ to the app: this one holds
+        # API_UPSTREAM, fixed when the container starts, never request data.
+        set $api_upstream "${API_UPSTREAM}";
+        proxy_pass $api_upstream; # nosemgrep: generic.nginx.security.missing-internal.missing-internal -- the upstream is a start-time setting, not request data
+        proxy_http_version 1.1;
+        # The upstream's own name, never the client's Host header: nothing
+        # behind this proxy may build a URL from attacker-controlled input
+        # (Host header poisoning). Absolute URLs come from configuration.
+        proxy_set_header Host $proxy_host;
+        # Replaced, not appended: whatever the client put in X-Forwarded-For
+        # is dropped, and the API (TRUST_PROXY=1) sees the address that
+        # connected here. Behind another proxy or load balancer, make
+        # $remote_addr the client's address with the realip module
+        # (set_real_ip_from, real_ip_header) instead of trusting more hops.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host "";
+        proxy_set_header Forwarded "";
+        # The API keeps this id, so nginx and API log lines correlate.
+        proxy_set_header X-Request-Id $request_id;
+
+        # nginx's own errors on the API's paths (the API down or too slow, a
+        # body over the size limit) answer like the API: its JSON envelope
+        # and the security headers, never nginx's HTML page. The API's own
+        # error answers pass through untouched (proxy_intercept_errors off).
+        error_page 502 504 @api_unreachable;
+        error_page 413 @api_too_large;
+    }
+
+    location @api_unreachable {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        default_type application/json;
+        return 502 '{"data":null,"message":"The API could not be reached"}';
+    }
+
+    location @api_too_large {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        default_type application/json;
+        return 413 '{"data":null,"message":"The request body is too large"}';
+    }
+
+    # ---- The files that let the phones open /app/* links in the app ----
+
+    # Written when the container starts from the app's identity
+    # (19-app-links.sh): Apple's and Google's servers fetch them to verify the
+    # app's claim on this domain. JSON, never a redirect (both refuse one),
+    # cached briefly, so a corrected identity is picked up within minutes.
+    # Without that identity the file is missing: 404.
+    location = /.well-known/apple-app-site-association {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=300";
+        default_type application/json;
+        alias /tmp/app-links/apple-app-site-association;
+    }
+
+    location = /.well-known/assetlinks.json {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=300";
+        default_type application/json;
+        alias /tmp/app-links/assetlinks.json;
+    }
+
+    # Nothing else lives there.
+    location ^~ /.well-known/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    # ---- The app's links ----
+
+    # A phone with the app opens these in it (the files above). Anywhere else
+    # they get the open-in-app page, at the link's own address: no redirect,
+    # so the token stays in the fragment, where it never reaches a server.
+    # Kept out of search results, and revalidated.
+    location = /app {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Robots-Tag "noindex" always;
+        sub_filter_once off;
+        sub_filter 'https://public-origin.invalid' '${APP_ORIGIN}';
+        try_files /open-in-app/index.html =404;
+    }
+
+    location ^~ /app/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        add_header X-Robots-Tag "noindex" always;
+        sub_filter_once off;
+        sub_filter 'https://public-origin.invalid' '${APP_ORIGIN}';
+        try_files /open-in-app/index.html =404;
+    }
+
+    # ---- The landing (apps/landing): static pages, everything else ----
+
+    # Hashed build output: immutable, cached for a year (not on errors).
+    location ^~ /_astro/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # A page is a folder with its index.html (/es/); an address without its
+    # last slash is redirected to it (/es to /es/); nothing else is guessed:
+    # an address the site does not have answers 404 with the not-found page
+    # of its language. Revalidated, so a deployment shows at once.
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        # The landing is built once, for a placeholder origin
+        # (apps/landing/Dockerfile): its absolute links (canonical and
+        # alternate links, the share picture, the sitemap, robots.txt) get
+        # this deployment's public origin as they are served. APP_ORIGIN is
+        # checked before nginx starts.
+        sub_filter_once off;
+        sub_filter_types text/xml application/xml text/plain;
+        sub_filter 'https://public-origin.invalid' '${APP_ORIGIN}';
+        error_page 404 $landing_not_found;
+        try_files $uri $uri/ =404;
+    }
+}

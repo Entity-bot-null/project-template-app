@@ -29,17 +29,17 @@ Every capability of the template, and every line below, is exactly one of:
 
 ## Security
 
-| Done | Item                | Class                         | Verified by                                                                                                                                                 |
-| ---- | ------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [ ]  | Secrets             | CORE                          | `pnpm security` (secret scan), gitleaks over the history (CI); no secret in `EXPO_PUBLIC_*`                                                                 |
-| [ ]  | Secure storage      | CORE                          | refresh token in SecureStore only (`storage.spec.ts`, `session.spec.ts`)                                                                                    |
-| [ ]  | HTTPS               | CORE / REQUIRES CONFIGURATION | `env.schema.ts` refuses HTTP outside localhost; the production API URL is HTTPS (EAS environment)                                                           |
-| [ ]  | Permissions         | CORE                          | only the permissions the app uses ([store-compliance.md](store-compliance.md#what-the-template-ships)); each new one asked in context with a usage text     |
-| [ ]  | Deep links          | CORE                          | allowlist (`links.spec.ts`, `routes.spec.tsx`); `apple-app-site-association` and `assetlinks.json` served if a link domain is used (REQUIRES CONFIGURATION) |
-| [ ]  | Notification links  | CORE                          | `notifications.spec.ts`                                                                                                                                     |
-| [ ]  | Dependency security | CORE                          | `pnpm security` (audit, license and source policy); the exceptions of [SECURITY.md](../SECURITY.md#known-advisories) reviewed                               |
-| [ ]  | Static analysis     | CORE                          | Semgrep (`pnpm sast`, CI), workflow audit (`pnpm lint:workflows`, CI)                                                                                       |
-| [ ]  | MASVS review        | CORE / PROJECT-SPECIFIC       | [SECURITY.md](../SECURITY.md#owasp-masvs) read against the product's additions; [advanced device controls](../SECURITY.md#advanced-device-controls) decided |
+| Done | Item                | Class                         | Verified by                                                                                                                                                                                                                        |
+| ---- | ------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ ]  | Secrets             | CORE                          | `pnpm security` (secret scan), gitleaks over the history (CI); no secret in `EXPO_PUBLIC_*`                                                                                                                                        |
+| [ ]  | Secure storage      | CORE                          | refresh token in SecureStore only (`storage.spec.ts`, `session.spec.ts`)                                                                                                                                                           |
+| [ ]  | HTTPS               | CORE / REQUIRES CONFIGURATION | `env.schema.ts` refuses HTTP outside localhost; the production API URL is HTTPS (EAS environment)                                                                                                                                  |
+| [ ]  | Permissions         | CORE                          | only the permissions the app uses ([store-compliance.md](store-compliance.md#what-the-template-ships)); each new one asked in context with a usage text                                                                            |
+| [ ]  | Deep links          | CORE                          | allowlist (`links.spec.ts`, `routes.spec.tsx`); the web image serves `apple-app-site-association` and `assetlinks.json` once the app's identity is set on it (REQUIRES CONFIGURATION), checked by `pnpm smoke --require-app-links` |
+| [ ]  | Notification links  | CORE                          | `notifications.spec.ts`                                                                                                                                                                                                            |
+| [ ]  | Dependency security | CORE                          | `pnpm security` (audit, license and source policy); the exceptions of [SECURITY.md](../SECURITY.md#known-advisories) reviewed                                                                                                      |
+| [ ]  | Static analysis     | CORE                          | Semgrep (`pnpm sast`, CI), workflow audit (`pnpm lint:workflows`, CI)                                                                                                                                                              |
+| [ ]  | MASVS review        | CORE / PROJECT-SPECIFIC       | [SECURITY.md](../SECURITY.md#owasp-masvs) read against the product's additions; [advanced device controls](../SECURITY.md#advanced-device-controls) decided                                                                        |
 
 ## Testing
 
@@ -76,14 +76,15 @@ Every capability of the template, and every line below, is exactly one of:
 
 ## Store
 
-| Done | Item                   | Class                  | Verified by                                                                       |
-| ---- | ---------------------- | ---------------------- | --------------------------------------------------------------------------------- |
-| [ ]  | Apple compliance       | REQUIRES CONFIGURATION | [store-compliance.md](store-compliance.md#apple-app-store)                        |
-| [ ]  | Google Play compliance | REQUIRES CONFIGURATION | [store-compliance.md](store-compliance.md#google-play)                            |
-| [ ]  | Privacy policy         | REQUIRES CONFIGURATION | a public URL matching the data inventory                                          |
-| [ ]  | Permissions            | CORE                   | the store declarations match the build                                            |
-| [ ]  | Metadata               | REQUIRES CONFIGURATION | names, descriptions, categories, support URL, review notes with a working account |
-| [ ]  | Screenshots            | REQUIRES CONFIGURATION | current version, required sizes                                                   |
+| Done | Item                   | Class                         | Verified by                                                                                                             |
+| ---- | ---------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| [ ]  | Apple compliance       | REQUIRES CONFIGURATION        | [store-compliance.md](store-compliance.md#apple-app-store)                                                              |
+| [ ]  | Google Play compliance | REQUIRES CONFIGURATION        | [store-compliance.md](store-compliance.md#google-play)                                                                  |
+| [ ]  | Privacy policy         | REQUIRES CONFIGURATION        | the landing's `/privacy/`, its sections from the data inventory, its legal text written and its template notice removed |
+| [ ]  | Account deletion page  | CORE / REQUIRES CONFIGURATION | the landing's `/delete-account/` in the Data safety form, its request address read by someone                           |
+| [ ]  | Permissions            | CORE                          | the store declarations match the build                                                                                  |
+| [ ]  | Metadata               | REQUIRES CONFIGURATION        | names, descriptions, categories, support URL, review notes with a working account                                       |
+| [ ]  | Screenshots            | REQUIRES CONFIGURATION        | current version, required sizes                                                                                         |
 
 ## Release
 

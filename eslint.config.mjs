@@ -3,8 +3,10 @@
 // app (apps/mobile): Expo's recommended rules (React, hooks, imports, Expo),
 // the strict type-aware rules of typescript-eslint, and the architecture rules
 // of this template (docs/mobile-architecture.md): which layer may import what.
-// The repository tooling: ESLint's recommended rules for Node.js. Prettier
-// owns formatting. `pnpm lint` allows zero warnings.
+// The landing (apps/landing) and the browser suite (e2e/): the web template's
+// rules, Astro's and Tailwind's checks. The repository tooling: ESLint's
+// recommended rules for Node.js. Prettier owns formatting. `pnpm lint` allows
+// zero warnings.
 import { createRequire } from 'node:module';
 
 import comments from '@eslint-community/eslint-plugin-eslint-comments/configs';
@@ -12,6 +14,8 @@ import js from '@eslint/js';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import prettier from 'eslint-config-prettier';
 import importPlugin from 'eslint-plugin-import';
+import { configs as astroConfigs } from 'eslint-plugin-astro';
+import betterTailwindcss from 'eslint-plugin-better-tailwindcss';
 import globals from 'globals';
 import { configs as tsConfigs, plugin as tsPlugin } from 'typescript-eslint';
 
@@ -165,6 +169,11 @@ export default defineConfig([
     'apps/mobile/src/api/schema.d.ts',
     // The API's Prisma client, written by `prisma generate`.
     'apps/api/src/prisma/generated/**',
+    // Types Astro generates (astro sync, astro check).
+    '**/.astro/',
+    // Playwright's reports (pnpm test:e2e).
+    'playwright-report/**',
+    'test-results/**',
   ]),
 
   // The repository tooling (scripts/, the root configuration files): plain
@@ -506,6 +515,84 @@ export default defineConfig([
     extends: [js.configs.recommended, tsConfigs.disableTypeChecked],
     languageOptions: { globals: globals.node },
     rules: { 'no-restricted-properties': ['error', ...RAW_SQL_BAN] },
+  },
+
+  // The landing's TypeScript (apps/landing: dictionaries, helpers, specs) and
+  // the browser suite (e2e/, playwright.config.ts): strict, type-aware
+  // TypeScript, as in the web template, where they come from.
+  {
+    files: ['apps/landing/**/*.ts', 'e2e/**/*.ts', 'playwright.config.ts'],
+    extends: [js.configs.recommended, tsConfigs.strictTypeChecked, tsConfigs.stylisticTypeChecked],
+    languageOptions: {
+      globals: globals.node,
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    linterOptions: { reportUnusedDisableDirectives: 'error' },
+    rules: {
+      eqeqeq: ['error', 'smart'],
+      '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+    },
+  },
+  // Landing: Astro components, rendered to HTML at build time in Node.js.
+  // Their markup is checked for accessibility (jsx-a11y rules); their types
+  // by `astro check` (pnpm typecheck), since the TypeScript project service
+  // that type-aware rules need does not read .astro files. eslint-plugin-astro
+  // 1.x: its 2.x and later need ESLint 10, and Expo's configuration keeps the
+  // repository on ESLint 9 (docs/adr/0002-pnpm-monorepo.md).
+  ...astroConfigs['flat/recommended'],
+  ...astroConfigs['flat/jsx-a11y-recommended'],
+  {
+    files: ['**/*.astro'],
+    extends: [tsConfigs.disableTypeChecked],
+  },
+  {
+    files: ['apps/landing/**/*.{ts,astro}'],
+    languageOptions: { globals: globals.node },
+    rules: {
+      // role="list" on a list without bullets is deliberate: Safari drops the
+      // list semantics of a <ul> or <ol> styled with list-style: none.
+      'astro/jsx-a11y/no-redundant-roles': ['error', { ul: ['list'], ol: ['list'] }],
+    },
+  },
+  // The landing's Tailwind classes, read against its own stylesheet (theme
+  // and component classes): an unknown, duplicate, conflicting or deprecated
+  // class is an error, and so is an order other than Tailwind's, which
+  // `eslint --fix` (and so the pre-commit hook) writes. Prettier's Tailwind
+  // plugin would sort them too, but it cannot read the syntax tree of
+  // prettier-plugin-astro 1.1 (Astro's Rust compiler).
+  {
+    files: ['apps/landing/**/*.astro'],
+    extends: [betterTailwindcss.configs['recommended-error']],
+    settings: {
+      'better-tailwindcss': {
+        cwd: 'apps/landing',
+        entryPoint: 'src/styles/global.css',
+        detectComponentClasses: true,
+      },
+    },
+    rules: {
+      // Line breaks are Prettier's.
+      'better-tailwindcss/enforce-consistent-line-wrapping': 'off',
+      // The motion classes of global.css stay outside @layer components on
+      // purpose: they exist only under prefers-reduced-motion: no-preference,
+      // unlayered so no utility overrides them. A new one is listed here.
+      'better-tailwindcss/no-unknown-classes': [
+        'error',
+        { ignore: ['^reveal$', '^reveal-load$', '^reveal-line$', '^reveal-lines$', '^settle$'] },
+      ],
+    },
+  },
+  // The landing's and the browser suite's tests: fixtures need some latitude.
+  {
+    files: ['apps/landing/**/*.spec.ts', 'e2e/**'],
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
+  },
+  // The landing's Node.js files: its Astro configuration and the wrapper of
+  // the Astro CLI, plain JavaScript checked by `astro check`'s TypeScript.
+  {
+    files: ['apps/landing/*.mjs', 'apps/landing/scripts/**/*.mjs'],
+    extends: [js.configs.recommended],
+    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
   },
 
   prettier,

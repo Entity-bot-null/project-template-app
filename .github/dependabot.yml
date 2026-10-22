@@ -58,6 +58,10 @@ updates:
       # ESLint 10 is not supported yet by eslint-config-expo's plugins.
       - dependency-name: eslint
         update-types: [version-update:semver-major]
+      # 2.x and later need ESLint 10, which Expo's configuration does not
+      # accept yet (docs/adr/0002-pnpm-monorepo.md): with ESLint, by hand.
+      - dependency-name: eslint-plugin-astro
+        update-types: [version-update:semver-major]
     groups:
       expo-sdk:
         patterns:
@@ -99,10 +103,12 @@ updates:
     commit-message:
       prefix: ci
 
-  # The base images of the server images (apps/api/Dockerfile).
+  # The base images of the server images (apps/api/Dockerfile and the web
+  # image, apps/landing/Dockerfile).
   - package-ecosystem: docker
     directories:
       - /apps/api
+      - /apps/landing
     schedule:
       interval: weekly
     cooldown:
