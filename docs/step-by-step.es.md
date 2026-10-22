@@ -203,12 +203,13 @@ Abre `apps/mobile/app.config.ts` y cambia el bloque `APP`:
 
 Después: el `package.json` de la raíz → `"name"`; `README.md` → el título y el primer párrafo;
 `SECURITY.md` → el contacto de seguridad y los plazos de respuesta; `.github/CODEOWNERS` → usuarios
-o equipos reales, sin comentar; `apps/mobile/.maestro/flows/*.yaml` → `APP_ID: <identificador>.e2e`
-y `SCHEME: <esquema>-e2e`.
+o equipos reales, sin comentar; `apps/mobile/.maestro/flows/*.yaml` y
+`apps/mobile/.maestro/stack/**/*.yaml` → `APP_ID: <identificador>.e2e` y `SCHEME: <esquema>-e2e`;
+`apps/landing/src/lib/site.ts` → `SITE_NAME` (el mismo que `name`) y `PRIVACY_EMAIL`.
 
 **Comprobación:** `git grep -n "com.example.templateapp"` solo lista documentación (`docs/`,
-`apps/mobile/.maestro/README.md`); `git grep -n "REQUIERE CONFIGURACIÓN"` lista lo que queda para
-fases posteriores. (`templateapp` a secas sigue apareciendo en comentarios del código y en fixtures
+`apps/mobile/.maestro/README.md`) y fixtures de tests (`*.spec.*`, `scripts/*.test.mjs`, `e2e/`);
+`git grep -n "REQUIERE CONFIGURACIÓN"` lista lo que queda para fases posteriores. (`templateapp` a secas sigue apareciendo en comentarios del código y en fixtures
 de los tests: es normal.)
 
 ---
@@ -344,9 +345,13 @@ datos de desarrollo.
 ```
 pnpm sast
 pnpm lint:workflows
+pnpm exec playwright install chromium   # una vez
+pnpm --filter landing build
+pnpm test:e2e                           # la primera vez construye la imagen web: unos minutos
 ```
 
-**Comprobación:** `0 findings`; `No findings to report`.
+**Comprobación:** `0 findings`; `No findings to report`; `12 passed` (la landing, y los enlaces de la
+app y sus archivos en la imagen web).
 
 ### 4.4 Los flujos end-to-end (opcional ahora, recomendado)
 
@@ -526,10 +531,16 @@ propios enlaces.
 ### 6.4 Piezas opcionales
 
 - **Deep links desde tu dominio:** `APP.linkDomain` (el dominio del `APP_ORIGIN` de la API: los
-  enlaces de sus correos apuntan ahí a `/app/…`), las rutas de `apps/mobile/src/lib/links.ts`, y los
-  ficheros `/.well-known/apple-app-site-association` (que reclama `/app/*`) y
-  `/.well-known/assetlinks.json` en ese dominio
-  ([mobile-architecture.md](mobile-architecture.md#deep-links)).
+  enlaces de sus correos apuntan ahí a `/app/…`), las rutas de `apps/mobile/src/lib/links.ts`, y la
+  identidad de la app en la imagen web (`APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE`,
+  `ANDROID_SHA256_CERT_FINGERPRINTS`), que entonces sirve `/.well-known/apple-app-site-association`
+  y `/.well-known/assetlinks.json` reclamando `/app/*`
+  ([environment.md](environment.md#web-variables),
+  [mobile-architecture.md](mobile-architecture.md#deep-links)). Compruébalos con
+  `pnpm smoke --url https://<dominio> --require-app-links`.
+- **La landing:** el nombre, la dirección de privacidad, las fichas de las tiendas, los textos, el
+  texto legal de la política de privacidad, la imagen compartida
+  ([manual.es.md](manual.es.md#57-la-landing)).
 - **Los enlaces a la tienda de la pantalla de actualizar:** cuando existan las fichas de las
   tiendas, `EXPO_PUBLIC_STORE_URL_IOS` y `EXPO_PUBLIC_STORE_URL_ANDROID` en cada entorno de EAS
   ([releases.md](releases.md#environment-variables)); los `MOBILE_MIN_VERSION_*` de la API deciden

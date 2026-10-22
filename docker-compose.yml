@@ -1,6 +1,7 @@
 # Local development: `pnpm dev` starts PostgreSQL, Redis and Mailpit
-# (`pnpm services:up`), then the API on the host. `pnpm db:up` starts
-# PostgreSQL alone. The mobile app runs apart (`pnpm start`, `pnpm android`).
+# (`pnpm services:up`), then the API and the landing on the host. `pnpm db:up`
+# starts PostgreSQL alone. The mobile app runs apart (`pnpm start`,
+# `pnpm android`).
 #
 # The ports are the web template's plus 10 (docs/adr/0002-pnpm-monorepo.md),
 # so both templates run on one machine at once; the project name keeps their
@@ -10,7 +11,8 @@
 #   docker compose --profile observability up -d   OpenTelemetry backend + Grafana (development)
 #
 # Production-like stack built from the Dockerfiles (profile "stack"):
-# migrations, then the API at http://localhost:8090/api.
+# migrations, then the API behind the web server at http://localhost:8090 (the
+# landing at /, the app's links at /app/*, the API at /api).
 #   docker compose --profile stack up --build
 # Reads JWT_ACCESS_SECRET from a root .env (see .env.example). Not a
 # deployment: no TLS, local credentials, nothing published beyond loopback.
@@ -88,8 +90,8 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://app:app@db:5432/app
-      # Published straight to the host: no proxy hop to trust.
-      TRUST_PROXY: loopback
+      # One proxy hop: the web container, which replaces X-Forwarded-For.
+      TRUST_PROXY: '1'
       # Empty when unset: the API then refuses to boot and names the variable.
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
       APP_ENVIRONMENT: stack
@@ -107,14 +109,37 @@ services:
       # with the observability profile, STACK_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318.
       SENTRY_DSN: ${STACK_SENTRY_DSN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${STACK_OTEL_EXPORTER_OTLP_ENDPOINT:-}
-    ports:
-      - '127.0.0.1:${STACK_PORT:-8090}:3000'
     depends_on:
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
       redis:
+        condition: service_healthy
+
+  # The web image (apps/landing/Dockerfile): the landing, the app's links and
+  # their files, and /api forwarded to the API above. The app's identity for
+  # those files comes from the root .env when set (STACK_APPLE_TEAM_ID...);
+  # without it they answer 404, as an unconfigured deployment does.
+  web:
+    profiles: [stack]
+    build:
+      context: .
+      dockerfile: apps/landing/Dockerfile
+      args:
+        APP_RELEASE: ${APP_RELEASE:-local}
+    environment:
+      API_UPSTREAM: http://api:3000
+      # The address the stack is opened at: the landing's absolute links.
+      APP_ORIGIN: http://localhost:${STACK_PORT:-8090}
+      APPLE_TEAM_ID: ${STACK_APPLE_TEAM_ID:-}
+      IOS_BUNDLE_ID: ${STACK_IOS_BUNDLE_ID:-}
+      ANDROID_PACKAGE: ${STACK_ANDROID_PACKAGE:-}
+      ANDROID_SHA256_CERT_FINGERPRINTS: ${STACK_ANDROID_SHA256_CERT_FINGERPRINTS:-}
+    ports:
+      - '127.0.0.1:${STACK_PORT:-8090}:8080'
+    depends_on:
+      api:
         condition: service_healthy
 
   # Redis for shared rate limits, cache, locks and idempotency

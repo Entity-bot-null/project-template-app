@@ -75,9 +75,9 @@ o los builds de EAS lo evitan.
 ## 3. Cómo está organizado el proyecto
 
 Un workspace de pnpm: la app es el paquete `mobile` en `apps/mobile`, la API el paquete `api` en
-`apps/api`, y la raíz guarda lo que aplica a todo el repositorio. Los comandos se ejecutan desde la
-raíz; `pnpm --filter mobile <script>` y `pnpm --filter api <script>` ejecutan uno de los scripts
-propios de un paquete.
+`apps/api`, el sitio público el paquete `landing` en `apps/landing`, y la raíz guarda lo que aplica
+a todo el repositorio. Los comandos se ejecutan desde la raíz; `pnpm --filter <paquete> <script>`
+ejecuta uno de los scripts propios de un paquete.
 
 ```
 apps/mobile/            la app
@@ -100,16 +100,24 @@ apps/api/               la API (NestJS)
   prisma/               el esquema y las migraciones en git
   test/                 helpers de los tests de integración
   Dockerfile            la imagen de la API y su job de migraciones
+apps/landing/           el sitio público (Astro), en inglés y español, y la imagen web
+  src/pages/            las páginas: inicio, privacidad, borrado de cuenta, open-in-app, no encontrada (es/: español)
+  src/i18n/             todos los textos, un diccionario por idioma
+  src/lib/              el nombre y la dirección de privacidad (site.ts), las fichas de las tiendas (stores.ts)
+  public/               favicon.svg, og.png (la imagen de un enlace compartido, 1200 × 630)
+  nginx/                el servidor web: rutas, cabeceras de seguridad, los archivos de enlaces de la app al arrancar
+  Dockerfile            la imagen web
 openapi/                el contrato de la API, generado por la API (`pnpm contract`)
 observability/          el catálogo de las métricas de la API
-scripts/                las comprobaciones del repositorio (hooks y CI), `pnpm dev`, las imágenes de herramientas fijadas
+e2e/                    la suite del navegador (Playwright): la landing, los enlaces de la app en la imagen web
+scripts/                las comprobaciones del repositorio (hooks y CI), `pnpm dev`, el smoke test, las imágenes de herramientas fijadas
 docker-compose.yml      PostgreSQL, Redis y Mailpit para desarrollo; el stack parecido a producción
 .github/                CI/CD
 ```
 
 Las reglas entre estas carpetas (las hace cumplir ESLint) y sus motivos:
 [mobile-architecture.md](mobile-architecture.md) para la app, [architecture.md](architecture.md)
-para la API.
+para la API y el sitio.
 
 **El código nativo es generado.** `expo prebuild` produce `apps/mobile/android/` e
 `apps/mobile/ios/` a partir de `apps/mobile/app.config.ts`; nunca se hace commit de ellos ni se
@@ -223,9 +231,11 @@ Detalles: [architecture.md](architecture.md#optional-infrastructure) y
 
 ### 5.5 El stack parecido a producción
 
-`docker compose --profile stack up --build` construye la imagen de la API y su job de migraciones a
-partir del Dockerfile, aplica las migraciones y sirve la API en `http://localhost:8090/api` con la
-configuración de producción y Redis (necesita `JWT_ACCESS_SECRET` en el `.env` de la raíz). Para
+`docker compose --profile stack up --build` construye la imagen de la API, su job de migraciones y
+la imagen web a partir de sus Dockerfiles, aplica las migraciones y lo sirve todo en
+`http://localhost:8090`: la landing, los enlaces de la app y la API en `/api`, con la configuración
+de producción y Redis (necesita `JWT_ACCESS_SECRET` en el `.env` de la raíz). `pnpm smoke --url
+http://localhost:8090` lo comprueba. Para
 probar la pantalla de actualización de la app, arráncalo con
 `STACK_MOBILE_MIN_VERSION_ANDROID=99.0.0` (o `_IOS`): entonces todas las peticiones de la app
 responden 426. No es un despliegue: sin TLS, credenciales locales, solo loopback.
@@ -243,6 +253,34 @@ Es el camino hacia el primer administrador: el alta pública (`SIGN_UP_ENABLED`,
 defecto) solo crea miembros, y los administradores invitan al resto. Una cuenta la borra su dueño,
 con su contraseña (`POST /api/account/deletion`), y con ella todo lo suyo; el único administrador no puede
 borrar la suya ([adr/0012-account-deletion.md](adr/0012-account-deletion.md)).
+
+### 5.7 La landing
+
+El sitio público: la página de inicio (qué es la app, cómo funciona, dónde descargarla), la
+privacidad, el borrado de cuenta (la URL que pide el formulario Data safety de Google Play) y la
+página que muestran los enlaces de la app donde la app no los abre, en inglés (`/`) y español
+(`/es/`). `pnpm dev` la sirve en `http://localhost:4331`, con `/api` reenviado a la API;
+`pnpm --filter landing build` y después `pnpm --filter landing preview` muestran las páginas
+compiladas.
+
+Lo que cambia un producto (REQUIERE CONFIGURACIÓN):
+
+| Qué                                     | Dónde                                                                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| El nombre                               | `apps/landing/src/lib/site.ts` (`SITE_NAME`), el mismo que `APP.name` en `apps/mobile/app.config.ts`                |
+| La dirección de privacidad y de borrado | `apps/landing/src/lib/site.ts` (`PRIVACY_EMAIL`): alguien tiene que leerla                                          |
+| Las fichas de las tiendas (insignias)   | `apps/landing/src/lib/stores.ts` cuando existan; vacías, las insignias no se muestran                               |
+| Los textos                              | `apps/landing/src/i18n/en.ts` y `es.ts`, en el mismo cambio (un texto que falte rompe el build)                     |
+| La política de privacidad               | `privacy` en los dos diccionarios: el texto legal, los proveedores, los plazos; después quita su aviso de plantilla |
+| La imagen y el icono                    | `apps/landing/public/og.png` (1200 × 630) y `favicon.svg`                                                           |
+| Los colores y la tipografía             | `apps/landing/src/styles/global.css` (claro y oscuro)                                                               |
+
+Servidos por la imagen web, los enlaces de los correos de la API (`/app/<pantalla>#token=…`) se
+abren en la app cuando el dominio demuestra que es de la app: define la identidad de la app en la
+imagen (`APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE`, `ANDROID_SHA256_CERT_FINGERPRINTS`,
+[environment.md](environment.md#web-variables)) y el mismo dominio en `APP.linkDomain`. Sin ellas,
+un enlace muestra la página open-in-app. Detalles:
+[architecture.md](architecture.md#public-site-and-app-links-appslanding).
 
 ## 6. Desarrollo diario
 
@@ -271,11 +309,14 @@ borrar la suya ([adr/0012-account-deletion.md](adr/0012-account-deletion.md)).
 | App: unitarios, de componentes, de integración | `pnpm test` (los dos paquetes)                                                                          | `apps/mobile/src/**/*.spec.ts(x)`, `*.int.spec.tsx` |
 | API: unitarios (sin base de datos)             | `pnpm test`                                                                                             | `apps/api/src/**/*.spec.ts`                         |
 | API: integración (PostgreSQL, Redis, Mailpit)  | `pnpm test:integration` (con los servicios arrancados: `pnpm services:up`)                              | `apps/api/src/**/*.int.spec.ts`, en `app_test`      |
-| Con cobertura y umbrales                       | `pnpm test:coverage`                                                                                    | `apps/mobile/coverage/`, `apps/api/coverage/`       |
+| Landing: diccionarios, páginas, helpers        | `pnpm test` (Vitest)                                                                                    | `apps/landing/src/**/*.spec.ts`                     |
+| Con cobertura y umbrales                       | `pnpm test:coverage`                                                                                    | `apps/*/coverage/`                                  |
 | Modo watch                                     | `pnpm --filter mobile test:watch`, `pnpm --filter api test:watch`                                       |                                                     |
 | Una carpeta o un test                          | `pnpm --filter mobile test features/items`, `pnpm --filter api exec vitest run src/items`               |                                                     |
 | End-to-end en un dispositivo                   | `pnpm test:e2e:mobile` (con un build de release de la variante `e2e` instalado y la API mock en marcha) | `apps/mobile/.maestro/flows/`                       |
 | End-to-end contra la API y Mailpit             | `pnpm test:e2e:mobile:stack` (el mismo build, `pnpm dev`, `adb reverse tcp:4010 tcp:3010`)              | `apps/mobile/.maestro/stack/`                       |
+| Navegador: la landing y la imagen web          | `pnpm test:e2e` (después de `pnpm --filter landing build`; Docker para la imagen)                       | `e2e/`                                              |
+| Un despliegue, o el stack                      | `pnpm smoke --url <URL pública> --api <URL de la API>` (solo lectura)                                   | `scripts/smoke-test.mjs`                            |
 
 Cómo escribirlos y los helpers: [testing.md](testing.md).
 
@@ -315,40 +356,43 @@ sus valores por defecto y sus reglas: [environment.md](environment.md).
 
 ## 10. Referencia de comandos
 
-| Comando                                     | Qué hace                                                                                                                                                                                                       |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm install`                              | dependencias; instala los hooks de Git, genera los tipos de Expo y el cliente de Prisma                                                                                                                        |
-| `pnpm dev`                                  | `pnpm services:up`, y después la API en modo watch y un recuadro con sus direcciones                                                                                                                           |
-| `pnpm services:up`                          | PostgreSQL, Redis y Mailpit en Docker, esperando a que estén sanos                                                                                                                                             |
-| `pnpm db:up` / `pnpm db:down`               | solo PostgreSQL / detiene todos los servicios (los datos se quedan)                                                                                                                                            |
-| `pnpm db:migrate`                           | crea una migración a partir de los cambios de `schema.prisma`, aplica las pendientes, regenera el cliente                                                                                                      |
-| `pnpm db:seed`                              | las cuentas y los elementos de ejemplo (solo bases de datos locales)                                                                                                                                           |
-| `pnpm start`                                | servidor de desarrollo Metro para un development build instalado                                                                                                                                               |
-| `pnpm android` / `pnpm ios`                 | compila, instala y ejecuta un development build en local                                                                                                                                                       |
-| `pnpm prebuild`                             | regenera `apps/mobile/android/` e `apps/mobile/ios/`                                                                                                                                                           |
-| `pnpm mock:api`                             | la API mock en `127.0.0.1:4010`                                                                                                                                                                                |
-| `pnpm --filter mobile types:generate`       | los tipos generados de Expo (`apps/mobile/expo-env.d.ts`, rutas tipadas)                                                                                                                                       |
-| `pnpm lint` / `pnpm lint:fix`               | ESLint, cero warnings                                                                                                                                                                                          |
-| `pnpm format` / `pnpm format:check`         | Prettier                                                                                                                                                                                                       |
-| `pnpm typecheck`                            | desviaciones del contrato, tipos generados, `tsc`                                                                                                                                                              |
-| `pnpm test` / `pnpm test:coverage`          | Jest (app) y Vitest (unitarios de la API); `pnpm --filter <paquete> test:watch` para el modo watch                                                                                                             |
-| `pnpm test:integration`                     | la suite de integración de la API contra PostgreSQL, Redis y Mailpit                                                                                                                                           |
-| `pnpm test:e2e:mobile`                      | flujos de Maestro                                                                                                                                                                                              |
-| `pnpm test:e2e:mobile:stack`                | flujos de Maestro contra la API real y Mailpit (alta, cambio de correo, recuperación de contraseña, borrado de cuenta)                                                                                         |
-| `pnpm test:scripts`                         | los tests de los scripts del repositorio (`scripts/*.test.mjs` y `apps/*/scripts/*.test.mjs`: el motor de Doberman, la política de dependencias, las imágenes de herramientas, la API mock contra el contrato) |
-| `pnpm expo:doctor`                          | expo-doctor, todas las comprobaciones; las versiones de las dependencias contra el manifiesto del SDK instalado (el lockfile), no contra los últimos parches publicados                                        |
-| `pnpm security`                             | `pnpm audit` (high), política de dependencias y licencias, escaneo de secretos                                                                                                                                 |
-| `pnpm deps:check` / `pnpm secrets:scan`     | las dos políticas por separado                                                                                                                                                                                 |
-| `pnpm sast`                                 | Semgrep (Docker)                                                                                                                                                                                               |
-| `pnpm lint:workflows`                       | actionlint, zizmor, shellcheck (Docker)                                                                                                                                                                        |
-| `pnpm contract`                             | `openapi/openapi.json` a partir de la API, y después `apps/mobile/src/api/schema.d.ts` a partir de él                                                                                                          |
-| `pnpm build`                                | la API (`apps/api/dist/`) y los bundles de JavaScript de producción de la app para las dos plataformas (`apps/mobile/dist/`)                                                                                   |
-| `pnpm perf:check`                           | el presupuesto del bundle, después de `pnpm build`                                                                                                                                                             |
-| `pnpm sbom:generate`                        | SBOM CycloneDX de las dependencias de producción                                                                                                                                                               |
-| `pnpm verify`                               | formato, lint, typecheck, cobertura, expo-doctor, seguridad, build, presupuesto del bundle                                                                                                                     |
-| `pnpm --filter api user:create`             | una cuenta, con su contraseña por la entrada estándar (sección 5.6)                                                                                                                                            |
-| `pnpm --filter api mail <comando>`          | el outbox de correo: `test`, `status`, `retry` (sección 5.3)                                                                                                                                                   |
-| `docker compose --profile stack up --build` | el stack parecido a producción en `localhost:8090` (sección 5.5)                                                                                                                                               |
+| Comando                                           | Qué hace                                                                                                                                                                                                       |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install`                                    | dependencias; instala los hooks de Git, genera los tipos de Expo y el cliente de Prisma                                                                                                                        |
+| `pnpm dev`                                        | `pnpm services:up`, y después la API en modo watch, la landing en `localhost:4331` y un recuadro con sus direcciones                                                                                           |
+| `pnpm services:up`                                | PostgreSQL, Redis y Mailpit en Docker, esperando a que estén sanos                                                                                                                                             |
+| `pnpm db:up` / `pnpm db:down`                     | solo PostgreSQL / detiene todos los servicios (los datos se quedan)                                                                                                                                            |
+| `pnpm db:migrate`                                 | crea una migración a partir de los cambios de `schema.prisma`, aplica las pendientes, regenera el cliente                                                                                                      |
+| `pnpm db:seed`                                    | las cuentas y los elementos de ejemplo (solo bases de datos locales)                                                                                                                                           |
+| `pnpm start`                                      | servidor de desarrollo Metro para un development build instalado                                                                                                                                               |
+| `pnpm android` / `pnpm ios`                       | compila, instala y ejecuta un development build en local                                                                                                                                                       |
+| `pnpm prebuild`                                   | regenera `apps/mobile/android/` e `apps/mobile/ios/`                                                                                                                                                           |
+| `pnpm mock:api`                                   | la API mock en `127.0.0.1:4010`                                                                                                                                                                                |
+| `pnpm --filter mobile types:generate`             | los tipos generados de Expo (`apps/mobile/expo-env.d.ts`, rutas tipadas)                                                                                                                                       |
+| `pnpm lint` / `pnpm lint:fix`                     | ESLint, cero warnings                                                                                                                                                                                          |
+| `pnpm format` / `pnpm format:check`               | Prettier                                                                                                                                                                                                       |
+| `pnpm typecheck`                                  | desviaciones del contrato, tipos generados, `tsc`                                                                                                                                                              |
+| `pnpm test` / `pnpm test:coverage`                | Jest (app) y Vitest (unitarios de la API, landing); `pnpm --filter <paquete> test:watch` para el modo watch                                                                                                    |
+| `pnpm test:integration`                           | la suite de integración de la API contra PostgreSQL, Redis y Mailpit                                                                                                                                           |
+| `pnpm test:e2e`                                   | Playwright: la landing compilada y los enlaces de la app en la imagen web (construye y arranca la imagen: Docker)                                                                                              |
+| `pnpm test:e2e:mobile`                            | flujos de Maestro                                                                                                                                                                                              |
+| `pnpm test:e2e:mobile:stack`                      | flujos de Maestro contra la API real y Mailpit (alta, cambio de correo, recuperación de contraseña, borrado de cuenta)                                                                                         |
+| `pnpm test:scripts`                               | los tests de los scripts del repositorio (`scripts/*.test.mjs` y `apps/*/scripts/*.test.mjs`: el motor de Doberman, la política de dependencias, las imágenes de herramientas, la API mock contra el contrato) |
+| `pnpm expo:doctor`                                | expo-doctor, todas las comprobaciones; las versiones de las dependencias contra el manifiesto del SDK instalado (el lockfile), no contra los últimos parches publicados                                        |
+| `pnpm security`                                   | `pnpm audit` (high), política de dependencias y licencias, escaneo de secretos                                                                                                                                 |
+| `pnpm deps:check` / `pnpm secrets:scan`           | las dos políticas por separado                                                                                                                                                                                 |
+| `pnpm sast`                                       | Semgrep (Docker)                                                                                                                                                                                               |
+| `pnpm lint:workflows`                             | actionlint, zizmor, shellcheck (Docker)                                                                                                                                                                        |
+| `pnpm contract`                                   | `openapi/openapi.json` a partir de la API, y después `apps/mobile/src/api/schema.d.ts` a partir de él                                                                                                          |
+| `pnpm build`                                      | la API (`apps/api/dist/`), la landing (`apps/landing/dist/`) y los bundles de JavaScript de producción de la app para las dos plataformas (`apps/mobile/dist/`)                                                |
+| `pnpm perf:check`                                 | los presupuestos de la landing y de la app, después de `pnpm build`                                                                                                                                            |
+| `pnpm smoke`                                      | el smoke test de solo lectura de un despliegue o del stack (`--url`, `--api`, `--require-app-links`)                                                                                                           |
+| `pnpm --filter landing dev` / `build` / `preview` | solo la landing: su servidor de desarrollo, su build (`astro check` antes), las páginas compiladas                                                                                                             |
+| `pnpm sbom:generate`                              | SBOM CycloneDX de las dependencias de producción                                                                                                                                                               |
+| `pnpm verify`                                     | formato, lint, typecheck, cobertura, expo-doctor, seguridad, build, presupuestos                                                                                                                               |
+| `pnpm --filter api user:create`                   | una cuenta, con su contraseña por la entrada estándar (sección 5.6)                                                                                                                                            |
+| `pnpm --filter api mail <comando>`                | el outbox de correo: `test`, `status`, `retry` (sección 5.3)                                                                                                                                                   |
+| `docker compose --profile stack up --build`       | el stack parecido a producción en `localhost:8090`: la imagen web delante de la API (sección 5.5)                                                                                                              |
 
 EAS (CLI global, `eas <comando>`): `login`, `init`, `build`, `build:list`, `submit`, `update`,
 `update:list`, `update:edit`, `update:republish`, `update:roll-back-to-embedded`, `channel:list`,
@@ -435,12 +479,12 @@ específico de los tests end-to-end está en [testing.md](testing.md#end-to-end)
 
 ### 16.1 Cuentas e identificadores
 
-| Qué                           | Dónde                                                                                                                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cuentas de ejemplo            | `member@example.com` / `member-password`, `admin@example.com` / `admin-password`: las de la API mock y las del seed (solo en local)                                   |
-| Identificadores de aplicación | `APP.identifier` + `.dev`, `.preview`, `.e2e`, o nada para producción                                                                                                 |
-| Esquemas de URL               | `APP.scheme` + `-dev`, `-preview`, `-e2e`, o nada                                                                                                                     |
-| Puertos                       | `4010` API mock, `8081` Metro, `3010` API, `5452` PostgreSQL, `6399` Redis, `1045`/`8045` Mailpit, `8090` el stack, `4328`/`3011`/`9100` el backend de observabilidad |
+| Qué                           | Dónde                                                                                                                                                                                                                                    |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cuentas de ejemplo            | `member@example.com` / `member-password`, `admin@example.com` / `admin-password`: las de la API mock y las del seed (solo en local)                                                                                                      |
+| Identificadores de aplicación | `APP.identifier` + `.dev`, `.preview`, `.e2e`, o nada para producción                                                                                                                                                                    |
+| Esquemas de URL               | `APP.scheme` + `-dev`, `-preview`, `-e2e`, o nada                                                                                                                                                                                        |
+| Puertos                       | `4010` API mock, `8081` Metro, `3010` API, `4331` la landing, `5452` PostgreSQL, `6399` Redis, `1045`/`8045` Mailpit, `8090` el stack, `8091` la imagen web de la suite del navegador, `4328`/`3011`/`9100` el backend de observabilidad |
 
 ### 16.2 Los demás documentos
 

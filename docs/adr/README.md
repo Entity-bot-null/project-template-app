@@ -24,5 +24,6 @@ security trade-off, a release process change, a deviation from these docs.
 | [0005](0005-transactional-email-outbox.md)                         | Email through a transactional outbox in PostgreSQL, over SMTP                |
 | [0006](0006-security-version-in-access-tokens.md)                  | A security version ends every access token at once on a credential change    |
 | [0007](0007-mobile-sessions-with-refresh-tokens-in-the-body.md)    | Mobile sessions: tokens in the body, rotation, a 30-second reuse window      |
+| [0008](0008-public-site-and-app-links.md)                          | A static Astro site and the app's link files, served by one web image        |
 | [0010](0010-minimum-supported-app-version.md)                      | The API refuses app versions below a configured minimum with 426             |
 | [0012](0012-account-deletion.md)                                   | Accounts are deleted for good, at their owner's request, in one transaction  |

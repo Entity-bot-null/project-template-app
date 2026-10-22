@@ -5,8 +5,9 @@ node_modules/
 # Build output (dist-dev: what `pnpm dev` runs for the API, apart from its build)
 dist-dev/
 
-# Generated at install/build time (prisma generate)
+# Generated at install/build time (prisma generate, astro sync)
 apps/api/src/prisma/generated/
+.astro/
 
 # Expo
 .expo/
@@ -73,3 +74,8 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# Playwright (pnpm test:e2e): reports and the traces of failed tests.
+/playwright-report/
+/test-results/
+/blob-report/

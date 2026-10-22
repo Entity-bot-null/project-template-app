@@ -1,0 +1,57 @@
+---
+// How to delete an account, in one language: from the app (Settings → Delete
+// account, apps/mobile/src/features/account/DeleteAccountScreen.tsx) or by
+// email. The address of the page Google Play's Data safety form asks for
+// (docs/store-compliance.md).
+import { localePath, messages, type Locale } from '../i18n';
+import { PRIVACY_EMAIL } from '../lib/site';
+import TextPage from './TextPage.astro';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = messages(locale).deleteAccount;
+const mailto = `mailto:${PRIVACY_EMAIL}?subject=${encodeURIComponent(t.byEmail.subject)}`;
+---
+
+<TextPage
+  locale={locale}
+  path="/delete-account/"
+  title={t.title}
+  description={t.description}
+  heading={t.heading}
+>
+  <p class="text-lead">{t.lead}</p>
+  <section>
+    <h2>{t.inApp.heading}</h2>
+    <ol>
+      {t.inApp.steps.map((step) => (
+        <li>{step}</li>
+      ))}
+    </ol>
+  </section>
+  <section>
+    <h2>{t.byEmail.heading}</h2>
+    <p>{t.byEmail.body}</p>
+    <p>
+      <a href={mailto} class="link font-semibold">
+        {PRIVACY_EMAIL}
+      </a>
+    </p>
+  </section>
+  {[t.deleted, t.kept].map(({ heading, paragraphs }) => (
+    <section>
+      <h2>{heading}</h2>
+      {paragraphs.map((paragraph) => (
+        <p>{paragraph}</p>
+      ))}
+    </section>
+  ))}
+  <p>
+    <a href={localePath(locale, '/privacy/')} class="link font-semibold">
+      {messages(locale).footer.privacy}
+    </a>
+  </p>
+</TextPage>

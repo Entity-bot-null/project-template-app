@@ -1,14 +1,17 @@
 # Instructions for AI coding agents
 
-This is an Expo / React Native mobile application (Android and iOS) for commercial release, and the
-NestJS API it talks to. In the app, prioritize mobile-first patterns, performance, accessibility and
-cross-platform behavior; in the API, correctness, authorization and backwards compatibility with
-the app versions still installed.
+This is an Expo / React Native mobile application (Android and iOS) for commercial release, the
+NestJS API it talks to, and its public site. In the app, prioritize mobile-first patterns,
+performance, accessibility and cross-platform behavior; in the API, correctness, authorization and
+backwards compatibility with the app versions still installed; on the site, static pages with no
+JavaScript, both languages and accessibility.
 
 The repository is a pnpm workspace: the app is the package `mobile` in `apps/mobile`, the API the
-package `api` in `apps/api`; the root holds the repository's tooling (hooks, gates, CI, supply-chain
-settings) and runs every command ([docs/adr/0002-pnpm-monorepo.md](docs/adr/0002-pnpm-monorepo.md)).
-Paths below start at the repository root.
+package `api` in `apps/api`, the public site and its web image the package `landing` in
+`apps/landing`; the root holds the repository's tooling (hooks, gates, CI, supply-chain settings)
+and runs every command ([docs/adr/0002-pnpm-monorepo.md](docs/adr/0002-pnpm-monorepo.md),
+[docs/adr/0008-public-site-and-app-links.md](docs/adr/0008-public-site-and-app-links.md)). Paths
+below start at the repository root.
 
 Read [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) first, then the doc for the area you
 touch. The app: [docs/mobile-architecture.md](docs/mobile-architecture.md) (layers, navigation,
@@ -71,6 +74,8 @@ pnpm typecheck                     # contract drift + typed routes + tsc (apps a
 pnpm test                          # Jest (app) and Vitest (API unit, OpenAPI drift spec)
 pnpm test:integration              # the API against PostgreSQL, Redis and Mailpit (services up)
 pnpm test:scripts                  # tests of the repository's scripts (the mock API against the contract)
+pnpm test:e2e                      # Playwright: the built landing and the web image (Docker)
+pnpm smoke --url <url> --api <url> # read-only checks of a deployment or the local stack
 pnpm expo:doctor                   # expo-doctor
 pnpm contract                      # openapi/openapi.json from the API, then apps/mobile/src/api/schema.d.ts
 pnpm verify                        # the local gates: run before declaring a task done
@@ -152,6 +157,11 @@ Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before declaring any task done
   human reviewer.
 - **Releases** (builds, store submissions, OTA updates, deployments of the API) are started by
   people through the GitHub workflows, never by an agent.
+- **The landing** (`apps/landing`): every text in `src/i18n/en.ts` and `es.ts` in the same change
+  (the build refuses a missing one); no client JavaScript (the CSP has `script-src 'none'` and the
+  budget 0 kB); Tailwind classes from `src/styles/global.css` only (lint). The app's links live
+  under `/app/` in three places that change together: the API's `APP_BASE_PATH`,
+  `apps/mobile/src/lib/links.ts` and the web image (`apps/landing/nginx`); tests check they agree.
 - **Bilingual docs**: `docs/manual.md`/`docs/manual.es.md` and `docs/step-by-step.md`/
   `docs/step-by-step.es.md` exist in English and Spanish: a change to one (a command, a step, a
   variable) goes to the other in the same change.

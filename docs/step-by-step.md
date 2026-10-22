@@ -195,12 +195,14 @@ Open `apps/mobile/app.config.ts` and change the `APP` block:
 
 Then: the root `package.json` → `"name"`; `README.md` → title and first paragraph; `SECURITY.md` →
 the security contact and the response times; `.github/CODEOWNERS` → real users or teams,
-uncommented; `apps/mobile/.maestro/flows/*.yaml` → `APP_ID: <identifier>.e2e` and
-`SCHEME: <scheme>-e2e`.
+uncommented; `apps/mobile/.maestro/flows/*.yaml` and `apps/mobile/.maestro/stack/**/*.yaml` →
+`APP_ID: <identifier>.e2e` and `SCHEME: <scheme>-e2e`; `apps/landing/src/lib/site.ts` → `SITE_NAME`
+(the same as `name`) and `PRIVACY_EMAIL`.
 
 **Check:** `git grep -n "com.example.templateapp"` lists only documentation (`docs/`,
-`apps/mobile/.maestro/README.md`); `git grep -n "REQUIERE CONFIGURACIÓN"` lists what is left for
-later phases. (`templateapp` alone still appears in code comments and test fixtures: that is fine.)
+`apps/mobile/.maestro/README.md`) and test fixtures (`*.spec.*`, `scripts/*.test.mjs`, `e2e/`);
+`git grep -n "REQUIERE CONFIGURACIÓN"` lists what is left for later phases. (`templateapp` alone
+still appears in code comments and test fixtures: that is fine.)
 
 ---
 
@@ -330,9 +332,13 @@ pnpm test:integration
 ```
 pnpm sast
 pnpm lint:workflows
+pnpm exec playwright install chromium   # once
+pnpm --filter landing build
+pnpm test:e2e                           # builds the web image the first time: a few minutes
 ```
 
-**Check:** `0 findings`; `No findings to report`.
+**Check:** `0 findings`; `No findings to report`; `12 passed` (the landing, and the web image's app
+links and their files).
 
 ### 4.4 The end-to-end flows (optional now, recommended)
 
@@ -501,10 +507,15 @@ own links.
 ### 6.4 Optional pieces
 
 - **Deep links from your domain:** `APP.linkDomain` (the domain of the API's `APP_ORIGIN`: the
-  links in its emails point to `/app/…` there), the paths in `apps/mobile/src/lib/links.ts`, and the
-  files `/.well-known/apple-app-site-association` (claiming `/app/*`) and
-  `/.well-known/assetlinks.json` on that domain
-  ([mobile-architecture.md](mobile-architecture.md#deep-links)).
+  links in its emails point to `/app/…` there), the paths in `apps/mobile/src/lib/links.ts`, and
+  the app's identity on the web image (`APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE`,
+  `ANDROID_SHA256_CERT_FINGERPRINTS`), which then serves `/.well-known/apple-app-site-association`
+  and `/.well-known/assetlinks.json` claiming `/app/*`
+  ([environment.md](environment.md#web-variables),
+  [mobile-architecture.md](mobile-architecture.md#deep-links)). Check them with
+  `pnpm smoke --url https://<domain> --require-app-links`.
+- **The landing:** the name, the privacy address, the store pages, the texts, the privacy policy's
+  legal text, the share picture ([manual.md](manual.md#57-the-landing)).
 - **The update screen's store links:** once the store pages exist, `EXPO_PUBLIC_STORE_URL_IOS` and
   `EXPO_PUBLIC_STORE_URL_ANDROID` in each EAS environment
   ([releases.md](releases.md#environment-variables)); the API's `MOBILE_MIN_VERSION_*` decide who

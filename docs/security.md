@@ -432,6 +432,16 @@ helmet's defaults on every response (CSP, HSTS, `X-Content-Type-Options`, `X-Fra
 tokens and personal data: neither a device nor a shared cache may store them), set in `app.setup.ts`
 before any route. Every response also echoes its request id (`X-Request-Id`).
 
+The web image (`apps/landing/nginx/security-headers.conf`) sets its own on every page and file it
+serves: a CSP that allows this origin only and **no script at all** (`script-src 'none'`: the
+landing ships HTML and CSS, its 0 kB JavaScript budget keeps it so), `frame-ancestors 'none'`,
+`X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a
+`Permissions-Policy` without camera, microphone or location, and COOP. Pages are revalidated
+(`no-cache`), hashed assets cached for a year, the app's link files for 5 minutes. The open-in-app
+page that answers `/app/*` also carries `X-Robots-Tag: noindex`, and is served at the link's own
+address, never through a redirect: an emailed link's token rides in the fragment, which no request
+carries, and the web server's access log drops query strings besides.
+
 ## HTTPS
 
 TLS terminates at the edge (load balancer, ingress, the platform's router); REQUIERE CONFIGURACIÓN
@@ -448,8 +458,9 @@ in `X-Forwarded-For`, a header any client can also send. The API believes it onl
   whatever a client wrote further left is ignored. Addresses or subnets (`loopback`,
   `10.0.0.0/8`) trust those proxies instead. Count the real hops: one more than there are lets a
   client choose its own address and escape every per-IP limit.
-- Outside production the default is `loopback`. The `stack` profile of `docker-compose.yml`
-  publishes the API straight to the host's loopback, with no proxy hop to trust.
+- Outside production the default is `loopback`. The `stack` profile of `docker-compose.yml` puts
+  the web image in front of the API, one proxy hop (`TRUST_PROXY=1`): it replaces whatever a client
+  wrote in `X-Forwarded-For` with the address that connected to it.
 - The API must be reachable only through those proxies (a private network). A client that reaches
   it directly can choose its own `X-Forwarded-For`.
 
@@ -679,7 +690,11 @@ PostgreSQL and Redis move in CI and Compose together (PostgreSQL with its data).
 
 ## Container images
 
-- The images run as a non-root user. The API (`runtime`) and migration (`migrate`) images of
+- The images run as a non-root user. The web image (`apps/landing/Dockerfile`) is
+  nginx-unprivileged with the built landing and its configuration, nothing else: it writes only the
+  app's link files, into `/tmp`, so it runs on a read-only root filesystem; its settings are checked
+  before nginx starts (`18-validate-runtime-config.sh`), and a malformed one stops it. The API
+  (`runtime`) and migration (`migrate`) images of
   `apps/api/Dockerfile` contain no Node.js package manager: npm, corepack and yarn are removed from
   the Node.js base (unused attack surface with advisories of their own); the operating system's
   package manager stays (apt in the Debian base; a distroless base would remove it too, OPCIONAL).
@@ -699,7 +714,7 @@ PostgreSQL and Redis move in CI and Compose together (PostgreSQL with its data).
   capabilities, `no-new-privileges` and limits on processes and memory (REQUIERE CONFIGURACIÓN):
   an intruder in a container then cannot change the application, plant a persistent tool or gain
   privileges inside it.
-- CI's Images job builds both images and scans each one with Trivy
+- CI's Images job builds the three images and scans each one with Trivy
   (`.github/workflows/docker-images.yml`, [ci-cd.md](ci-cd.md#images)); CI never pushes them. A
   HIGH or CRITICAL advisory **with a published fix** fails the build. Fix it by
   rebuilding (newer base patches), updating the base image (Dependabot proposes it weekly) or

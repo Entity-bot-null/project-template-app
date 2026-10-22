@@ -1,7 +1,8 @@
-// The box `pnpm dev` prints under the API's logs once it is up
-// (scripts/dev.mjs): where the API, its docs, the database, Redis and the mail
-// catcher are, and the address the mobile app points at (EXPO_PUBLIC_API_URL
-// in apps/mobile/.env; Metro runs apart, `pnpm start`). Read from the settings
+// The box `pnpm dev` prints under the servers' logs once they are up
+// (scripts/dev.mjs): where the site (the landing, with the API at /api, one
+// origin as in production), the API, its docs, the database, Redis and the
+// mail catcher are, and the address the mobile app points at
+// (EXPO_PUBLIC_API_URL in apps/mobile/.env; Metro runs apart, `pnpm start`). Read from the settings
 // those processes read (apps/api/.env, DB_PORT, MAILPIT_*), so it shows what
 // runs, not what the defaults would be; email's state is what the API's
 // readiness probe answered.
@@ -10,6 +11,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { parseEnv, styleText } from 'node:util';
+
+// apps/landing/astro.config.mjs: server.port, with strictPort (the dev server
+// fails rather than move to another port). It forwards /api to the API.
+const LANDING_PORT = '4331';
 
 // docker-compose.yml: the ports the db, redis and mailpit services publish
 // without DB_PORT, REDIS_PORT, MAILPIT_SMTP_PORT and MAILPIT_UI_PORT.
@@ -23,7 +28,7 @@ const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 /**
  * @typedef {Record<string, string | undefined>} Env
  * @typedef {'ok' | 'degraded' | 'disabled'} MailStatus what readiness said (checks.mail)
- * @typedef {{ api: string; docs: string; app: string; database?: string; redis: string; mail: string; warnings: string[] }} Settings
+ * @typedef {{ site: string; api: string; docs: string; app: string; database?: string; redis: string; mail: string; warnings: string[] }} Settings
  */
 
 /**
@@ -41,6 +46,7 @@ export function devSettings({ api, compose }) {
   const mail = mailSettings(api, compose);
   const redis = redisSettings(api, compose);
   const settings = {
+    site: `http://localhost:${LANDING_PORT}`,
     api: apiUrl,
     docs: `${apiUrl}/docs`,
     // The device reaches this machine's loopback through `adb reverse` (the
@@ -151,6 +157,7 @@ export function renderBanner(settings, app, style = styleText, mailStatus = unde
       ? settings.mail
       : `${settings.mail} · ${mailStatus}`;
   const rows = [
+    ['Site', settings.site],
     ['API', settings.api],
     ['API docs', settings.docs],
     ['App', settings.app],
