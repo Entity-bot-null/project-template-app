@@ -32,6 +32,10 @@ matches() {
 # served. A wrong one sends search engines elsewhere, so no default.
 matches "${APP_ORIGIN:-}" '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$' ||
   fail APP_ORIGIN 'the public origin of the site, such as https://app.example.com: no path, no trailing slash'
+# The build (the image sets it from its APP_RELEASE build argument), served
+# as /release.json.
+matches "${APP_RELEASE:-}" '^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$' ||
+  fail APP_RELEASE 'letters, digits, ".", "_", "+", "-"'
 
 # Optional, in pairs: the app's identity, for the files that let the phones
 # open /app/* links in it (19-app-links.sh). Half a pair is a mistake, not a

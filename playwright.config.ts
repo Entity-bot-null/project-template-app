@@ -1,6 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 import { LANDING_URL } from './e2e/support/landing.js';
-import { TEST_APP_IDENTITY, WEB_IMAGE_PORT, WEB_IMAGE_URL } from './e2e/support/web-image.js';
+import {
+  TEST_APP_IDENTITY,
+  WEB_IMAGE_PORT,
+  WEB_IMAGE_RELEASE,
+  WEB_IMAGE_URL,
+} from './e2e/support/web-image.js';
 
 // The browser suite (e2e/*.e2e.ts): a real browser against the public site.
 //   - landing: the built landing (apps/landing), on its preview server;
@@ -48,7 +53,11 @@ export default defineConfig({
     {
       // Built on the first run (a few minutes), from Docker's cache after.
       command: 'node scripts/e2e-web-image.mjs',
-      env: { WEB_IMAGE_PORT: String(WEB_IMAGE_PORT), ...TEST_APP_IDENTITY },
+      env: {
+        WEB_IMAGE_PORT: String(WEB_IMAGE_PORT),
+        WEB_IMAGE_RELEASE,
+        ...TEST_APP_IDENTITY,
+      },
       url: `${WEB_IMAGE_URL}/healthz`,
       timeout: 600_000,
       reuseExistingServer: false,

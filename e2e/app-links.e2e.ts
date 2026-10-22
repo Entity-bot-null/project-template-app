@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { TEST_APP_IDENTITY, WEB_IMAGE_URL } from './support/web-image.js';
+import { TEST_APP_IDENTITY, WEB_IMAGE_RELEASE, WEB_IMAGE_URL } from './support/web-image.js';
 
 // What the web image does for the app's links (apps/landing/nginx), on a
 // phone's browser: the files that let the phones open /app/* in the app, and
@@ -95,4 +95,19 @@ test('the landing is served with its security headers and the API errors in its 
   const api = await request.get('/api/items');
   expect(api.status()).toBe(502);
   expect(await api.json()).toEqual({ data: null, message: 'The API could not be reached' });
+  // The probes stay private, answered like an unknown route of the API.
+  const probe = await request.get('/api/health/ready');
+  expect(probe.status()).toBe(404);
+  expect(probe.headers()['content-type']).toContain('application/json');
+  expect(await probe.json()).toEqual({ data: null, message: 'Not found' });
+});
+
+test('the release the image was built for is served, never cached', async ({ request }) => {
+  const release = await request.get('/release.json');
+  expect(release.status()).toBe(200);
+  expect(release.headers()['content-type']).toContain('application/json');
+  expect(release.headers()['cache-control']).toBe('no-store');
+  expect(release.headers()['x-robots-tag']).toBe('noindex');
+  expect(release.headers()['content-security-policy']).toContain("script-src 'none'");
+  expect(await release.json()).toEqual({ release: WEB_IMAGE_RELEASE });
 });

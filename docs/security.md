@@ -14,18 +14,18 @@ Paths are relative to `apps/api/src` unless they start at the repository root (`
 
 ## Controls by OWASP Top 10 (2021) category
 
-| Risk                                  | Control in the template                                                                                                                                                                                                                                                                                                                           | Where                                                                                                      |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| A01 Broken access control             | `@Auth(...roles)` on every non-public route; ownership checks in the services' queries (404 for others' records); Fetch Metadata guard on every route                                                                                                                                                                                             | `auth/auth.decorator.ts`, `users/users.service.ts`, `items/items.service.ts`, `common/guards`              |
-| A02 Cryptographic failures            | argon2id (OWASP parameters); refresh tokens and one-time tokens stored as SHA-256; HS256 pinned on signer and verifier, 64+ character secret; no cookies; `Cache-Control: no-store` on every response; HTTPS at the edge; the refresh token in the device's Keychain/Keystore ([SECURITY.md](../SECURITY.md#storage))                             | `auth/password.ts`, `auth/sessions.service.ts`, `auth/account-tokens.ts`, `auth/auth.module.ts`, `env/`    |
-| A03 Injection                         | Zod validation of every body and query; Prisma parameterized queries (ESLint forbids the `*Unsafe` raw variants); every value in an email template HTML-escaped, no line break in a subject; SAST (Semgrep) on every pull request                                                                                                                 | `common/pipes`, `common/openapi`, `infrastructure/mail/templates`, `eslint.config.mjs`, `scripts/sast.mjs` |
-| A04 Insecure design                   | Contract review before implementation (the API generates `openapi/openapi.json`, reviewed like code); the threat model of a mobile client; Definition of Done security item                                                                                                                                                                       | `openapi/README.md`, `SECURITY.md`, `DEFINITION_OF_DONE.md`                                                |
-| A05 Security misconfiguration         | Validated env (boot fails on bad config; `NODE_ENV` has no default; `TRUST_PROXY` required in production); helmet headers; no Swagger UI in production; API on loopback outside production; non-root containers without Node.js package managers                                                                                                  | `env/`, `app.setup.ts`, `server.ts`, `apps/api/Dockerfile`                                                 |
-| A06 Vulnerable components             | `pnpm audit` (high+ fails) locally and in CI; image scanning (Trivy) in CI; Dependabot; seven-day release delay, trust-downgrade refusal, install-script allowlist, registry-only sources and a license policy; GitHub Actions pinned by SHA and tool and base images by digest                                                                   | `pnpm-workspace.yaml`, `scripts/dependency-policy.json`, `.github/`                                        |
-| A07 Identification and authentication | Short access tokens, kept in memory by the app; rotating refresh tokens in families with reuse detection and a 90-day absolute lifetime; timing-safe sign-in; sign-in attempts limited per address tried, with a per-IP ceiling that a forged `X-Forwarded-For` cannot escape                                                                     | `auth/`                                                                                                    |
-| A08 Software and data integrity       | Frozen lockfile installs with sha512 integrity, lockfile diffs visible in review; committed migrations only; CI gates before merge; workflows audited (zizmor) with least-privilege tokens; immutable release tags; SBOM per release; provenance and SBOM attestations on images once they are pushed                                             | `.github/workflows/`, `.github/rulesets/`, `scripts/check-dependencies.mjs`                                |
-| A09 Logging and monitoring failures   | Structured logs with request ids, automatic redaction of credentials in every log line, error report and span; 5xx logged with stack and origin; access logs without query strings or bodies; theft of a refresh token logged as a warning; optional error tracking and tracing with the same redaction                                           | `common/logging/`, `observability/`, [observability.md](observability.md)                                  |
-| A10 Server-side request forgery       | The API makes no outbound requests of its own beyond the services it is configured for (SMTP, Sentry, an OTLP endpoint); integrations use `createExternalHttpClient`, which keeps every path under the configured base URL (values encoded as segments). Any feature that fetches a user-supplied URL needs an allowlist (REQUIERE CONFIGURACIÓN) | `common/http/external-http.ts`                                                                             |
+| Risk                                  | Control in the template                                                                                                                                                                                                                                                                                                                           | Where                                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| A01 Broken access control             | `@Auth(...roles)` on every non-public route; ownership checks in the services' queries (404 for others' records); Fetch Metadata guard on every route                                                                                                                                                                                             | `auth/auth.decorator.ts`, `users/users.service.ts`, `items/items.service.ts`, `common/guards`                                |
+| A02 Cryptographic failures            | argon2id (OWASP parameters); refresh tokens and one-time tokens stored as SHA-256; HS256 pinned on signer and verifier, 64+ character secret; no cookies; `Cache-Control: no-store` on every response; HTTPS at the edge; the refresh token in the device's Keychain/Keystore ([SECURITY.md](../SECURITY.md#storage))                             | `auth/password.ts`, `auth/sessions.service.ts`, `auth/account-tokens.ts`, `auth/auth.module.ts`, `env/`                      |
+| A03 Injection                         | Zod validation of every body and query; Prisma parameterized queries (ESLint forbids the `*Unsafe` raw variants); every value in an email template HTML-escaped, no line break in a subject; SAST (Semgrep) on every pull request; ZAP API scan (DAST) weekly                                                                                     | `common/pipes`, `common/openapi`, `infrastructure/mail/templates`, `eslint.config.mjs`, `scripts/sast.mjs`, `.zap/rules.tsv` |
+| A04 Insecure design                   | Contract review before implementation (the API generates `openapi/openapi.json`, reviewed like code); the threat model of a mobile client; Definition of Done security item                                                                                                                                                                       | `openapi/README.md`, `SECURITY.md`, `DEFINITION_OF_DONE.md`                                                                  |
+| A05 Security misconfiguration         | Validated env (boot fails on bad config; `NODE_ENV` has no default; `TRUST_PROXY` required in production); helmet headers; no Swagger UI in production; API on loopback outside production; non-root containers without Node.js package managers                                                                                                  | `env/`, `app.setup.ts`, `server.ts`, `apps/api/Dockerfile`                                                                   |
+| A06 Vulnerable components             | `pnpm audit` (high+ fails) locally and in CI; image scanning (Trivy) in CI; Dependabot; seven-day release delay, trust-downgrade refusal, install-script allowlist, registry-only sources and a license policy; GitHub Actions pinned by SHA and tool and base images by digest                                                                   | `pnpm-workspace.yaml`, `scripts/dependency-policy.json`, `.github/`                                                          |
+| A07 Identification and authentication | Short access tokens, kept in memory by the app; rotating refresh tokens in families with reuse detection and a 90-day absolute lifetime; timing-safe sign-in; sign-in attempts limited per address tried, with a per-IP ceiling that a forged `X-Forwarded-For` cannot escape                                                                     | `auth/`                                                                                                                      |
+| A08 Software and data integrity       | Frozen lockfile installs with sha512 integrity, lockfile diffs visible in review; committed migrations only; CI gates before merge; workflows audited (zizmor) with least-privilege tokens; immutable release tags; SBOM per release; provenance and SBOM attestations on images once they are pushed                                             | `.github/workflows/`, `.github/rulesets/`, `scripts/check-dependencies.mjs`                                                  |
+| A09 Logging and monitoring failures   | Structured logs with request ids, automatic redaction of credentials in every log line, error report and span; 5xx logged with stack and origin; access logs without query strings or bodies; theft of a refresh token logged as a warning; optional error tracking and tracing with the same redaction                                           | `common/logging/`, `observability/`, [observability.md](observability.md)                                                    |
+| A10 Server-side request forgery       | The API makes no outbound requests of its own beyond the services it is configured for (SMTP, Sentry, an OTLP endpoint); integrations use `createExternalHttpClient`, which keeps every path under the configured base URL (values encoded as segments). Any feature that fetches a user-supplied URL needs an allowlist (REQUIERE CONFIGURACIÓN) | `common/http/external-http.ts`                                                                                               |
 
 ## Authentication and tokens
 
@@ -710,13 +710,24 @@ PostgreSQL and Redis move in CI and Compose together (PostgreSQL with its data).
   step's cache key: the build cache replays an upgrade for one day at most, never until the base
   digest changes.
 - The files of an image belong to root: the user it runs as can read and run them, never change
-  them. The orchestrator that runs them should add a read-only root filesystem, no Linux
-  capabilities, `no-new-privileges` and limits on processes and memory (REQUIERE CONFIGURACIÓN):
-  an intruder in a container then cannot change the application, plant a persistent tool or gain
-  privileges inside it.
+  them. On the server (`deploy/vps/compose.yaml`) every container also runs with:
+  - a read-only root filesystem, with a small `tmpfs` only where the process writes (`/tmp`, where
+    the web image writes the app's link files; nginx's generated configuration; PostgreSQL's socket
+    directory), emptied at every restart; the data of PostgreSQL, its backups and Redis on their
+    own volumes;
+  - no Linux capability (`cap_drop: [ALL]`), except Caddy's `NET_BIND_SERVICE` for ports 80
+    and 443;
+  - `no-new-privileges`, so a setuid binary grants nothing;
+  - limits on processes and memory, so one runaway container cannot take the server down.
+
+  An intruder in a container therefore cannot change the application, plant a persistent tool or
+  gain privileges inside it. Another orchestrator should apply the same (REQUIERE CONFIGURACIÓN).
+
 - CI's Images job builds the three images and scans each one with Trivy
-  (`.github/workflows/docker-images.yml`, [ci-cd.md](ci-cd.md#images)); CI never pushes them. A
-  HIGH or CRITICAL advisory **with a published fix** fails the build. Fix it by
+  (`.github/workflows/docker-images.yml`, [ci-cd.md](ci-cd.md#images)); CI never pushes them. The
+  Deploy workflow pushes them for the server target and scans the digest it pushed, the one it
+  deploys ([ci-cd.md](ci-cd.md#deployment)). A HIGH or CRITICAL advisory **with a published fix**
+  fails the build. Fix it by
   rebuilding (newer base patches), updating the base image (Dependabot proposes it weekly) or
   updating the dependency; unfixed advisories are reported by the tool but cannot be acted on.
 - Base images are pinned by tag and digest in the Dockerfile: a tag moved on the registry changes
@@ -740,10 +751,14 @@ PostgreSQL and Redis move in CI and Compose together (PostgreSQL with its data).
   HTTP pipeline, redaction and error tracking, configuration, the schema and the contract) next to
   the app's and the gates' (`.github/`, hooks, scripts): owning the checks is what keeps them from
   being edited away in the same pull request.
-- **The images are built and scanned, never pushed**: no workflow deploys the API. A project that
-  deploys it pushes from `docker-images.yml` (`push: true`, a registry in `vars.IMAGE_PREFIX`) and
-  deploys by digest, from commits on `main` only (REQUIERE CONFIGURACIÓN). How the app's builds are
-  protected: [ci-cd.md](ci-cd.md#what-protects-production).
+- **Deploy** (`deploy.yml`) resolves the requested ref to a commit, refuses one that is not on
+  `main`, re-runs every gate on that exact commit and releases that commit only, with the image
+  digests its own build reported or an earlier run of it from `main` recorded: never the registry
+  tag `<image>:<sha>`, which any workflow with `packages: write` can push from any branch
+  (`scripts/recorded-images.mjs`). The workflow file's own checks can be edited on a branch, so the
+  `staging` and `production` environments must also allow deployments from `main` only
+  ([ci-cd.md](ci-cd.md#environments)). How the app's builds are protected:
+  [ci-cd.md](ci-cd.md#what-protects-production).
 
 ## Static analysis
 
@@ -760,16 +775,39 @@ Any finding fails. A false positive is suppressed on its line with the reason, w
 `// nosemgrep: <rule-id> -- why it is safe`. The rulesets are fetched from the Semgrep registry at
 each run, so a new rule can flag existing code; fix or suppress it in its own pull request.
 
+## Dynamic analysis
+
+`.github/workflows/dast.yml` runs **OWASP ZAP** against the running server side (ADVISORY: not a
+required check):
+
+- **Weekly and on demand, against a throwaway stack** built from the production images on the CI
+  runner (`docker compose --profile stack`): after the smoke test, the baseline scan (passive:
+  headers, cookies, disclosures) on the public site (the landing, the open-in-app page, the app's
+  link files), and the API scan (active: injection, XSS, path traversal) on every operation of
+  `openapi/openapi.json`, the API the app calls.
+- **On demand against staging** (`DAST_STAGING_URL`, REQUIERE CONFIGURACIÓN): the baseline scan
+  only, which sends nothing a normal visitor would not. Never run active scans against a shared
+  environment without its owners' agreement.
+
+Rule levels live in `.zap/rules.tsv`: FAIL for what the template guarantees (security headers, no
+version or error disclosure, no injection, no cookie at all: sessions are tokens the app keeps),
+WARN for what depends on the deployment (HSTS at the edge) or deserves a look (a comment in the
+landing's HTML), IGNORE for informational noise, each with its reason. Reports are kept 30 days as
+the `zap-reports-*` artifact. The scans are unauthenticated: they reach what an anonymous client
+reaches; authenticated scanning is per project (OPCIONAL: a ZAP context with a test account and
+its bearer token). The app itself is not in reach of ZAP: its own checks are in
+[SECURITY.md](../SECURITY.md) (MASVS).
+
 ## Artifact integrity
 
-| What                                    | Status                              | How                                                                                                                                                                 |
-| --------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lockfile integrity                      | Obligatorio                         | sha512 per package, frozen installs, registry sources only ([Dependency policy](../SECURITY.md#dependency-policy))                                                  |
-| SBOM of each release                    | Obligatorio                         | CycloneDX of the npm packages the production dependencies resolve to at the tag, attached to the GitHub release by `release.yml` (`pnpm sbom:generate` locally)     |
-| Scanned image = shipped image           | Obligatorio once images are pushed  | the push step of `docker-images.yml` reuses the scanned build's context, target and cache: every layer is a cache hit, so the pushed image is the one scanned       |
-| SBOM and provenance of published images | Obligatorio once images are pushed  | BuildKit attestations (`sbom: true`, `provenance: mode=max`) on every push of `docker-images.yml`, in the image index whose digest a deployment records and deploys |
-| Signed attestations (Sigstore)          | OPCIONAL                            | `actions/attest-build-provenance` step ready (commented) in `docker-images.yml`. Needs a public repository or GitHub Enterprise Cloud                               |
-| Verification before deploying           | OPCIONAL (with signed attestations) | `gh attestation verify oci://<image>@<digest> --repo <owner>/<repo>` in the deployment                                                                              |
+| What                                    | Status                              | How                                                                                                                                                                                                             |
+| --------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lockfile integrity                      | Obligatorio                         | sha512 per package, frozen installs, registry sources only ([Dependency policy](../SECURITY.md#dependency-policy))                                                                                              |
+| SBOM of each release                    | Obligatorio                         | CycloneDX of the npm packages the production dependencies resolve to at the tag, attached to the GitHub release by `release.yml` (`pnpm sbom:generate` locally)                                                 |
+| Scanned image = shipped image           | Obligatorio                         | The server deployment scans the digest it pushed and deploys that digest from the run's record; production reuses staging's record, never the mutable tag, and scans it again                                   |
+| SBOM and provenance of published images | Obligatorio once images are pushed  | BuildKit attestations (`sbom: true`, `provenance: mode=max`) on every push (the `publish` job of `deploy.yml`, `docker-images.yml` with `push: true`), in the image index whose digest is recorded and deployed |
+| Signed attestations (Sigstore)          | OPCIONAL                            | `actions/attest-build-provenance` step ready (commented) in `docker-images.yml`. Needs a public repository or GitHub Enterprise Cloud                                                                           |
+| Verification before deploying           | OPCIONAL (with signed attestations) | `gh attestation verify oci://<image>@<digest> --repo <owner>/<repo>` in the deployment                                                                                                                          |
 
 Signing with a separate tool (cosign with keys) is not included: GitHub attestations are already
 Sigstore signatures, verifiable without managing keys. To see what a pushed image carries:
@@ -848,15 +886,16 @@ Accepted on purpose, each with its way out:
   ([Account deletion](#account-deletion)).
 - **The minimum app version is not a security control**: any client can claim any version
   ([Minimum app version](#minimum-app-version)).
-- **No dynamic analysis and no penetration test**: the gates find known patterns, not logic flaws
-  (an authorization rule that is wrong but consistent passes them). Way out: an external test
+- **DAST is advisory and unauthenticated, and there is no penetration test**: the gates find
+  known patterns, not logic flaws (an authorization rule that is wrong but consistent passes
+  them). Way out: authenticated ZAP scans (OPCIONAL), and an external test of the API and the app
   before handling sensitive data.
 - **Semgrep rules are fetched at each run** from its registry: CI needs it reachable, and a new
   rule can flag existing code (see [Static analysis](#static-analysis)).
 - **No WAF or DDoS protection**: the edge's job (REQUIERE CONFIGURACIÓN).
-- **Error tracking, tracing and alerting are prepared, not configured**: without a Sentry project,
-  an OTLP backend and alert rules, failures are only in the logs
-  ([observability.md](observability.md)).
+- **Error tracking, tracing and alerting are prepared, not configured**: the alert rules ship as
+  code, but without a Sentry project, an OTLP backend that loads them and a routing for their
+  notifications, failures are only in the logs ([observability.md](observability.md)).
 
 ## Per project (REQUIERE CONFIGURACIÓN)
 
@@ -880,10 +919,16 @@ Accepted on purpose, each with its way out:
 - [ ] Data classification: which fields are personal data, retention, backups (and how long a
       deleted account survives in them), encryption at rest
       ([SECURITY.md](../SECURITY.md#data-the-api-keeps)).
-- [ ] Image pushes and deployments by digest from `main`, the orchestrator's container hardening,
-      signed attestations where the GitHub plan allows ([Container images](#container-images)).
+- [ ] Image pushes and deployments by digest from `main` (the server target does both), the
+      container hardening of another orchestrator, signed attestations where the GitHub plan
+      allows ([Container images](#container-images)).
+- [ ] The server's own database: its nightly backups copied off the server, with an alert when a
+      copy is missing ([deploy-vps.md](deploy-vps.md#backups)).
+- [ ] `DAST_STAGING_URL` once staging exists; authenticated scans if the product needs them
+      ([Dynamic analysis](#dynamic-analysis)).
 - [ ] CodeQL / dependency review / secret push protection, where the GitHub plan allows.
-- [ ] The rulesets in `.github/rulesets/` applied and `CODEOWNERS` filled in.
+- [ ] The rulesets in `.github/rulesets/` applied, `CODEOWNERS` filled in, and the `staging` and
+      `production` environments deploying from `main` only.
 - [ ] Alerts on the signals the API already logs: `Refresh token reuse for user ...` (a stolen
       refresh token), bursts of 401 and 429 on `/api/auth/sign-in`, any `fatal` line, 5xx rate.
 - [ ] Log retention and access (logs contain client IPs and user ids).

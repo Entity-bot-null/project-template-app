@@ -1,7 +1,9 @@
 # Production readiness
 
-The checklist before the first store release, and again before any release that changes native
-code, data collection, permissions or the release process. Copy it into the release issue and tick
+The checklist before the first store release and the first production deployment of the server
+side (the API and the web image), and again before any release that changes native code, data
+collection, permissions, the release process or the server's infrastructure. The app's sections
+come first, the server's after ([Server: security](#server-security) onwards). Copy it into the release issue and tick
 each line with a link to its evidence (a CI run, a test, a store page, a drill record).
 
 ## Classification
@@ -107,10 +109,77 @@ Every capability of the template, and every line below, is exactly one of:
 | [ ]  | Owner and contacts | REQUIRES CONFIGURATION        | CODEOWNERS, `SECURITY.md` contact, production reviewers in the GitHub environment                                                                                                                            |
 | [ ]  | Emergency release  | CORE / REQUIRES CONFIGURATION | JavaScript fix: EAS update with a staged rollout; native fix: a build with expedited review (App Store) and a halted staged rollout (Play); a minimum supported version for vulnerabilities that cannot wait |
 
+## Server: security
+
+| Done | Item                      | Class                                                 | Verified by                                                                                                                                             |
+| ---- | ------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ ]  | Trivy                     | CORE                                                  | CI images job: no fixable HIGH or CRITICAL advisory in `api`, `api-migrate`, `web`; Deploy scans the digest it pushed                                   |
+| [ ]  | DAST                      | CORE (local stack) / REQUIRES CONFIGURATION (staging) | `dast.yml` weekly on the production images; `DAST_STAGING_URL` for the passive scan of staging                                                          |
+| [ ]  | Security headers and CSP  | CORE                                                  | helmet (API), nginx (web image, `script-src 'none'`); `pnpm smoke` checks they are served; ZAP baseline                                                 |
+| [ ]  | CSRF                      | CORE                                                  | Fetch Metadata guard on every route; integration specs                                                                                                  |
+| [ ]  | RBAC and ownership        | CORE                                                  | `@Auth(...)` on every non-public route, ownership in services; one spec per role and per foreign record                                                 |
+| [ ]  | Env and secret validation | CORE                                                  | the API's env schema and the web image's `18-validate-runtime-config.sh` stop the start on a bad value; `TRUST_PROXY` set for the real topology         |
+| [ ]  | Secrets per environment   | REQUIRES CONFIGURATION                                | the server's `*.env` files (mode 600, deploy user only), the GitHub environments' deploy secrets; rotation ([security.md](security.md#secret-rotation)) |
+| [ ]  | Repository protection     | REQUIRES CONFIGURATION                                | rulesets imported, `CODEOWNERS` filled in, `staging` and `production` deploy from `main` only ([ci-cd.md](ci-cd.md#environments))                       |
+
+## Server: infrastructure
+
+| Done | Item              | Class                                                       | Verified by                                                                                                                                                                                                                                                       |
+| ---- | ----------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ ]  | Infrastructure    | CORE (checked) / REQUIRES CONFIGURATION (applied)           | `pnpm iac:check` (CI); the server built by [deploy-vps.md](deploy-vps.md) or Terraform, IPv4 only, SSH with keys, firewall closed but 22, 80 and 443                                                                                                              |
+| [ ]  | Database backups  | REQUIRES CONFIGURATION                                      | full backups and PITR configured, encrypted, protected from deletion ([disaster-recovery.md](disaster-recovery.md#backup-strategy)); the server's own database: its nightly backups copied off the server, with an alert ([deploy-vps.md](deploy-vps.md#backups)) |
+| [ ]  | Restore test      | REQUIRES CONFIGURATION                                      | a drill record from the last quarter ([checklist](disaster-recovery.md#checklist))                                                                                                                                                                                |
+| [ ]  | Database access   | REQUIRES CONFIGURATION                                      | separate migrator and runtime roles (and the backup's), connection limit, TLS (`sslmode`) outside a private network                                                                                                                                               |
+| [ ]  | Connection budget | REQUIRES CONFIGURATION                                      | instances × `DB_POOL_MAX` within the database's limit ([database.md](database.md#connections))                                                                                                                                                                    |
+| [ ]  | Redis             | CORE on the server target; REQUIRES CONFIGURATION elsewhere | the server runs it (an ACL user, the internal network only); elsewhere, or with more than one server, `RATE_LIMIT_STORE=redis` on a private Redis with TLS and an ACL user ([security.md](security.md#redis))                                                     |
+| [ ]  | Health endpoints  | CORE                                                        | `GET /api/health/live` (container `HEALTHCHECK`), `GET /healthz` (web image)                                                                                                                                                                                      |
+| [ ]  | Readiness         | CORE / REQUIRES CONFIGURATION (wiring)                      | `GET /api/health/ready` on the API's private address: `deploy.sh` waits for it; an internal check polls it between deployments                                                                                                                                    |
+| [ ]  | Graceful shutdown | CORE                                                        | `stop_grace_period` of the API (30 s) above its 15-second drain plus the 10 seconds of an email in flight                                                                                                                                                         |
+| [ ]  | Resource limits   | CORE (defaults) / REQUIRES CONFIGURATION (sizing)           | `mem_limit` and `pids_limit` of every container in `deploy/vps/compose.yaml`, resized from a load test or from production metrics                                                                                                                                 |
+| [ ]  | TLS               | CORE (Caddy) / REQUIRES CONFIGURATION (domain)              | the domain's DNS, Caddy's certificate and HSTS; certificate renewal monitored (the uptime check)                                                                                                                                                                  |
+| [ ]  | App links         | REQUIRES CONFIGURATION                                      | the app's identity in `web.env`; `pnpm smoke --url <public URL> --require-app-links`; an emailed link opens the app on both platforms                                                                                                                             |
+| [ ]  | Edge protection   | REQUIRES CONFIGURATION                                      | CDN or WAF, DDoS protection                                                                                                                                                                                                                                       |
+
+## Server: observability
+
+| Done | Item            | Class                                            | Verified by                                                                                                                                                                       |
+| ---- | --------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ ]  | Structured logs | CORE / REQUIRES CONFIGURATION (collection)       | JSON lines on stdout, rotated on the server (`compose.yaml`); a platform collects them, with retention and access set                                                             |
+| [ ]  | Request ID      | CORE                                             | `X-Request-Id` on every response, on every log line and error report, and in the app's breadcrumbs ([observability.md](observability.md#the-app))                                 |
+| [ ]  | Metrics         | OPTIONAL / REQUIRES CONFIGURATION (backend)      | `OTEL_EXPORTER_OTLP_ENDPOINT` to a collector or provider; metrics visible ([observability.md](observability.md))                                                                  |
+| [ ]  | Sentry (API)    | OPTIONAL / REQUIRES CONFIGURATION                | `SENTRY_DSN`; a test event per environment                                                                                                                                        |
+| [ ]  | Dashboards      | CORE (checked) / REQUIRES CONFIGURATION (import) | `pnpm observability:check` (CI); the dashboards of `observability/grafana` imported into the production Grafana ([observability.md](observability.md#use-them-with-your-backend)) |
+| [ ]  | Uptime          | REQUIRES CONFIGURATION                           | external checks from several locations, the app's link files included ([observability.md](observability.md#uptime-monitoring))                                                    |
+| [ ]  | Alerts          | REQUIRES CONFIGURATION (load, route)             | the rules of `observability/prometheus/rules` loaded in the backend, routed by severity and tested; the rest of the catalog of [alerting.md](alerting.md) in its services         |
+| [ ]  | SLOs            | REQUIRES CONFIGURATION                           | targets agreed, error budget policy agreed ([alerting.md](alerting.md#slis-and-slos)); the app's stability SLO too                                                                |
+
+## Server: deployment
+
+| Done | Item               | Class                                         | Verified by                                                                                                                                          |
+| ---- | ------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [ ]  | Immutable artifact | CORE                                          | images built once per commit, tagged with the SHA, SBOM and provenance attached when pushed                                                          |
+| [ ]  | Image digest       | CORE (server target) / REQUIRES CONFIGURATION | `deploy.yml` deploys the recorded `<image>@<digest>`; another platform's release job does the same ([ci-cd.md](ci-cd.md#deployment))                 |
+| [ ]  | Migration strategy | CORE                                          | expand and contract ([database.md](database.md#expand-and-contract)); `api-migrate` runs before the rollout                                          |
+| [ ]  | Installed apps     | CORE                                          | the contract changes are additive; every app version still supported works against the release ([ci-cd.md](ci-cd.md#compatibility-between-versions)) |
+| [ ]  | Smoke tests        | CORE                                          | `pnpm smoke --url ... --release <sha>` after every rollout (the Deploy workflow), `--api` from inside the platform                                   |
+| [ ]  | Rollback plan      | CORE / REQUIRES CONFIGURATION (rehearsal)     | `deploy.sh` and `rollback.sh`; a rollback rehearsed once in staging ([deploy-vps.md](deploy-vps.md#roll-back))                                       |
+| [ ]  | Deploy workflow    | REQUIRES CONFIGURATION                        | `DEPLOY_TARGET`, `IMAGE_PREFIX`, the `staging` and `production` environments with reviewers ([deploy-vps.md](deploy-vps.md#7-github-settings))       |
+
+## Server: operations
+
+| Done | Item              | Class                                               | Verified by                                                                                         |
+| ---- | ----------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [ ]  | Incident response | CORE (runbooks) / REQUIRES CONFIGURATION (contacts) | [incident-response.md](incident-response.md) read by the on-call people, its contacts filled in     |
+| [ ]  | Disaster recovery | CORE (procedure) / REQUIRES CONFIGURATION           | [disaster-recovery.md](disaster-recovery.md) with this project's backups and signing credentials    |
+| [ ]  | RPO / RTO         | REQUIRES CONFIGURATION                              | targets written in [disaster-recovery.md](disaster-recovery.md#rpo-and-rto) and met in a drill      |
+| [ ]  | Restore procedure | CORE / REQUIRES CONFIGURATION (provider)            | the provider's restore steps added to step 3 of the procedure; rehearsed                            |
+| [ ]  | Load test         | OPTIONAL                                            | a recorded run at the expected peak when the product needs one ([load-testing.md](load-testing.md)) |
+
 ## Sign-off
 
 ```
-Release / version / build:
+Release / version / build (app):
+Release / commit / environment (server):
 Checked by (name, date):
 Open items, accepted with a reason and an owner:
 ```

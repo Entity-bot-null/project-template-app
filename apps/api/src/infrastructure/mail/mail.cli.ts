@@ -10,13 +10,15 @@ import { recipientHash } from './mail.recipient.js';
 import { MailStore } from './mail.store.js';
 import { MAIL_TEMPLATE_REGISTRY } from './templates/registry.js';
 
-// The outbox's operator commands (docs/manual.md#53-email).
+// The outbox's operator commands (docs/manual.md#53-email,
+// docs/incident-response.md#16-email-not-delivered).
 // Locally (no `--` before the options: pnpm passes it on, and parseArgs refuses it):
 //   pnpm --filter api mail test --to you@example.com   queue a test message, wait for its delivery
 //   pnpm --filter api mail status [--to <address>]     the queue; one address's messages
 //   pnpm --filter api mail retry --id <id> | --failed [--kind <kind>]
-// in a deployment, with the API image:
-//   docker run --rm --env-file <api env> <api image> node dist/infrastructure/mail/mail.cli.js status
+// in a deployment, with the API image (docs/deploy-vps.md; on any other
+// platform, `docker run --rm --env-file <api env> <api image>` instead):
+//   docker compose ... run --rm -T api node dist/infrastructure/mail/mail.cli.js status
 // The database is the one in DATABASE_URL; messages are sent by the API's
 // workers, never by this command. Addresses are never printed: a message is
 // named by its id, and --to finds an address's messages by their keyed hash.

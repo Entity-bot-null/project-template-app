@@ -1,12 +1,16 @@
-// `pnpm smoke --url <public URL> --api <API URL> [--require-app-links]`: the
-// smoke test of the web image and the API, after a deployment, a restore or a
-// recovery, and against the local stack (docs/testing.md#smoke-test).
+// `pnpm smoke --url <public URL> --api <API URL> [--release <commit SHA>]
+// [--require-app-links]`: the smoke test of the web image and the API, after a
+// deployment, a restore or a recovery, and against the local stack
+// (docs/testing.md#smoke-test).
 // Read-only: it signs nobody in and writes nothing, so it is safe against
 // production. Either URL may be left out to check one side only. Exits 1 when
 // any check fails.
 //
 // Through the public URL (--url), what visitors and phones get:
 //   GET /healthz                 200: the web server serves
+//   GET /release.json            200 JSON: the build of the web image; its
+//                                release is --release when given (the
+//                                deployment checks it serves what it rolled out)
 //   GET /                        200 HTML with the security headers: the
 //                                landing, its links and share picture on this
 //                                deployment's origin
@@ -38,6 +42,7 @@ const { values } = parseArgs({
   options: {
     url: { type: 'string' },
     api: { type: 'string' },
+    release: { type: 'string' },
     'require-app-links': { type: 'boolean', default: false },
   },
 });
@@ -55,7 +60,9 @@ function baseUrl(value, flag) {
 const site = baseUrl(values.url, '--url');
 const api = baseUrl(values.api, '--api');
 if (site === undefined && api === undefined) {
-  console.error('Usage: pnpm smoke --url <public URL> --api <API URL> [--require-app-links]');
+  console.error(
+    'Usage: pnpm smoke --url <public URL> --api <API URL> [--release <commit SHA>] [--require-app-links]',
+  );
   process.exit(2);
 }
 
@@ -145,6 +152,15 @@ function appLinkFile(response, body, describe) {
 if (site !== undefined) {
   await expect('web server health', `${site}/healthz`, (response) => {
     status(response, 200);
+  });
+
+  await expect('release', `${site}/release.json`, (response, body) => {
+    status(response, 200);
+    const { release } = json(body);
+    if (values.release !== undefined && release !== values.release) {
+      throw new Error(`release ${String(release)}, expected ${values.release}`);
+    }
+    return `release ${String(release)}`;
   });
 
   await expect('landing', `${site}/`, (response, body) => {
