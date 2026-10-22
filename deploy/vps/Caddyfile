@@ -1,0 +1,18 @@
+# TLS at the edge (docs/deploy-vps.md): Caddy obtains and renews the
+# certificate for APP_DOMAIN by itself (ports 80 and 443 must reach the server
+# and the domain's DNS must point at it), redirects HTTP to HTTPS and adds
+# HSTS, the one security header the web image leaves to the TLS proxy.
+#
+# Every path of APP_DOMAIN goes to the web image as it came, without a
+# redirect: Apple and Google fetch /.well-known/apple-app-site-association and
+# /.well-known/assetlinks.json over HTTPS and refuse one, and the app's links
+# (/app/*) must stay at their own address. Never add a redir or a rewrite here
+# (www to the bare domain belongs on its own site block, which the app does not
+# claim); scripts/deploy-vps.test.mjs checks it.
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	# Caddy ignores any X-Forwarded-For the client sends and sets it to the
+	# address that connected (no trusted_proxies configured).
+	reverse_proxy web:8080
+}

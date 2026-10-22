@@ -1,10 +1,11 @@
 name: Quality gates
 
 # Reusable: every gate a commit must pass, the same ones `pnpm verify` runs
-# locally plus the API's integration suite and the server images
-# (docs/ci-cd.md). Called by CI on every pull request and push to main, and by
-# the EAS build and update workflows for the exact commit they ship. No
-# secrets: nothing here talks to EAS, the stores or a registry.
+# locally plus the API's integration suite, the infrastructure and
+# observability code, and the server images (docs/ci-cd.md). Called by CI on
+# every pull request and push to main, and by the EAS build, EAS update and
+# Deploy workflows for the exact commit they ship. No secrets: nothing here
+# talks to EAS, the stores, a registry or a server.
 on:
   workflow_call:
     inputs:
@@ -76,7 +77,8 @@ jobs:
       # The repository tooling's own tests (scripts/*.test.mjs and
       # apps/*/scripts/*.test.mjs): Doberman's engine, the dependency policy,
       # the tool images, the migrations' contract steps, the mock API against
-      # the contract.
+      # the contract, the web image's scripts and routes, the deployment
+      # scripts and the observability files.
       - run: pnpm test:scripts
       # actionlint, zizmor and shellcheck on the Git hooks: the pinned images
       # of scripts/tool-images/Dockerfile (docs/ci-cd.md#workflow-security).
@@ -100,6 +102,23 @@ jobs:
       # config and New Architecture compatibility.
       - run: pnpm expo:doctor
 
+  iac:
+    name: Infrastructure as code (Terraform)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      # infra/terraform: fmt, validate and tests, TFLint, Trivy, the server's
+      # cloud-init against its schema, the database roles script on
+      # PostgreSQL; and deploy/vps/db-init.sh, the roles of a server that runs
+      # its own database, in PostgreSQL's entrypoint. With the pinned images
+      # of scripts/tool-images/Dockerfile (docs/ci-cd.md#infrastructure-as-code).
+      # No cloud account, no token, no install needed.
+      - run: node scripts/check-iac.mjs
+
   sast:
     name: Static analysis (Semgrep)
     runs-on: ubuntu-24.04
@@ -111,6 +130,23 @@ jobs:
           persist-credentials: false
       # Any finding fails (SECURITY.md#static-analysis). No install needed.
       - run: node scripts/sast.mjs
+
+  observability:
+    name: Observability as code (dashboards, alert rules)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # The dashboards and rules of observability/: datasource references,
+      # runbook sections, only metrics the API exports; then promtool from the
+      # pinned image of scripts/tool-images/Dockerfile checks the
+      # configuration, the rules and every dashboard query, and runs the
+      # rules' unit tests (docs/observability.md#dashboards-and-alerts-as-code).
+      - run: pnpm observability:check
 
   unit:
     name: Unit, component and integration tests, coverage

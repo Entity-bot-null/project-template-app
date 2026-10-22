@@ -19,7 +19,9 @@ state, API, auth, storage, errors, native code), [docs/performance.md](docs/perf
 [docs/releases.md](docs/releases.md). The API: [docs/architecture.md](docs/architecture.md),
 [docs/api-conventions.md](docs/api-conventions.md), [docs/authorization.md](docs/authorization.md),
 [docs/database.md](docs/database.md), [docs/security.md](docs/security.md),
-[docs/observability.md](docs/observability.md), [docs/environment.md](docs/environment.md). Both:
+[docs/observability.md](docs/observability.md), [docs/environment.md](docs/environment.md). The
+server: [docs/deploy-vps.md](docs/deploy-vps.md), [docs/incident-response.md](docs/incident-response.md),
+[docs/alerting.md](docs/alerting.md). Both:
 [docs/error-handling.md](docs/error-handling.md), [docs/testing.md](docs/testing.md),
 [SECURITY.md](SECURITY.md). [docs/manual.md](docs/manual.md) lists every command. A change is done
 when it meets [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md).
@@ -73,9 +75,11 @@ pnpm lint                          # ESLint, zero warnings
 pnpm typecheck                     # contract drift + typed routes + tsc (apps and tooling scripts)
 pnpm test                          # Jest (app) and Vitest (API unit, OpenAPI drift spec)
 pnpm test:integration              # the API against PostgreSQL, Redis and Mailpit (services up)
-pnpm test:scripts                  # tests of the repository's scripts (the mock API against the contract)
+pnpm test:scripts                  # tests of the repository's scripts (the mock API, the web image, deploy/vps)
 pnpm test:e2e                      # Playwright: the built landing and the web image (Docker)
 pnpm smoke --url <url> --api <url> # read-only checks of a deployment or the local stack
+pnpm iac:check                     # Terraform, TFLint, Trivy, cloud-init, the database roles (Docker)
+pnpm observability:check           # dashboards and alert rules: catalog, runbooks, promtool tests (Docker)
 pnpm expo:doctor                   # expo-doctor
 pnpm contract                      # openapi/openapi.json from the API, then apps/mobile/src/api/schema.d.ts
 pnpm verify                        # the local gates: run before declaring a task done

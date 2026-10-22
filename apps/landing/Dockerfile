@@ -46,8 +46,8 @@ USER root
 ARG OS_UPGRADE_DATE=local
 RUN apk upgrade --no-cache
 USER 101
-# The build this image holds (CI passes the commit SHA), for `docker inspect`
-# and the deployment's records.
+# The build this image holds (CI passes the commit SHA), for `docker inspect`,
+# the deployment's records and /release.json.
 ARG APP_RELEASE=unversioned
 # Runtime settings (docs/environment.md#web-variables): APP_ORIGIN has no
 # default, so a deployment that forgets it stops at start with the variable's

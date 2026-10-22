@@ -45,16 +45,30 @@ server {
         return 200 "ok\n";
     }
 
+    # The build this image holds (APP_RELEASE: the commit CI built it from),
+    # for the deployment's smoke test (pnpm smoke --release) and whoever must
+    # tell which release answers. Public, like the commit it names; never
+    # cached, never indexed.
+    location = /release.json {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex" always;
+        default_type application/json;
+        return 200 '{"release":"${APP_RELEASE}"}';
+    }
+
     # ^~: API paths that end like a file name (/api/files/report.pdf) are
     # proxied too, never matched by the static-file locations below.
     location ^~ /api/ {
         # The API's probes are for the orchestrator, which reaches the API
         # directly; from outside, this server's /healthz answers. In any
-        # letter case: the API matches routes case-insensitively.
+        # letter case: the API matches routes case-insensitively. Answered
+        # like an unknown route of the API: its JSON envelope.
         location ~* ^/api/health/ {
-            # nginx's own 404 page is HTML: it gets the headers too.
             include /etc/nginx/snippets/security-headers.conf;
-            return 404;
+            add_header Cache-Control "no-store" always;
+            default_type application/json;
+            return 404 '{"data":null,"message":"Not found"}';
         }
 
         # Through a variable, so the resolver above is used on every request.

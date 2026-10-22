@@ -44,6 +44,12 @@
 # Dockerfile                                 @your-org/backend
 # /.dockerignore                             @your-org/backend
 # /docker-compose.yml                        @your-org/backend
+# The server: its deployment, its infrastructure, the dashboards and alerts
+# that watch it, and the rules of the dynamic analysis.
+# /deploy/                                   @your-org/backend
+# /infra/                                    @your-org/backend
+# /observability/                            @your-org/backend
+# /.zap/                                     @your-org/security-reviewers
 # Gates: CI, hooks and the checks they run. Owning these is what keeps the
 # rules above from being edited away.
 # /.github/                                  @your-org/mobile-leads

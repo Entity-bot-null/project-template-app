@@ -134,18 +134,17 @@ updates:
       default-days: 7
     ignore:
       # A PostgreSQL or Redis major moves by hand, with docker-compose.yml and,
-      # for PostgreSQL, the database's data (docs/ci-cd.md#keeping-the-stack-current):
-      # CI tests the version that runs.
+      # for PostgreSQL, the managed database and its data
+      # (docs/ci-cd.md#keeping-the-stack-current): CI tests the version that runs.
       - dependency-name: docker/library/postgres
         update-types: [version-update:semver-major]
       - dependency-name: docker/library/redis
         update-types: [version-update:semver-major]
-      # An Ubuntu image (the cloud-init check of the server deployment, when a
-      # project adds it) follows the servers' LTS: only new digests of it.
-      # Dependabot reads an interim release (24.10, whose archive closes when
-      # its nine months of support end) as a minor update and the next LTS as a
-      # major one; the next LTS moves CI, the servers and this image together,
-      # by hand (docs/ci-cd.md#keeping-the-stack-current).
+      # The Ubuntu release of the cloud-init check is the servers' LTS: only
+      # new digests of it. Dependabot reads an interim release (24.10, whose
+      # archive closes when its nine months of support end) as a minor update
+      # and the next LTS as a major one; the next LTS moves CI, the servers and
+      # this image together, by hand (docs/ci-cd.md#ubuntu).
       - dependency-name: docker/library/ubuntu
         update-types: [version-update:semver-major, version-update:semver-minor]
     groups:
@@ -155,21 +154,36 @@ updates:
       prefix: ci
 
   # docker-compose.yml: the development services and the production-like
-  # stack's images.
+  # stack's images; and the reference server deployment's pinned images:
+  # Caddy, PostgreSQL and Redis (deploy/vps/compose.yaml).
   - package-ecosystem: docker-compose
     directories:
       - /
+      - /deploy/vps
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
     ignore:
       # Majors by hand, with the CI images above: a PostgreSQL data directory
-      # (the development volume) does not start under the next major; it is
-      # dumped and restored (docs/ci-cd.md#keeping-the-stack-current).
+      # (the development volume, and a server's that runs the database) does
+      # not start under the next major; it is dumped and restored
+      # (docs/ci-cd.md#postgresql-and-redis).
       - dependency-name: postgres
         update-types: [version-update:semver-major]
       - dependency-name: redis
         update-types: [version-update:semver-major]
+    commit-message:
+      prefix: build
+
+  # The Terraform providers of infra/terraform/digitalocean: the exact version
+  # in versions.tf and the checksums of .terraform.lock.hcl, for the platforms
+  # the lock file already lists, updated together.
+  - package-ecosystem: terraform
+    directory: /infra/terraform/digitalocean
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: build
