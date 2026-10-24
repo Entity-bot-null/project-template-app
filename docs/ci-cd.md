@@ -87,7 +87,11 @@ why) is merged by hand, after reading its release notes. On an update to the wor
 stops before running any action: the workflow comes from the pull request, with its new pins. Expo
 SDK packages move together through SDK upgrades; only their patch releases within the SDK's ranges
 come through these pull requests, and `expo-doctor` in CI refuses anything the SDK does not
-support.
+support. Prisma's CLI, client and driver adapter come in one pull request of their own (the
+`prisma` group), and `pnpm deps:check` fails one that moves them apart
+([release sets](../SECURITY.md#dependency-policy)): when the trust policy refuses one of the new
+versions, Dependabot still opens the pull request with the others, and it stays red until the
+refused version passes (30 days after its release, `trustPolicyIgnoreAfter`) or a newer one does.
 
 ## Required check
 
