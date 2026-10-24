@@ -153,10 +153,21 @@ export const typography: Record<TypographyVariant, TypographyToken> = {
 export type ElevationLevel = 'none' | 'low' | 'high';
 
 /** Shadows (iOS) and elevation (Android); dark mode relies on surfaces and borders instead. */
-export function elevation(level: ElevationLevel, scheme: 'light' | 'dark'): ViewStyle {
+/**
+ * The style properties an elevation sets: a shadow on iOS, `elevation` on
+ * Android. Picked from ViewStyle rather than the whole of it: Expo's web
+ * typings widen ViewStyle (`userSelect` as any string), which React Native's
+ * strict StyleSheet.create types do not accept.
+ */
+export type ElevationStyle = Pick<
+  ViewStyle,
+  'shadowColor' | 'shadowOpacity' | 'shadowRadius' | 'shadowOffset' | 'elevation'
+>;
+
+export function elevation(level: ElevationLevel, scheme: 'light' | 'dark'): ElevationStyle {
   if (level === 'none' || scheme === 'dark') return {};
   const depth = level === 'low' ? 2 : 6;
-  return Platform.select<ViewStyle>({
+  return Platform.select<ElevationStyle>({
     ios: {
       shadowColor: palette.black,
       shadowOpacity: level === 'low' ? 0.08 : 0.14,

@@ -3,6 +3,19 @@
 // be read back), so tests exercise the app's logic instead of mocks of it.
 import '@testing-library/react-native/matchers';
 
+import { AssetRegistry } from 'react-native';
+
+// jest-expo turns every asset into module id 1 and describes it through its
+// mock of `react-native/asset-registry`; expo-asset 58 reads the
+// `AssetRegistry` export of 'react-native' instead, the real registry, empty
+// in tests (jest-expo 58.0.11, expo-asset 58.0.16): it answers from the same
+// mock, or loading any font (Ionicons) throws "missing from the asset registry".
+const mockedAssetRegistry = jest.requireMock<typeof AssetRegistry>('react-native/asset-registry');
+Object.assign(AssetRegistry, {
+  registerAsset: mockedAssetRegistry.registerAsset,
+  getAssetByID: mockedAssetRegistry.getAssetByID,
+});
+
 jest.mock(
   'react-native-safe-area-context',
   () => jest.requireActual<{ default: object }>('react-native-safe-area-context/jest/mock').default,

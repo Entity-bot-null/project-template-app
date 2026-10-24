@@ -1,5 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
-import { type ErrorBoundaryProps, Stack } from 'expo-router';
+import { type ErrorBoundaryProps, type Href, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -21,9 +21,9 @@ import { clearImageCaches, ErrorState, Screen, ThemeProvider } from '@/ui';
 // follows the state: three flows, each available only when its guard holds,
 // and Expo Router moves the user when a guard changes (sign-in, sign-out,
 // onboarding done). Screens never redirect on their own. The screens of
-// emailed links open with or without a session, and are declared last: never
-// the screen a guard falls back to. Once the API refuses this app version
-// (426), the update screen is the only one left.
+// emailed links open with or without a session, and are never the screen a
+// guard falls back to. Once the API refuses this app version (426), the
+// update screen is the only one left.
 
 startObservability();
 configureNotifications();
@@ -85,26 +85,48 @@ function Navigation({
   upgradeRequired: boolean;
 }) {
   useScreenTracking();
+  // Where a guard that does not hold sends the user: the one flow the state
+  // allows. Expo Router renders a guarded screen as a redirect (SDK 58), and
+  // without a target it picks its own fallback, which can be the not-found
+  // screen.
+  const allowed = allowedScreen({ onboardingCompleted, signedIn, upgradeRequired });
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={upgradeRequired}>
+      <Stack.Protected guard={upgradeRequired} redirectTo={allowed}>
         <Stack.Screen name="update-required" />
       </Stack.Protected>
-      <Stack.Protected guard={!upgradeRequired && !onboardingCompleted}>
+      <Stack.Protected guard={!upgradeRequired && !onboardingCompleted} redirectTo={allowed}>
         <Stack.Screen name="(onboarding)" />
       </Stack.Protected>
-      <Stack.Protected guard={!upgradeRequired && onboardingCompleted && !signedIn}>
+      <Stack.Protected
+        guard={!upgradeRequired && onboardingCompleted && !signedIn}
+        redirectTo={allowed}
+      >
         <Stack.Screen name="(auth)" />
       </Stack.Protected>
-      <Stack.Protected guard={!upgradeRequired && onboardingCompleted && signedIn}>
+      <Stack.Protected
+        guard={!upgradeRequired && onboardingCompleted && signedIn}
+        redirectTo={allowed}
+      >
         <Stack.Screen name="(app)" />
       </Stack.Protected>
-      <Stack.Protected guard={!upgradeRequired}>
+      <Stack.Protected guard={!upgradeRequired} redirectTo={allowed}>
         <Stack.Screen name="(links)" />
       </Stack.Protected>
       <Stack.Screen name="+not-found" options={{ headerShown: true, title: 'Not found' }} />
     </Stack>
   );
+}
+
+/** The first screen of the one flow the state allows (the table in docs/mobile-architecture.md#navigation). */
+export function allowedScreen(state: {
+  onboardingCompleted: boolean;
+  signedIn: boolean;
+  upgradeRequired: boolean;
+}): Href {
+  if (state.upgradeRequired) return '/update-required';
+  if (!state.onboardingCompleted) return '/welcome';
+  return state.signedIn ? '/' : '/sign-in';
 }
 
 /** A render error anywhere below: reported, and the user gets a way back. */
