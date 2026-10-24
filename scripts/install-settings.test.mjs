@@ -98,6 +98,7 @@ describe('reading pnpm-workspace.yaml', () => {
     assert.deepEqual(
       { .../** @type {object} */ (settings.allowBuilds) },
       {
+        '@parcel/watcher': false,
         '@prisma/engines': true,
         '@scarf/scarf': false,
         '@sentry/cli': false,
