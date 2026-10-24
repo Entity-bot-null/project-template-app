@@ -31,7 +31,7 @@ values you replace. **REQUIERE CONFIGURACIÓN** marks what only your project can
 
 ## 1. What the template is
 
-A React Native app for Android and iOS built with Expo (SDK 57), ready for store release, and the
+A React Native app for Android and iOS built with Expo (SDK 58), ready for store release, and the
 HTTP API it talks to. The app: strict TypeScript, file-based navigation with protected route groups,
 a typed API client generated from the API's OpenAPI contract, a secure session (refresh token in
 the Keychain/Keystore), offline awareness, a design system with light and dark themes, error
