@@ -1372,12 +1372,13 @@ staging unos minutos: salta la comprobación de disponibilidad).
 
 ## Cuando algo no está en esta guía
 
-| Situación                                               | Dónde                                                                                                                                            |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Un mensaje de error                                     | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end), los del servidor: [troubleshooting.md](troubleshooting.md)       |
-| El servidor, sus backups, un incidente                  | [deploy-vps.md](deploy-vps.md), [disaster-recovery.md](disaster-recovery.md), [incident-response.md](incident-response.md)                       |
-| Cómo funciona algo                                      | [manual.es.md](manual.es.md)                                                                                                                     |
-| La API: módulos, convenciones, datos, errores           | [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [database.md](database.md), [error-handling.md](error-handling.md) |
-| Builds, versiones, tiendas y actualizaciones en detalle | [releases.md](releases.md)                                                                                                                       |
-| Workflows y ajustes de GitHub                           | [ci-cd.md](ci-cd.md)                                                                                                                             |
-| Seguridad                                               | [SECURITY.md](../SECURITY.md), la de la API: [security.md](security.md)                                                                          |
+| Situación                                                            | Dónde                                                                                                                                            |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Un mensaje de error                                                  | [troubleshooting.md](troubleshooting.md), [testing.md](testing.md#end-to-end)                                                                    |
+| Un cambio habitual (una pantalla, un endpoint, un enlace, un correo) | [how-to.md](how-to.md) (en inglés)                                                                                                               |
+| El servidor, sus backups, un incidente                               | [deploy-vps.md](deploy-vps.md), [disaster-recovery.md](disaster-recovery.md), [incident-response.md](incident-response.md)                       |
+| Cómo funciona algo                                                   | [manual.es.md](manual.es.md)                                                                                                                     |
+| La API: módulos, convenciones, datos, errores                        | [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [database.md](database.md), [error-handling.md](error-handling.md) |
+| Builds, versiones, tiendas y actualizaciones en detalle              | [releases.md](releases.md)                                                                                                                       |
+| Workflows y ajustes de GitHub                                        | [ci-cd.md](ci-cd.md)                                                                                                                             |
+| Seguridad                                                            | [SECURITY.md](../SECURITY.md), la de la API: [security.md](security.md)                                                                          |

@@ -1322,12 +1322,13 @@ a few minutes: the uptime check fires).
 
 ## When something is not in this guide
 
-| Situation                                   | Where                                                                                                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| An error message                            | [README.md](../README.md#troubleshooting), [testing.md](testing.md#end-to-end), the server's: [troubleshooting.md](troubleshooting.md)           |
-| The server, its backups, an incident        | [deploy-vps.md](deploy-vps.md), [disaster-recovery.md](disaster-recovery.md), [incident-response.md](incident-response.md)                       |
-| How something works                         | [manual.md](manual.md)                                                                                                                           |
-| The API: modules, conventions, data, errors | [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [database.md](database.md), [error-handling.md](error-handling.md) |
-| Builds, versions, stores, updates in detail | [releases.md](releases.md)                                                                                                                       |
-| Workflows and GitHub settings               | [ci-cd.md](ci-cd.md)                                                                                                                             |
-| Security                                    | [SECURITY.md](../SECURITY.md), the API's: [security.md](security.md)                                                                             |
+| Situation                                                              | Where                                                                                                                                            |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| An error message                                                       | [troubleshooting.md](troubleshooting.md), [testing.md](testing.md#end-to-end)                                                                    |
+| A change you make often (a screen, an endpoint, a deep link, an email) | [how-to.md](how-to.md)                                                                                                                           |
+| The server, its backups, an incident                                   | [deploy-vps.md](deploy-vps.md), [disaster-recovery.md](disaster-recovery.md), [incident-response.md](incident-response.md)                       |
+| How something works                                                    | [manual.md](manual.md)                                                                                                                           |
+| The API: modules, conventions, data, errors                            | [architecture.md](architecture.md), [api-conventions.md](api-conventions.md), [database.md](database.md), [error-handling.md](error-handling.md) |
+| Builds, versions, stores, updates in detail                            | [releases.md](releases.md)                                                                                                                       |
+| Workflows and GitHub settings                                          | [ci-cd.md](ci-cd.md)                                                                                                                             |
+| Security                                                               | [SECURITY.md](../SECURITY.md), the API's: [security.md](security.md)                                                                             |

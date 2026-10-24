@@ -261,43 +261,51 @@ the product's own:
 
 ## Documentation
 
-| Document                                                                     | For                                                                                                                  |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [docs/step-by-step.md](docs/step-by-step.md), [.es](docs/step-by-step.es.md) | what to do, in order, from zero to the stores                                                                        |
-| [docs/manual.md](docs/manual.md), [.es](docs/manual.es.md)                   | how everything works; every command                                                                                  |
-| [AGENTS.md](AGENTS.md)                                                       | AI coding agents (Claude Code, Codex, Cursor…): rules, commands, Expo context                                        |
-| [CONTRIBUTING.md](CONTRIBUTING.md)                                           | workflow: branches, commits, hooks, review, dependencies                                                             |
-| [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md)                         | the rules and what enforces them                                                                                     |
-| [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md)                               | when a change is finished                                                                                            |
-| [SECURITY.md](SECURITY.md)                                                   | reporting, threat model, OWASP MASVS, secrets, storage, data inventory, supply chain                                 |
-| [docs/mobile-architecture.md](docs/mobile-architecture.md)                   | the app: layers, navigation, state, API, auth, errors, storage, offline, native code                                 |
-| [docs/architecture.md](docs/architecture.md)                                 | the API: modules, request pipeline, email, Redis, degradation, local and production-like stacks                      |
-| [docs/api-conventions.md](docs/api-conventions.md)                           | routes, envelope, errors, status codes, pagination, idempotency, contract compatibility                              |
-| [docs/authorization.md](docs/authorization.md)                               | roles, object-level authorization, its tests                                                                         |
-| [docs/database.md](docs/database.md)                                         | PostgreSQL, Prisma, migrations (expand and contract), the seed                                                       |
-| [docs/error-handling.md](docs/error-handling.md)                             | errors from the API to the user, field errors, reports                                                               |
-| [docs/security.md](docs/security.md)                                         | the API's security design: sessions, rate limits, passwords, links, email, account deletion                          |
-| [docs/observability.md](docs/observability.md)                               | logs, request ids, traces, metrics, error tracking, dashboards and alerts as code                                    |
-| [docs/environment.md](docs/environment.md)                                   | every API and Docker Compose variable; the app's variables                                                           |
-| [docs/performance.md](docs/performance.md)                                   | targets, lists, rendering, startup, bundle budget, measuring                                                         |
-| [docs/testing.md](docs/testing.md)                                           | test levels (app and API), helpers, coverage, Maestro end-to-end                                                     |
-| [docs/releases.md](docs/releases.md)                                         | variants, environment variables, versions, builds, stores, OTA updates, rollback, SDK upgrades                       |
-| [docs/ci-cd.md](docs/ci-cd.md)                                               | workflows, protections, environments, secrets, repository setup, deployments, infrastructure as code                 |
-| [docs/deploy-vps.md](docs/deploy-vps.md)                                     | the server: setting it up (by hand or with Terraform), deploying, rolling back, backups, operations                  |
-| [docs/alerting.md](docs/alerting.md)                                         | SLIs, SLOs, error budget, the alert catalog, escalation                                                              |
-| [docs/incident-response.md](docs/incident-response.md)                       | running an incident: the first five minutes, one runbook per alert                                                   |
-| [docs/disaster-recovery.md](docs/disaster-recovery.md)                       | what to protect, backups, RPO and RTO, the restore procedure and its drills                                          |
-| [docs/load-testing.md](docs/load-testing.md)                                 | when and how to load test the API                                                                                    |
-| [docs/troubleshooting.md](docs/troubleshooting.md)                           | the server's error messages and their fixes                                                                          |
-| [docs/production-readiness.md](docs/production-readiness.md)                 | the checklist before a store release; the CORE / OPTIONAL / REQUIRES CONFIGURATION / PROJECT-SPECIFIC classification |
-| [docs/store-compliance.md](docs/store-compliance.md)                         | App Store and Google Play requirements: privacy labels, Data safety, permissions, account deletion                   |
-| [docs/accessibility.md](docs/accessibility.md)                               | the accessibility gate: built-in guarantees, automated checks, the per-feature checklist                             |
-| [docs/localization.md](docs/localization.md)                                 | translating the app, when the product needs it (optional)                                                            |
-| [docs/adr/](docs/adr/)                                                       | architecture decisions                                                                                               |
-| [openapi/README.md](openapi/README.md)                                       | the API contract, how it is generated, and the mock API                                                              |
-| [apps/mobile/.maestro/README.md](apps/mobile/.maestro/README.md)             | the end-to-end flows                                                                                                 |
+| Document                                                                           | For                                                                                                                   |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [docs/step-by-step.md](docs/step-by-step.md), [.es](docs/step-by-step.es.md)       | what to do, in order, from zero to the stores                                                                         |
+| [docs/manual.md](docs/manual.md), [.es](docs/manual.es.md)                         | how everything works; every command                                                                                   |
+| [AGENTS.md](AGENTS.md)                                                             | AI coding agents (Claude Code, Codex, Cursor…): rules, commands, Expo context                                         |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                                                 | workflow: branches, commits, hooks, review, dependencies                                                              |
+| [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md)                               | the rules and what enforces them                                                                                      |
+| [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md)                                     | when a change is finished                                                                                             |
+| [SECURITY.md](SECURITY.md)                                                         | reporting, threat model, OWASP MASVS, secrets, storage, data inventory, supply chain                                  |
+| [docs/mobile-architecture.md](docs/mobile-architecture.md)                         | the app: layers, navigation, state, API, auth, errors, storage, offline, native code                                  |
+| [docs/architecture.md](docs/architecture.md)                                       | the API: modules, request pipeline, email, Redis, degradation, local and production-like stacks                       |
+| [docs/api-conventions.md](docs/api-conventions.md)                                 | routes, envelope, errors, status codes, pagination, idempotency, contract compatibility                               |
+| [docs/authorization.md](docs/authorization.md)                                     | roles, object-level authorization, its tests                                                                          |
+| [docs/database.md](docs/database.md)                                               | PostgreSQL, Prisma, migrations (expand and contract), the seed                                                        |
+| [docs/error-handling.md](docs/error-handling.md)                                   | errors from the API to the user, field errors, reports                                                                |
+| [docs/security.md](docs/security.md)                                               | the API's security design: sessions, rate limits, passwords, links, email, account deletion                           |
+| [docs/observability.md](docs/observability.md)                                     | logs, request ids, traces, metrics, error tracking, dashboards and alerts as code                                     |
+| [docs/environment.md](docs/environment.md)                                         | every API and Docker Compose variable; the app's variables                                                            |
+| [docs/performance.md](docs/performance.md)                                         | targets, lists, rendering, startup, bundle budget, measuring                                                          |
+| [docs/testing.md](docs/testing.md)                                                 | test levels (app and API), helpers, coverage, Maestro end-to-end                                                      |
+| [docs/releases.md](docs/releases.md)                                               | variants, environment variables, versions, builds, stores, OTA updates, rollback, SDK upgrades                        |
+| [docs/ci-cd.md](docs/ci-cd.md)                                                     | workflows, protections, environments, secrets, repository setup, deployments, infrastructure as code                  |
+| [docs/deploy-vps.md](docs/deploy-vps.md)                                           | the server: setting it up (by hand or with Terraform), deploying, rolling back, backups, operations                   |
+| [docs/alerting.md](docs/alerting.md)                                               | SLIs, SLOs, error budget, the alert catalog, escalation                                                               |
+| [docs/incident-response.md](docs/incident-response.md)                             | running an incident: the first five minutes, one runbook per alert                                                    |
+| [docs/disaster-recovery.md](docs/disaster-recovery.md)                             | what to protect, backups, RPO and RTO, the restore procedure and its drills                                           |
+| [docs/load-testing.md](docs/load-testing.md)                                       | when and how to load test the API                                                                                     |
+| [docs/troubleshooting.md](docs/troubleshooting.md)                                 | every error message the tools print, with its cause and fix                                                           |
+| [docs/how-to.md](docs/how-to.md)                                                   | step-by-step recipes: a table, an API module, a screen, a deep link, a permission, an email, a metric and an alert... |
+| [docs/branching.md](docs/branching.md), [docs/commits.md](docs/commits.md)         | branch names and strategy; commit and pull request titles                                                             |
+| [docs/code-review.md](docs/code-review.md), [docs/git-hooks.md](docs/git-hooks.md) | what authors and reviewers check; what each Git hook runs                                                             |
+| [docs/definition-of-ready.md](docs/definition-of-ready.md)                         | when a story can start (done: DEFINITION_OF_DONE.md)                                                                  |
+| [docs/template/bootstrap.md](docs/template/bootstrap.md)                           | starting a project from this template: the checklist and every placeholder                                            |
+| [docs/production-readiness.md](docs/production-readiness.md)                       | the checklist before a store release; the CORE / OPTIONAL / REQUIRES CONFIGURATION / PROJECT-SPECIFIC classification  |
+| [docs/store-compliance.md](docs/store-compliance.md)                               | App Store and Google Play requirements: privacy labels, Data safety, permissions, account deletion                    |
+| [docs/accessibility.md](docs/accessibility.md)                                     | the accessibility gate: built-in guarantees, automated checks, the per-feature checklist                              |
+| [docs/localization.md](docs/localization.md)                                       | translating the app, when the product needs it (optional)                                                             |
+| [docs/adr/](docs/adr/)                                                             | architecture decisions                                                                                                |
+| [openapi/README.md](openapi/README.md)                                             | the API contract, how it is generated, and the mock API                                                               |
+| [apps/mobile/.maestro/README.md](apps/mobile/.maestro/README.md)                   | the end-to-end flows                                                                                                  |
 
 ## Troubleshooting
+
+The most common problems; every message and its fix is in
+[docs/troubleshooting.md](docs/troubleshooting.md).
 
 | Problem                                                                                 | Fix                                                                                                                                                                |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
