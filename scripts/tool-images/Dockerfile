@@ -34,14 +34,14 @@ FROM ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9
 # repository and Ubuntu from ECR Public's mirror of Docker's official images:
 # the same digests as on Docker Hub, without its anonymous pull limit.
 FROM public.ecr.aws/hashicorp/terraform:1.17.0@sha256:4d1b496a256f2989bccdb04b9104a4ede97234b10fba90259e173e905ec4fb58 AS terraform
-FROM ghcr.io/terraform-linters/tflint:v0.64.0@sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f AS tflint
+FROM ghcr.io/terraform-linters/tflint:v0.65.0@sha256:2788f4d4fc663c0e953b011b01bf443fe5bfce7587ee916e588e6057b85d6359 AS tflint
 FROM public.ecr.aws/docker/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS ubuntu
 
 # The BuildKit daemon that builds and pushes the application images
 # (docker/setup-buildx-action in docker-images.yml and deploy.yml), whose own
 # default is a moving tag (moby/buildkit:buildx-stable-1). Its built-in
 # Dockerfile frontend parses apps/*/Dockerfile, which name no `# syntax=` image.
-FROM moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea AS buildkit
+FROM moby/buildkit:v0.34.0@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c AS buildkit
 
 # Image vulnerability scanning (.github/workflows/docker-images.yml, and
 # scripts/check-iac.mjs).
@@ -49,16 +49,16 @@ FROM ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea70240
 
 # Test database of the integration job; keep the major version equal to
 # docker-compose.yml.
-FROM public.ecr.aws/docker/library/postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873 AS postgres
+FROM public.ecr.aws/docker/library/postgres:18-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5 AS postgres
 
 # Redis of the integration job (the Redis-backed adapters); keep the major
 # version equal to docker-compose.yml.
-FROM public.ecr.aws/docker/library/redis:8-alpine@sha256:615b4cedaff0c1437a1548acae4222572df8c021eeb7382d64cb8b5e3a13ac7a AS redis
+FROM public.ecr.aws/docker/library/redis:8-alpine@sha256:0bf6577d7774e592b29d093e3ac9390eb91e13d72c21e506afce736de5e0eeb0 AS redis
 
 # Mail catcher of the integration job: the outbox specs send real SMTP to it
 # and read the messages back through its API. Keep the version equal to
 # docker-compose.yml.
-FROM axllent/mailpit:v1.31.5@sha256:94f6b70c1436defae6799d9ac7ff0eeff9540465b842026d5cdb018f1c0234ea AS mailpit
+FROM axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387 AS mailpit
 
 # Dynamic application security testing (.github/workflows/dast.yml).
 FROM ghcr.io/zaproxy/zaproxy:2.17.0@sha256:5ccfff9a411743ab2615136a2edd7416bec9ce41572fa94e935df38c14adb2b6 AS zap
