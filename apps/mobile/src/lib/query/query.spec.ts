@@ -35,7 +35,12 @@ describe('createQueryClient', () => {
     setErrorReporter(reporter);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const client = createQueryClient();
-    client.setDefaultOptions({ queries: { retry: false } });
+    // No retries, and no garbage-collection timers (as testQueryClient):
+    // their default 5-minute timer would keep Jest from exiting.
+    client.setDefaultOptions({
+      queries: { retry: false, gcTime: Infinity },
+      mutations: { gcTime: Infinity },
+    });
     await client
       .query({
         queryKey: ['items'],

@@ -1003,7 +1003,10 @@ readable by anyone who has it: never a secret.
 2. Justify it in the pull request: maintained, license, size (the bundle budgets will tell), no
    simpler alternative. `pnpm deps:check` fails on a license outside `scripts/dependency-policy.json`
    (production dependencies need a permissive one) and on a package from a git repository or a URL
-   instead of the registry ([SECURITY.md](../SECURITY.md#dependency-policy)).
+   instead of the registry ([SECURITY.md](../SECURITY.md#dependency-policy)). A package that works
+   only at the same version as another one, because both are published as one release (as
+   Prisma's CLI and client), goes into a release set of the policy and a Dependabot group of its
+   own; `pnpm deps:check` then fails when they drift apart.
 3. **Install scripts:** if the package runs one, pnpm reports it as ignored. Decide in
    `allowBuilds` of `pnpm-workspace.yaml`, with the reason; `true` also needs the reviewed exception
    in `scripts/dependency-policy.json`, or `pnpm deps:check` fails.
