@@ -134,14 +134,51 @@ ALTER TABLE "users" DROP COLUMN "name";
 
 `scripts/check-migrations.mjs` refuses a contract step without that reason; it runs in
 `pnpm test:scripts` (so in CI) and on the migrations staged at each commit
-(`lint-staged.config.mjs`). Contract steps: dropping a table, column, type or view; renaming a
-table, column, type or enum value; changing a column's type; making a column required, adding a
-required column without a default, or removing a default; emptying a table. A Prisma change that
-removes an enum value writes several of them (retype the column, rename the types, drop the old
-one), each with its reason. Removing the example `items` table, once a project's own features
-replace it, is a contract step too. Expand steps (new tables, nullable columns, columns with a
-default, indexes, looser constraints) need nothing. The check reads plain statements, not SQL
-inside a `DO` block or a function body.
+(`lint-staged.config.mjs`). Contract steps:
+
+- dropping a table, column, type or view; renaming a table, column, type or enum value; changing
+  a column's type; making a column required (`SET NOT NULL`, or a `NOT NULL` table constraint,
+  PostgreSQL 18), adding a required column without a default, or removing a default; emptying a
+  table;
+- in the migrations from `TIGHTENING_FROM` on (the ones before it shipped before these rules, and
+  a committed migration is never edited), also:
+  - a unique index or a constraint (`CHECK`, `UNIQUE`, `PRIMARY KEY`, `FOREIGN KEY`, `EXCLUDE`, in
+    the table or in a column's definition) added to a table an earlier migration created: the
+    previous release may write what it refuses, and existing rows can make it fail. Exempt: a
+    unique index, a `UNIQUE` or a foreign key that only covers columns the same migration added
+    empty (a new optional relation): nullable, with no default (nor one given later with
+    `SET DEFAULT`), not typed with a domain (its default is the domain's, now or later), no
+    generated or identity value, not added with `IF NOT EXISTS` (the column may be there already),
+    and no `UPDATE`, `INSERT`, `MERGE` or `COPY ... FROM` of that table in the migration, one inside
+    a `WITH` query, a `COPY (...) TO`, an `EXPLAIN`, a `PREPARE` or a rule included. Never exempt:
+    `NULLS NOT DISTINCT` (the NULLs collide), a `CHECK` (it may read other columns) and a primary
+    key (it refuses NULLs). A table made with `CREATE TABLE IF NOT EXISTS` may be there already,
+    with its rows: it counts as an earlier migration's;
+  - a foreign key, in any table (new ones included), to a table an earlier migration created that
+    does not give way to it (`ON DELETE` and `ON UPDATE` each `CASCADE`, or `SET NULL` or
+    `SET DEFAULT` putting NULL in columns that take it): the previous release's deletes of the rows
+    it references would be refused. The columns are judged as the whole migration leaves them: one
+    that is `NOT NULL` (in its definition, by `SET NOT NULL` or a `NOT NULL` table constraint), in
+    a primary key (one taken `USING INDEX` too), an identity, read by a `CHECK` or typed with a
+    domain may refuse the NULL (Prisma only warns about `onDelete: SetNull` on a required
+    relation), and a `SET DEFAULT` to a default of the column's own names a row the check cannot
+    see. Prisma writes `ON DELETE RESTRICT` for a required relation: give it `onDelete: Cascade`
+    (or make it optional, `SET NULL`), or write why the previous release never deletes those rows;
+  - a dropped unique index (every name of a `DROP INDEX`), unique constraint or primary key; a
+    table moved to another schema; a `DELETE` without `WHERE`; an enum value added without
+    `IF NOT EXISTS` (see below).
+
+Comments and strings anywhere in a statement do not hide a step. Prisma writes `ADD VALUE` without
+`IF NOT EXISTS`, and `pnpm db:migrate` applies what it creates: create such a migration with
+`pnpm db:migrate --name <name> --create-only`, write `ADD VALUE IF NOT EXISTS` in its SQL, then run
+`pnpm db:migrate` to apply it (editing a migration already applied to your database makes
+`migrate dev` ask to reset it). A Prisma change that removes an enum value writes several of
+them (retype the column, rename the types, drop the old one), each with its reason. Removing the
+example `items` table, once a project's own features replace it, is a contract step too. Expand
+steps (new tables and what they get in the same migration, nullable columns, columns with a
+default, indexes, looser constraints) need nothing, except a foreign key that does not give way to
+an existing table. The check reads plain statements, not SQL inside a `DO` block, a function or
+procedure body (a `CALL`, a `SELECT` of a function, a trigger) or a dynamic statement.
 
 ### Safe migrations
 
@@ -166,7 +203,11 @@ Because the migration runs before the rollout, the running version keeps serving
 
 1. Find what took effect: `prisma migrate status` (in an environment: the `api-migrate` image with
    that command), the error in the job's output, and the tables the migration touches.
-2. Undo those statements (or, as a last resort, apply the rest by hand).
+2. Undo those statements (or, as a last resort, apply the rest by hand). An enum value cannot be
+   undone (PostgreSQL has no `DROP VALUE`): it stays, which the migration's rerun survives only when
+   it adds it with `ADD VALUE IF NOT EXISTS` (the check above asks for it). The migrations committed
+   before that rule add theirs without it: if one of them fails after its `ADD VALUE` statements,
+   finish it by hand and record it `--applied`.
 3. Record the outcome: `prisma migrate resolve --rolled-back <migration>` (undone) or
    `--applied <migration>` (completed by hand). Never edit `_prisma_migrations` directly.
 4. Fix the data or the migration and deploy again.
@@ -183,7 +224,12 @@ against `<db>_test` on the same server as `DATABASE_URL` (`app_test` locally): c
 missing and brought to the current schema with `prisma migrate deploy` before the suites
 (`apps/api/test/global-setup.ts`), emptied by the suites (`resetDatabase`, every table but
 `_prisma_migrations`). The spec of `migrate-deploy.mjs` uses a database of its own
-(`<db>_test_migrate_guard`). The development database is never touched by tests. In CI, the integration job runs PostgreSQL 18 as a service container.
+(`<db>_test_migrate_guard`). The development database is never touched by tests. Before the
+integration suite, its setup also replays every migration on an empty `<db>_shadow`, as
+`prisma migrate dev` does on its shadow database, and compares the result with `schema.prisma`
+(`prisma migrate diff --exit-code`): a migration that only runs where a deployment created
+something first (`_prisma_migrations`, a role), or a schema change without its migration, fails
+there instead of on a developer's machine. In CI, the integration job runs PostgreSQL 18 as a service container.
 
 ## Seeds
 

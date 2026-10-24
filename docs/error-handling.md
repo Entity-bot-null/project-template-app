@@ -13,7 +13,8 @@ thrown into the answer:
 | ------------------------------------------------------------ | ---------- | --------------------------------------------------------------------------- |
 | `ValidationFailedException` (Zod validation, `fieldError()`) | 400        | every field with its path, and `errors`                                     |
 | `HttpException` (`NotFoundException`, ...)                   | its status | its message                                                                 |
-| Body parser errors (malformed JSON, too large)               | 400 / 413  | `The request body is not valid JSON` / the parser's safe message            |
+| Malformed JSON body                                          | 400        | `The request body is not valid JSON`                                        |
+| Body too large (the parser's limit)                          | 413        | the parser's safe message                                                   |
 | Rate limit (`ThrottlerException`)                            | 429        | `Too many requests, retry later`, with `Retry-After`                        |
 | Prisma `P2002` unique violation                              | 409        | `A record with this value already exists` (no column names)                 |
 | Prisma `P2003` foreign key                                   | 409        | `The record is referenced by another record`                                |
@@ -35,7 +36,9 @@ Rules:
 - **Never leak internals.** Stack traces, SQL, file paths, library messages and secrets stay in
   the log. A 5xx is logged with method, path (no query string), status, origin and the request id
   the client received in `X-Request-Id`; 4xx are expected and not logged as errors (the access log
-  line of every request has its status).
+  line of every request has its status). A Prisma error's message is neither logged nor reported
+  (it can quote the query's arguments: an address, a name): its class, code and frames are
+  (`loggableStack`, `reportableError` in `common/logging/error-summary.ts`).
 - **404 over 403 for records the caller may not see** ([authorization.md](authorization.md)).
 - **403, not 401, for a wrong current password** on routes that already have a session (change of
   password or email, account deletion): a 401 tells the app its session ended, and it would renew

@@ -147,7 +147,9 @@ over HTTP with supertest:
   authorization matrix of a route on one record: [authorization.md](authorization.md#tests)),
   `mailpit.ts` (addresses of their own, read and deleted through Mailpit's API), `redis.ts`.
 - **The database**: `<db>_test` on the server `DATABASE_URL` names (CI) or `apps/api/.env`, created
-  and migrated by the global setup with the committed migrations; suites run one file at a time.
+  and migrated by the global setup with the committed migrations, after it replays every migration
+  on an empty `<db>_shadow` and compares it with `schema.prisma`
+  ([database.md](database.md#test-databases)); suites run one file at a time.
   Never point them at a database you care about.
 - **Redis and Mailpit**: the development ones (`pnpm services:up`) or `REDIS_TEST_URL`,
   `MAIL_TEST_SMTP_URL` and `MAILPIT_TEST_URL` (CI starts throwaway ones). Each spec writes under its
@@ -203,9 +205,20 @@ The landing's (`apps/landing/vitest.config.ts`) is 100 % of every kind: its Type
 `pnpm perf:check`, after `pnpm build` (part of `pnpm verify` and CI), fails when a build outgrows
 its budget:
 
-- the landing (`scripts/check-bundle-size.mjs`, `apps/landing/performance-budget.json`): gzip
-  sizes, 0 kB of JavaScript (a script added to a page fails the check until a reviewer raises the
-  budget on purpose) and the CSS Tailwind produces;
+- the landing (`scripts/check-bundle-size.mjs`, `apps/landing/performance-budget.json`): the gzip
+  size of every file of its build, the bundler's and what it copies from `public/` alike (each
+  matched by its file name in any letter case), 0 kB of JavaScript (a script added to a page, from
+  `public/` too, fails the check until a reviewer raises the budget on purpose) and the CSS Tailwind
+  produces. Astro writes no processed script into a page (`assetsInlineLimit: 0`: it becomes a file
+  the budget counts; an `is:inline` one stays inline), and the same check reads every built page as
+  browsers with and without JavaScript parse it (parse5, which follows the HTML standard), for what
+  the web server's Content-Security-Policy refuses: an inline script or event handler, a `<style>`
+  element or a style attribute, a `javascript:` URL, an object or an embed, a base or a form
+  pointing elsewhere, a file from another origin, and any of these in an iframe's `srcdoc`; and
+  every stylesheet, `public/` included, read as a browser tokenizes it, for an `@import`, a `url()`
+  or an `image-set()` candidate from another origin (a web font's stylesheet: self-host it) or a
+  `data:` URL that is not an image. The preview server sends no CSP: only this check sees them
+  before production;
 - the app (`apps/mobile/scripts/check-bundle-size.mjs`, `apps/mobile/bundle-budget.json`): the
   Hermes bundle and its assets per platform ([performance.md](performance.md#bundle-budget)).
 
