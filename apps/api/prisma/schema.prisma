@@ -41,6 +41,8 @@ model User {
   accountTokens   AccountToken[]
   invitationsSent Invitation[]
   items           Item[]
+  devices         Device[]
+  pushMessages    PushMessage[]
 
   @@map("users")
 }
@@ -288,4 +290,115 @@ model Item {
   // An owner's page, newest first: createdAt, then id for equal timestamps.
   @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("items")
+}
+
+// The platforms the app runs on (the X-App-Platform header).
+enum DevicePlatform {
+  ios
+  android
+}
+
+// The push service a device's token belongs to: Expo's
+// (docs/adr/0011-push-notifications-outbox.md). Another kind (raw FCM or
+// APNs tokens) would add its value and its sender.
+enum PushTokenKind {
+  expo
+}
+
+// One installation of the app that may receive push notifications for its
+// signed-in account (docs/architecture.md#push-notifications). The app names
+// itself with a random installation id and registers its token after the
+// user allowed notifications; a sign-in on the same installation moves it to
+// that account, a sign-out removes it. One row per token: a token registered
+// by another installation (a reinstall) leaves its old row behind.
+model Device {
+  id             String         @id @default(uuid(7)) @db.Uuid
+  installationId String         @unique @map("installation_id") @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  pushToken      String         @unique @map("push_token")
+  kind           PushTokenKind  @default(expo)
+  platform       DevicePlatform
+  // The app's version when it last registered (X-App-Version), when valid.
+  appVersion     String?        @map("app_version")
+  // The last registration: the app registers at every sign-in and start.
+  lastSeenAt     DateTime       @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  // Set when the push service reported the token dead (DeviceNotRegistered):
+  // nothing is sent to it until the app registers again.
+  disabledAt     DateTime?      @map("disabled_at") @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pushMessages PushMessage[]
+
+  @@index([userId])
+  // The retention sweep removes disabled and stale devices.
+  @@index([lastSeenAt])
+  @@map("devices")
+}
+
+// What a push notification says (infrastructure/push/push.templates.ts).
+enum PushKind {
+  password_changed
+}
+
+enum PushStatus {
+  // Waiting for its next attempt (nextAttemptAt).
+  pending
+  // Claimed by a worker until lockedUntil.
+  sending
+  // Accepted by the push service (a ticket): its receipt is read later.
+  sent
+  // The receipt says Apple or Google accepted it.
+  delivered
+  // Refused for good, or out of attempts.
+  failed
+  // Not sent before expiresAt, or no longer relevant: dropped, never sent late.
+  expired
+}
+
+// The push outbox, beside the email one: a business change and the
+// notifications it calls for are written in one transaction, one row per
+// device of the account, and a worker of the API sends them in batches to
+// Expo's push service, then reads their receipts. A row holds no text and no
+// personal data: the worker renders the notification from its kind when it
+// sends it. CHECK constraints in the migration enforce the states.
+model PushMessage {
+  id             String     @id @default(uuid(7)) @db.Uuid
+  kind           PushKind
+  status         PushStatus @default(pending)
+  userId         String     @map("user_id") @db.Uuid
+  deviceId       String     @map("device_id") @db.Uuid
+  // Ids the template needs (never a secret, a token, an address or a text).
+  payload        Json       @default("{}")
+  attempts       Int        @default(0)
+  nextAttemptAt  DateTime   @default(now()) @map("next_attempt_at") @db.Timestamptz(3)
+  // A worker's lease: while sending, and while reading the receipt.
+  lockedUntil    DateTime?  @map("locked_until") @db.Timestamptz(3)
+  // The push service's id for it (its ticket): the receipt's key.
+  ticketId       String?    @unique @map("ticket_id")
+  // When its receipt is read next (sent rows).
+  receiptCheckAt DateTime?  @map("receipt_check_at") @db.Timestamptz(3)
+  // Category of the last failure (DeviceNotRegistered, http_503, ...): never
+  // the service's text.
+  lastError      String?    @map("last_error")
+  expiresAt      DateTime   @map("expires_at") @db.Timestamptz(3)
+  sentAt         DateTime?  @map("sent_at") @db.Timestamptz(3)
+  // The request that queued it, to follow one notification through the logs.
+  requestId      String?    @map("request_id")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  // The worker's claims: due pending rows, sending rows whose lease ended,
+  // sent rows whose receipt is due.
+  @@index([status, nextAttemptAt])
+  @@index([status, receiptCheckAt])
+  // The retention sweep deletes old finished rows.
+  @@index([createdAt])
+  @@index([userId])
+  @@index([deviceId])
+  @@map("push_messages")
 }

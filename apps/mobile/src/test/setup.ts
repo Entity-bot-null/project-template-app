@@ -70,10 +70,10 @@ jest.mock('expo-notifications', () => ({
   requestPermissionsAsync: jest.fn(() =>
     Promise.resolve({ granted: true, canAskAgain: true, status: 'granted' }),
   ),
-  getExpoPushTokenAsync: jest.fn(() => Promise.resolve({ type: 'expo', data: 'expo-token' })),
-  getDevicePushTokenAsync: jest.fn(() =>
-    Promise.resolve({ type: 'android', data: 'device-token' }),
+  getExpoPushTokenAsync: jest.fn(() =>
+    Promise.resolve({ type: 'expo', data: 'ExponentPushToken[test]' }),
   ),
+  addPushTokenListener: jest.fn(() => ({ remove: jest.fn() })),
   getLastNotificationResponse: jest.fn(() => null),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
 }));

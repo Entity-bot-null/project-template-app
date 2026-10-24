@@ -193,6 +193,41 @@ groups:
           runbook_url: docs/incident-response.md#16-email-not-delivered
           dashboard_uid: app-api
 
+      # Push notifications (docs/architecture.md#push-notifications): the
+      # oldest notification in the outbox has waited more than 15 minutes.
+      # Every instance reports the one shared queue, so max, not sum. A backlog
+      # that lasts means sends keep failing (Expo's service down, its access
+      # token refused) or no worker runs: security notices arrive late, or,
+      # past their validity, not at all.
+      - alert: ApiPushBacklog
+        expr: |
+          max by (job, deployment_environment_name) (app_push_outbox_oldest_age_seconds) > 900
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Push notifications wait in the outbox ({{ $labels.job }}, {{ $labels.deployment_environment_name }})'
+          description: 'The oldest notification waiting to be sent is {{ $value | humanizeDuration }} old, for more than 10 minutes. Security notices reach the phones late.'
+          runbook_url: docs/incident-response.md#19-push-notifications-not-delivered
+          dashboard_uid: app-api
+
+      # Notifications given up on: refused for good by the push service, Apple
+      # or Google, or out of attempts. A token that died (the app uninstalled)
+      # is counted apart, outcome="unregistered", and does not warn: it is
+      # normal, and its device is disabled.
+      - alert: ApiPushDeliveryFailed
+        expr: |
+          sum by (job, deployment_environment_name, push_kind) (
+            increase(app_push_deliveries_total{outcome="failed"}[30m])
+          ) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $labels.push_kind }} push notification was given up on ({{ $labels.job }}, {{ $labels.deployment_environment_name }})'
+          description: '{{ $value | humanize }} notification(s) failed for good in the last 30 minutes (refused by the push service, or out of attempts).'
+          runbook_url: docs/incident-response.md#19-push-notifications-not-delivered
+          dashboard_uid: app-api
+
       # The minimum supported app version (docs/releases.md#minimum-supported-version):
       # requests refused with 426 because the app is older than
       # MOBILE_MIN_VERSION_<platform>, as a share of all the API's requests. An

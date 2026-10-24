@@ -546,9 +546,11 @@ propios enlaces.
   tiendas, `EXPO_PUBLIC_STORE_URL_IOS` y `EXPO_PUBLIC_STORE_URL_ANDROID` en cada entorno de EAS
   ([releases.md](releases.md#environment-variables)); los `MOBILE_MIN_VERSION_*` de la API deciden
   quién la ve ([releases.md](releases.md#minimum-supported-version)).
-- **Notificaciones push:** implementa `PushTokenRegistrar` con el endpoint de tu backend
-  ([mobile-architecture.md](mobile-architecture.md#notifications)); las credenciales, en la fase
-  7.4.
+- **Notificaciones push:** la app registra cada teléfono en la API por sí sola
+  ([mobile-architecture.md](mobile-architecture.md#notifications)); la API las envía en cuanto
+  `PUSH_ENABLED` y `EXPO_ACCESS_TOKEN` están configurados (7.6), y los teléfonos necesitan las
+  credenciales de FCM y APNs de 8.4. Una notificación propia:
+  [how-to.md](how-to.md#send-a-push-notification).
 - **Analítica:** un proveedor en `apps/mobile/src/lib/analytics/providers.ts`.
 
 ---
@@ -811,6 +813,14 @@ tenga permitido enviar SMTP (DigitalOcean bloquea los puertos 25, 465 y 587 en m
 el puerto 2525 del proveedor (`smtp://<usuario>:<contraseña>@<host del proveedor>:2525`, STARTTLS) o
 pide al soporte de DigitalOcean que lo desbloquee.
 
+**Notificaciones push** (opcional): en `api.env`, `PUSH_ENABLED=true` y
+`EXPO_ACCESS_TOKEN=<token>`, un token de acceso de tu cuenta de Expo (expo.dev → **Settings →
+Access tokens** → crea uno), con la seguridad reforzada de push activada en esa misma página
+([manual](manual.es.md#59-notificaciones-push)). Los teléfonos necesitan las credenciales de 8.4.
+Tras el primer despliegue (7.8),
+`docker compose --env-file server.env --env-file release.env run --rm -T api node dist/infrastructure/push/push.cli.js status`
+debe imprimir `Push is on.`
+
 **La identidad de la app** (`web.env`), cuando la tengas: el Team ID de Apple y el identificador del
 bundle (fase 8.3, cuando EAS registra la app), y el application id de Android con la huella SHA-256
 de la clave de firma de Google (fase 10, cuando Play App Signing la custodia): descomenta las cuatro
@@ -1044,6 +1054,14 @@ Imprime un enlace o un código QR: ábrelo en el iPhone e instala el perfil que 
   Manage your Google Service Account Key for Push Notifications (FCM V1)** → súbela.
 - **Push en iOS:** `eas credentials -p ios` → `production` → **Push Notifications** → configura una
   clave (EAS la crea con tu cuenta de Apple).
+- **Push desde la API:** lo mismo para el perfil `preview`, cuyo identificador termina en
+  `.preview`: una segunda app Android en el mismo proyecto de Firebase (así un solo
+  `google-services.json` sirve para las dos; guárdalo también en el entorno `preview`) y su clave
+  FCM V1; en iOS, la clave APNs de tu equipo seleccionada para `preview`. Con `PUSH_ENABLED` y
+  `EXPO_ACCESS_TOKEN` en staging (7.6), en un teléfono con un build preview (9.2): permite las
+  notificaciones en Ajustes y cambia la contraseña. Llega el aviso ("Your password was changed") y
+  al tocarlo se abre Ajustes; `push status` en el servidor lo muestra `delivered` unos 15 minutos
+  después.
 - **Sentry:** crea un proyecto **React Native**; su DSN, el slug de tu org, el slug del proyecto y
   un auth token (Sentry → Settings → Auth Tokens, con scopes para releases y source maps) van a las
   variables de EAS de 7.2. Para los source maps de OTA, además:

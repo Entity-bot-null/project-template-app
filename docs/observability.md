@@ -15,7 +15,7 @@ routing their notifications is each project's.
 | Structured logs (JSON in production) with automatic redaction                              | CORE                   | yes           | nothing                                                                        |
 | Request ids on every response, log line, error report and outgoing call                    | CORE                   | yes           | nothing                                                                        |
 | Deployment identity (environment, release) on every log line and report                    | CORE                   | yes           | the image build (release) and `APP_ENVIRONMENT`                                |
-| Liveness and readiness probes (database, Redis when configured, email)                     | CORE                   | yes           | nothing                                                                        |
+| Liveness and readiness probes (database, Redis when configured, email, push)               | CORE                   | yes           | nothing                                                                        |
 | Graceful shutdown (drain, close, flush)                                                    | CORE                   | yes           | nothing                                                                        |
 | Error classification (application, database, dependency, unavailable) and the error metric | CORE                   | yes           | nothing                                                                        |
 | Slow query log (statement only)                                                            | CORE                   | yes (500 ms)  | nothing                                                                        |
@@ -61,7 +61,7 @@ Every JSON log line, error report and span says which deployment and build produ
   unset; `unversioned` when nothing set it (local runs).
 
 At boot the API logs them, and what is switched on: `Starting release <release> in
-<environment>: tracing and metrics on|off, error tracking on|off, Redis on|off, email on|off`.
+<environment>: tracing and metrics on|off, error tracking on|off, Redis on|off, email on|off, push on|off`.
 
 Spans and metrics also carry `service.instance.id`, a random id per process (the `instance` label
 in Prometheus), and nothing about the machine: no host name (a container's id, or on a developer's
@@ -135,6 +135,11 @@ Readiness answers `{ status, checks: { database, redis, mail } }`:
   own (connection, timeout, credentials) or the oldest waiting message is older than 15 minutes;
   the state is the worker's last reading, so the check does no I/O
   ([architecture.md](architecture.md#email));
+- push notifications (`push`) never fail the probe either: `disabled` without `PUSH_ENABLED`,
+  `degraded` (with 200, and `status: "degraded"`) for 15 minutes after a send failed for a reason
+  that is not the notification's own (the push service down, its access token refused) or while
+  the oldest waiting notification is older than 15 minutes; the worker's last reading too
+  ([architecture.md](architecture.md#push-notifications));
 - during shutdown it answers 503 at once, so no new traffic is routed to the instance.
 
 Probes are exempt from rate limiting and from the minimum app version check, never require
@@ -162,15 +167,17 @@ On SIGTERM (`app.enableShutdownHooks()`, `apps/api/src/lifecycle/shutdown.ts`):
 1. readiness starts answering 503 and the HTTP server stops accepting connections;
 2. requests in flight finish (at most 10 seconds, then their connections are closed: each request
    cut leaves an access line marked aborted);
-3. the modules close: the email worker (it stops claiming messages and waits up to 10 seconds for
-   the one being sent), database pool, Redis connection, timers;
+3. the modules close, one after the other: the email worker and the push worker (each stops
+   claiming and waits up to 10 seconds for the message or the batch it is sending), database pool,
+   Redis connection, timers;
 4. buffered spans, metrics and error reports are flushed; the process exits.
 
 Each step is logged (`Shutting down: refusing new connections, finishing requests in flight`,
 `HTTP server closed`, `Redis connection closed`, `Shutdown complete (SIGTERM)`). Containers run
 `node` directly (no shell wrapper), so the signal reaches it. Give the platform a termination grace
-period above 15 seconds, plus 10 if an email may be in flight when the drain ends (a message cut
-off is sent again once its lease runs out).
+period above 15 seconds, plus 10 for an email and 10 for a batch of notifications that may be in
+flight when the drain ends: 40 seconds on the server (`deploy/vps/compose.yaml`). One cut off is
+sent again once its lease runs out.
 
 An exception or rejected promise that nothing caught is logged at `fatal` with its stack, reported
 to the error tracker (waiting at most 2 seconds for it to be sent) and the process exits
@@ -322,16 +329,16 @@ The dashboards, the SLOs and the alert rules are files in `observability/`, revi
 like code, and tied to no vendor: Grafana dashboards that read any Prometheus-compatible data
 source, and Prometheus rule files that Prometheus, Grafana Mimir and Grafana Cloud load unchanged.
 
-| File                                                | What                                                                                                                                                                                               |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `observability/grafana/dashboards/api-service.json` | "API service": rate, errors and latency per route, 5xx by origin, readiness, Node.js runtime, database, cache, Redis, external calls, degraded features, email, installed apps refused as outdated |
-| `observability/grafana/dashboards/api-slo.json`     | "API SLOs": objective, SLI and error budget over 30 days, burn rate per alert window, the SLO alerts                                                                                               |
-| `observability/prometheus/rules/api-slo.yaml`       | the availability and latency SLOs: recording rules and multiwindow burn-rate alerts ([alerting.md](alerting.md#slis-and-slos))                                                                     |
-| `observability/prometheus/rules/api-alerts.yaml`    | symptom alerts ([below](#alerts))                                                                                                                                                                  |
-| `observability/prometheus/tests/*.test.yaml`        | unit tests of the rules with synthetic series (`promtool test rules`)                                                                                                                              |
-| `observability/prometheus/prometheus.yaml`          | the local backend's Prometheus configuration, which loads the rules                                                                                                                                |
-| `observability/grafana/dashboards.yaml`             | the local backend's dashboard provider (folder "Application")                                                                                                                                      |
-| `observability/api-metrics.json`                    | the series the API exports ([Metric catalog](#metric-catalog))                                                                                                                                     |
+| File                                                | What                                                                                                                                                                                                                   |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `observability/grafana/dashboards/api-service.json` | "API service": rate, errors and latency per route, 5xx by origin, readiness, Node.js runtime, database, cache, Redis, external calls, degraded features, email, installed apps refused as outdated, push notifications |
+| `observability/grafana/dashboards/api-slo.json`     | "API SLOs": objective, SLI and error budget over 30 days, burn rate per alert window, the SLO alerts                                                                                                                   |
+| `observability/prometheus/rules/api-slo.yaml`       | the availability and latency SLOs: recording rules and multiwindow burn-rate alerts ([alerting.md](alerting.md#slis-and-slos))                                                                                         |
+| `observability/prometheus/rules/api-alerts.yaml`    | symptom alerts ([below](#alerts))                                                                                                                                                                                      |
+| `observability/prometheus/tests/*.test.yaml`        | unit tests of the rules with synthetic series (`promtool test rules`)                                                                                                                                                  |
+| `observability/prometheus/prometheus.yaml`          | the local backend's Prometheus configuration, which loads the rules                                                                                                                                                    |
+| `observability/grafana/dashboards.yaml`             | the local backend's dashboard provider (folder "Application")                                                                                                                                                          |
+| `observability/api-metrics.json`                    | the series the API exports ([Metric catalog](#metric-catalog))                                                                                                                                                         |
 
 **Rules of the files**, checked by `pnpm observability:check` (CI job "Observability as code";
 needs Docker, and the part that does not also runs in `pnpm test:scripts`):
@@ -359,24 +366,26 @@ backend per environment.
 Thresholds are starting points ([alerting.md](alerting.md#alert-catalog)); a change comes with its
 unit test.
 
-| Alert                           | Severity | Fires when                                                                                             | Runbook                                                                                              |
-| ------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `ApiAvailabilityBudgetFastBurn` | critical | 5xx burn rate above 14.4 over 1 hour and over 5 minutes, at least 100 requests in the hour             | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
-| `ApiAvailabilityBudgetSlowBurn` | warning  | burn rate above 6 over 6 hours and 30 minutes, or above 1 over 3 days and 6 hours                      | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
-| `ApiLatencyBudgetFastBurn`      | critical | the same burn rates, counting responses slower than 500 ms (authentication excluded)                   | [6. High latency](incident-response.md#6-high-latency)                                               |
-| `ApiLatencyBudgetSlowBurn`      | warning  | as the availability slow burn, for the latency SLO                                                     | [6. High latency](incident-response.md#6-high-latency)                                               |
-| `ApiReadinessFailing`           | critical | an instance's readiness answered 503 in every 2-minute window for 2 minutes                            | [2. Readiness failing](incident-response.md#2-readiness-failing)                                     |
-| `ApiDatabaseErrors`             | critical | 5xx with origin `database` for 2 minutes                                                               | [3. Database unavailable](incident-response.md#3-database-unavailable)                               |
-| `ApiRouteErrorRatioHigh`        | warning  | a route's 5xx above 5 % for 10 minutes, with at least 20 requests                                      | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
-| `ApiRouteLatencyHigh`           | warning  | a route's p95 above 500 ms for 15 minutes (authentication excluded)                                    | [6. High latency](incident-response.md#6-high-latency)                                               |
-| `ApiDegradedMode`               | warning  | a feature served by its fallback for 5 minutes (Redis or the cache store down)                         | [4. Redis unavailable](incident-response.md#4-redis-unavailable)                                     |
-| `ApiDependencyFailing`          | warning  | over 5 % of a dependency's calls failing for 10 minutes, with at least 20 calls                        | [12. External dependency outage](incident-response.md#12-external-dependency-outage)                 |
-| `ApiDatabasePoolSaturated`      | warning  | requests waiting for a database connection for 5 minutes                                               | [6. High latency](incident-response.md#6-high-latency)                                               |
-| `ApiEventLoopDelayHigh`         | warning  | event loop p99 above 200 ms for 15 minutes                                                             | [7. Memory or CPU pressure](incident-response.md#7-memory-or-cpu-pressure)                           |
-| `ApiMetricsAbsent`              | warning  | no metrics from the API for 10 minutes (the dead man's switch: every other alert is blind)             | [1. API down](incident-response.md#1-api-down)                                                       |
-| `ApiMailBacklog`                | warning  | the oldest message in the outbox has waited more than 15 minutes, for 10 minutes                       | [16. Email not delivered](incident-response.md#16-email-not-delivered)                               |
-| `ApiMailDeliveryFailed`         | warning  | a message given up on (refused for good, or out of attempts) in the last 30 minutes                    | [16. Email not delivered](incident-response.md#16-email-not-delivered)                               |
-| `ApiClientsRefusedAsOutdated`   | warning  | over 20 % of the requests refused with 426 for one platform, at least 20 in 15 minutes, for 30 minutes | [15. Installed apps refused as outdated](incident-response.md#15-installed-apps-refused-as-outdated) |
+| Alert                           | Severity | Fires when                                                                                                 | Runbook                                                                                              |
+| ------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `ApiAvailabilityBudgetFastBurn` | critical | 5xx burn rate above 14.4 over 1 hour and over 5 minutes, at least 100 requests in the hour                 | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
+| `ApiAvailabilityBudgetSlowBurn` | warning  | burn rate above 6 over 6 hours and 30 minutes, or above 1 over 3 days and 6 hours                          | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
+| `ApiLatencyBudgetFastBurn`      | critical | the same burn rates, counting responses slower than 500 ms (authentication excluded)                       | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiLatencyBudgetSlowBurn`      | warning  | as the availability slow burn, for the latency SLO                                                         | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiReadinessFailing`           | critical | an instance's readiness answered 503 in every 2-minute window for 2 minutes                                | [2. Readiness failing](incident-response.md#2-readiness-failing)                                     |
+| `ApiDatabaseErrors`             | critical | 5xx with origin `database` for 2 minutes                                                                   | [3. Database unavailable](incident-response.md#3-database-unavailable)                               |
+| `ApiRouteErrorRatioHigh`        | warning  | a route's 5xx above 5 % for 10 minutes, with at least 20 requests                                          | [5. High 5xx rate](incident-response.md#5-high-5xx-rate)                                             |
+| `ApiRouteLatencyHigh`           | warning  | a route's p95 above 500 ms for 15 minutes (authentication excluded)                                        | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiDegradedMode`               | warning  | a feature served by its fallback for 5 minutes (Redis or the cache store down)                             | [4. Redis unavailable](incident-response.md#4-redis-unavailable)                                     |
+| `ApiDependencyFailing`          | warning  | over 5 % of a dependency's calls failing for 10 minutes, with at least 20 calls                            | [12. External dependency outage](incident-response.md#12-external-dependency-outage)                 |
+| `ApiDatabasePoolSaturated`      | warning  | requests waiting for a database connection for 5 minutes                                                   | [6. High latency](incident-response.md#6-high-latency)                                               |
+| `ApiEventLoopDelayHigh`         | warning  | event loop p99 above 200 ms for 15 minutes                                                                 | [7. Memory or CPU pressure](incident-response.md#7-memory-or-cpu-pressure)                           |
+| `ApiMetricsAbsent`              | warning  | no metrics from the API for 10 minutes (the dead man's switch: every other alert is blind)                 | [1. API down](incident-response.md#1-api-down)                                                       |
+| `ApiMailBacklog`                | warning  | the oldest message in the outbox has waited more than 15 minutes, for 10 minutes                           | [16. Email not delivered](incident-response.md#16-email-not-delivered)                               |
+| `ApiMailDeliveryFailed`         | warning  | a message given up on (refused for good, or out of attempts) in the last 30 minutes                        | [16. Email not delivered](incident-response.md#16-email-not-delivered)                               |
+| `ApiPushBacklog`                | warning  | the oldest notification in the push outbox has waited more than 15 minutes, for 10 minutes                 | [19. Push notifications not delivered](incident-response.md#19-push-notifications-not-delivered)     |
+| `ApiPushDeliveryFailed`         | warning  | a notification given up on (refused for good, or out of attempts; not a dead token) in the last 30 minutes | [19. Push notifications not delivered](incident-response.md#19-push-notifications-not-delivered)     |
+| `ApiClientsRefusedAsOutdated`   | warning  | over 20 % of the requests refused with 426 for one platform, at least 20 in 15 minutes, for 30 minutes     | [15. Installed apps refused as outdated](incident-response.md#15-installed-apps-refused-as-outdated) |
 
 Health probes are not in the HTTP metrics: `ApiReadinessFailing` counts the 503s the error filter
 records (`app_server_errors_total{error_origin="unavailable", http_route="/api/health/ready"}`),
@@ -441,6 +450,7 @@ underscores and adds unit suffixes, `http_server_request_duration_seconds`):
 | Degraded features        | `app.degraded.operations` (feature, dependency)                                                                                                                                                                                                                                                | any increase while Redis is down                                                                                                                                         |
 | Cache effectiveness      | `app.cache.operations` (namespace, result)                                                                                                                                                                                                                                                     | hit ratio per namespace                                                                                                                                                  |
 | Email                    | `app.mail.outbox.waiting`, `app.mail.outbox.oldest_age` (gauges, the shared queue); `app.mail.deliveries` (kind, outcome: sent, retry, failed, expired); `app.mail.delivery.duration` (the SMTP exchange); `app.mail.latency` (queued to accepted); `app.mail.suppressed` (per-address limits) | `max(app_mail_outbox_oldest_age_seconds)`; `sum by (outcome) (increase(app_mail_deliveries_total[1h]))`                                                                  |
+| Push notifications       | `app.push.outbox.waiting`, `app.push.outbox.oldest_age` (gauges, the shared queue); `app.push.deliveries` (kind, outcome: sent, delivered, retry, failed, unregistered, expired); `app.push.devices.disabled` (tokens the push service reported dead)                                          | `max(app_push_outbox_oldest_age_seconds)`; `sum by (outcome) (increase(app_push_deliveries_total[1h]))`                                                                  |
 | Outdated app versions    | `app.client.outdated` (`app.platform`): requests refused with 426 because the app is older than `MOBILE_MIN_VERSION_IOS`/`MOBILE_MIN_VERSION_ANDROID`                                                                                                                                          | `sum by (app_platform) (increase(app_client_outdated_total[1h]))` after raising a minimum                                                                                |
 | Account deletions        | `app.account.deletions` (no attributes)                                                                                                                                                                                                                                                        | `sum(increase(app_account_deletions_total[1d]))`                                                                                                                         |
 | Process health           | `nodejs.eventloop.delay.*`, `v8js.memory.heap.used`, `v8js.gc.duration`                                                                                                                                                                                                                        | event loop p99 delay                                                                                                                                                     |
@@ -509,7 +519,7 @@ the spec, so their entries are not checked by it.
    fails until both agree.
 3. After upgrading an instrumentation (`@opentelemetry/*`, node-redis), rewrite the catalog from
    real series: start the [local backend](#local-backend), run the API against it with traffic
-   that exercises every metric (requests, database queries, Redis, email), then
+   that exercises every metric (requests, database queries, Redis, email, push), then
    `node scripts/check-observability.mjs --update-catalog http://localhost:9100` and review the
    diff (by hand, Prometheus lists them too:
    `curl -s http://localhost:9100/api/v1/label/__name__/values`, and

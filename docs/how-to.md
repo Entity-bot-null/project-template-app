@@ -21,6 +21,7 @@ The API:
 - [Call an external service](#call-an-external-service)
 - [Run a job on one instance, or process a message once](#run-a-job-on-one-instance-or-process-a-message-once)
 - [Send an email](#send-an-email)
+- [Send a push notification](#send-a-push-notification)
 - [Add a metric and an alert](#add-a-metric-and-an-alert)
 
 The app:
@@ -678,6 +679,62 @@ the transaction of the change it reports, never send it from the request.
    integration spec that queues it and reads it back from Mailpit (`apps/api/test/mailpit.ts`);
    a Maestro flow of the stack suite for a flow a person follows from the message
    (`apps/mobile/.maestro/stack/`, the helper `helpers/open-emailed-link.yaml`).
+
+## Send a push notification
+
+Push goes through its outbox ([architecture.md](architecture.md#push-notifications)), like email:
+you queue a notification in the transaction of the change it reports, for every phone of the
+account; the worker sends it through Expo's push service. The app registers its phones by itself
+([mobile-architecture.md](mobile-architecture.md#notifications)).
+
+1. **A kind.** Add it to `PushKind` in `apps/api/prisma/schema.prisma` and run
+   `pnpm db:migrate --name add_<kind>_push_kind` (`ALTER TYPE ... ADD VALUE`: an expand step).
+2. **A template** in `apps/api/src/infrastructure/push/push.templates.ts`, in
+   `PUSH_TEMPLATE_REGISTRY`:
+
+   ```ts
+   const ItemSharedPayload = z.object({ itemId: z.uuid() });
+
+   export const itemSharedPush: PushTemplate = {
+     ttlMs: 60 * 60_000, // dropped unsent after this
+     render: (message) => {
+       const payload = ItemSharedPayload.safeParse(message.payload);
+       if (!payload.success) return null; // not what this kind needs: dropped
+       return {
+         title: 'An item was shared with you',
+         body: 'Open it in the app.',
+         data: { url: `/items/${payload.data.itemId}` },
+       };
+     },
+   };
+   ```
+
+   The text passes through Expo, Apple and Google and shows on lock screens: no personal data, no
+   secret, nothing a user typed. `data.url` is an internal path the app opens only if
+   `apps/mobile/src/lib/links.ts` accepts it (`scripts/web-server-routes.test.mjs` checks the
+   templates' fixed paths). The payload carries ids only.
+
+3. **Queue it** with the change, then wake the worker after the commit:
+
+   ```ts
+   await this.prisma.$transaction(async (tx) => {
+     const share = await tx.share.create({ data: { ... } });
+     await this.push.enqueue(tx, {
+       kind: 'item_shared',
+       userId: share.recipientId,
+       payload: { itemId: share.itemId },
+     });
+   });
+   this.push.notifyQueued();
+   ```
+
+   `enqueue` answers how many were queued: 0 when push is off or the account has no working
+   device. A notification that matters goes by email too: push is best effort.
+
+4. **Tests:** the template's unit spec (`null` for a payload it cannot use, no personal data);
+   the service's spec that it queues inside the change's transaction; an integration spec through
+   `push-outbox.int.spec.ts`'s fake push service when it changes how sending works; in the app, a
+   test that its `data.url` opens the right screen (`apps/mobile/src/lib/notifications`).
 
 ## Add a metric and an alert
 

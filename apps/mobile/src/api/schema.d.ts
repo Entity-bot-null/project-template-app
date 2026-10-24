@@ -360,6 +360,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/devices/{installationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register this installation for push notifications
+         * @description Creates or replaces the installation's push token, for the signed-in account: an installation registered by another account moves to this one, and the token leaves any other installation that had it. Safe to repeat.
+         */
+        put: operations["DevicesController_register"];
+        post?: never;
+        /**
+         * Stop push notifications to this installation
+         * @description Called at sign-out, before the session ends. 404 when the installation is not registered for the signed-in account.
+         */
+        delete: operations["DevicesController_unregister"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/users/me": {
         parameters: {
             query?: never;
@@ -474,6 +498,16 @@ export interface components {
         CreateItemRequest: {
             title: string;
             description?: string;
+        };
+        DeviceRegistration: {
+            pushToken: string;
+            /** @enum {string} */
+            platform: "ios" | "android";
+            /**
+             * @default expo
+             * @enum {string}
+             */
+            kind: "expo";
         };
         Invitation: {
             /** Format: uuid */
@@ -2037,6 +2071,131 @@ export interface operations {
             };
         };
     };
+    DevicesController_register: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceRegistration"];
+            };
+        };
+        responses: {
+            /** @description Registered */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description This app version is no longer supported: update the app */
+            426: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    DevicesController_unregister: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                installationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not authenticated */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description This app version is no longer supported: update the app */
+            426: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Rate limit exceeded */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     UsersController_me: {
         parameters: {
             query?: never;
@@ -2290,6 +2449,8 @@ export interface operations {
                                 redis: "ok" | "unavailable" | "disabled";
                                 /** @enum {string} */
                                 mail: "ok" | "degraded" | "disabled";
+                                /** @enum {string} */
+                                push: "ok" | "degraded" | "disabled";
                             };
                         };
                         message: string;

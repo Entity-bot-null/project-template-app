@@ -50,6 +50,22 @@
       "type": "counter",
       "labels": ["mail_kind"]
     },
+    "app_push_deliveries_total": {
+      "type": "counter",
+      "labels": ["outcome", "push_kind"]
+    },
+    "app_push_devices_disabled_total": {
+      "type": "counter",
+      "labels": []
+    },
+    "app_push_outbox_oldest_age_seconds": {
+      "type": "gauge",
+      "labels": []
+    },
+    "app_push_outbox_waiting": {
+      "type": "gauge",
+      "labels": []
+    },
     "app_server_errors_total": {
       "type": "counter",
       "labels": ["error_origin", "http_route"]

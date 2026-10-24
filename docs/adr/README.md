@@ -27,4 +27,5 @@ security trade-off, a release process change, a deviation from these docs.
 | [0008](0008-public-site-and-app-links.md)                          | A static Astro site and the app's link files, served by one web image        |
 | [0009](0009-postgresql-and-redis-on-the-server.md)                 | The reference server runs PostgreSQL and Redis; a managed database optional  |
 | [0010](0010-minimum-supported-app-version.md)                      | The API refuses app versions below a configured minimum with 426             |
+| [0011](0011-push-notifications-outbox.md)                          | Push notifications through an outbox in PostgreSQL, over Expo's push service |
 | [0012](0012-account-deletion.md)                                   | Accounts are deleted for good, at their owner's request, in one transaction  |

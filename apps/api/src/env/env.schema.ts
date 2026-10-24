@@ -259,7 +259,7 @@ export const EnvSchema = z
     // --- Email, OPTIONAL (docs/architecture.md#email) ---------------------
     // The SMTP server messages are sent through. Unset: email is off (the
     // features that need it are unavailable, nothing is queued). Locally,
-    // Mailpit: smtp://localhost:1035. In production the connection must be
+    // Mailpit: smtp://localhost:1045. In production the connection must be
     // encrypted: smtps://, or smtp:// with STARTTLS required (a server
     // without it, like Mailpit, is refused), except to a loopback host
     // (localhost, 127.0.0.1, [::1]): that traffic never leaves the machine.
@@ -285,6 +285,18 @@ export const EnvSchema = z
     // docs/releases.md#minimum-supported-version). Unset: any version.
     MOBILE_MIN_VERSION_IOS: optional(appVersion),
     MOBILE_MIN_VERSION_ANDROID: optional(appVersion),
+
+    // --- Push notifications, OPTIONAL (docs/architecture.md#push-notifications)
+    // The app's notifications, through Expo's push service. Off by default:
+    // nothing is queued and the worker never starts; the app's device
+    // registrations are kept all the same.
+    PUSH_ENABLED: flag.default(false),
+    // Expo's enhanced push security: an access token of the Expo account, with
+    // push security turned on in its settings. Without it, anyone who learns a
+    // device's push token can send to it through Expo. A secret.
+    EXPO_ACCESS_TOKEN: optional(
+      z.string().regex(/^[A-Za-z0-9_-]{20,200}$/, 'must be an Expo access token'),
+    ),
   })
   .superRefine((values, ctx) => {
     if (values.TRUST_PROXY === undefined && values.NODE_ENV === 'production') {

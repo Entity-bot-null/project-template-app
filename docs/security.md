@@ -672,6 +672,22 @@ deployment.
 | Sender authentication  | REQUIERE CONFIGURACIÓN: SPF, DKIM and DMARC for the sending domain at the provider, before the first message; without them messages are spoofable and land in spam.                                                                                                                                                                                                                                                                                                                                                     |
 | Retention              | Finished outbox rows (metadata: kind, status, attempts, timestamps, error category, keyed hash) are deleted after 30 days; a failed message's address is cleared after 7; a message never sent a day past its validity (email turned off since) is dropped and its address cleared. The sweep runs whether email is on or off.                                                                                                                                                                                          |
 
+## Push notifications
+
+OPTIONAL infrastructure ([architecture.md](architecture.md#push-notifications),
+[ADR 0011](adr/0011-push-notifications-outbox.md)). Notifications go through Expo's push service,
+which hands them to Apple (APNs) and Google (FCM).
+
+| Concern                 | How                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Who can send to a phone | Expo accepts a request for a token from anyone who knows it, unless the Expo account turns on enhanced push security: then only requests carrying `EXPO_ACCESS_TOKEN` (`Authorization: Bearer`, over HTTPS) are delivered. REQUIERE CONFIGURACIÓN in production: the token and the setting at expo.dev/settings/access-tokens.                                                                                                |
+| Tokens                  | A push token identifies a device: it is stored (`devices`, unique) but never logged, put in a metric or returned; a device is named by its id. The app sends its token only to the API, with the session's access token.                                                                                                                                                                                                      |
+| Registrations           | `PUT` and `DELETE /api/devices/{installationId}` need a session; the installation id is a UUID the app made. A registration moves the installation to the caller's account and takes the token from any other installation: a phone holds one account's notifications at a time. Only the caller's own installation can be removed; another account's answers 404, like a missing one ([authorization.md](authorization.md)). |
+| Sign-out                | The app removes its installation before revoking the session, so the next person on a shared phone does not get the previous account's notices. Best effort: offline, the registration stays until another account registers on that phone, the token dies or 270 days pass; what it can receive is the templates' text, which names no one.                                                                                  |
+| Content                 | Title, body and an internal `data.url` from a template, rendered at send time: never personal data or a secret (lock screens, three intermediaries). The app opens `data.url` only through its link allowlist, and only once signed in.                                                                                                                                                                                       |
+| What the outbox stores  | Kind, account, device, ids, status and the category of the last failure (`DeviceNotRegistered`, `http_503`), never the service's text.                                                                                                                                                                                                                                                                                        |
+| Retention               | Finished notifications are deleted after 30 days; a device whose token died, 30 days after; one not registered for 270 days. An account's devices and notifications go with it (cascade). The sweep runs whether push is on or off.                                                                                                                                                                                           |
+
 ## Dependencies
 
 The API's dependencies live in the repository's one lockfile and pass the same controls as the
@@ -914,6 +930,8 @@ Accepted on purpose, each with its way out:
 - [ ] Error tracking (a Sentry project for the API), its access and retention; tracing backend and
       its credentials in `OTEL_EXPORTER_OTLP_HEADERS`.
 - [ ] Production secrets per environment; who can read them; rotation.
+- [ ] Push notifications: `EXPO_ACCESS_TOKEN` with enhanced push security turned on in the Expo
+      account, before `PUSH_ENABLED` in production ([Push notifications](#push-notifications)).
 - [ ] The account lifecycle the product needs (sign-up, MFA, lockout), the deletion request page
       Google Play asks for, and the app's deletion screen ([Account deletion](#account-deletion)).
 - [ ] Data classification: which fields are personal data, retention, backups (and how long a

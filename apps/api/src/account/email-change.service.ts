@@ -16,6 +16,7 @@ import { errorSummary } from '../common/logging/error-summary.js';
 import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
 import type { EmailChangedPayload } from '../infrastructure/mail/templates/email-changed.template.js';
 import type { PasswordChangedPayload } from '../infrastructure/mail/templates/password-changed.template.js';
+import { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import { Prisma } from '../prisma/generated/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -46,6 +47,7 @@ export class EmailChangeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailOutboxService,
+    private readonly push: PushOutboxService,
   ) {}
 
   /** A change can be confirmed: email is configured. */
@@ -194,11 +196,13 @@ export class EmailChangeService {
           userId: current.id,
           payload,
         });
+        await this.push.enqueue(tx, { kind: 'password_changed', userId: current.id });
       }, ACCOUNT_TRANSACTION);
     } catch (error) {
       throw takenAsConflict(error);
     }
     this.mail.notifyQueued();
+    this.push.notifyQueued();
     this.logger.log(`Change of email of user ${owner.userId} undone: every session ended`);
   }
 
