@@ -476,20 +476,20 @@ Dependabot's pull requests are the weekly routine ([Dependency updates](#depende
 it never proposes is moved by a person, on its own branch, with the full CI and E2E (Android) on
 its pull request:
 
-| Part                                       | Dependabot proposes                                                   | Moved by hand                                                                            |
-| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| npm packages outside the SDK               | minors and patches (grouped), majors (one per pull request)           | merging a major after its release notes; ESLint 10 waits for `eslint-config-expo`        |
-| Expo SDK, React Native, the SDK's packages | patches within the SDK's ranges (`expo-sdk` group)                    | the SDK upgrade, about three times a year ([releases.md](releases.md#expo-sdk-upgrades)) |
-| Jest, `@types/jest`                        | patches                                                               | the major `jest-expo` depends on, in an SDK upgrade                                      |
-| TypeScript                                 | patches                                                               | [minors and majors](#typescript)                                                         |
-| Node.js, `@types/node`                     | `@types/node` minors and patches                                      | [Node.js](#nodejs)                                                                       |
-| pnpm                                       | nothing (it never edits `packageManager`)                             | [pnpm](#pnpm)                                                                            |
-| GitHub Actions                             | new SHA and version comment, in the workflows and `.github/actions/*` | merging: the auto-merge never merges a change to a workflow or an action                 |
-| Tool images                                | tag and digest together                                               | PostgreSQL and Redis majors ([PostgreSQL and Redis](#postgresql-and-redis))              |
-| The API's images and `docker-compose.yml`  | tag and digest together, Node.js minors                               | the Node.js major ([Node.js](#nodejs)); PostgreSQL and Redis majors                      |
-| EAS CLI, Maestro, JDK, emulator            | nothing                                                               | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
-| Terraform providers, Terraform             | the providers' version and checksums together (`terraform`)           | Terraform's own minor: `required_version` in `versions.tf`, with the tool image          |
-| Ubuntu (the runners)                       | nothing                                                               | [Ubuntu](#ubuntu)                                                                        |
+| Part                                       | Dependabot proposes                                                                  | Moved by hand                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| npm packages outside the SDK               | minors and patches (grouped), majors (one per pull request; Prisma's three together) | merging a major after its release notes; ESLint 10 waits for `eslint-config-expo`        |
+| Expo SDK, React Native, the SDK's packages | patches within the SDK's ranges (`expo-sdk` group)                                   | the SDK upgrade, about three times a year ([releases.md](releases.md#expo-sdk-upgrades)) |
+| Jest, `@types/jest`                        | patches                                                                              | the major `jest-expo` depends on, in an SDK upgrade                                      |
+| TypeScript                                 | patches                                                                              | [minors and majors](#typescript)                                                         |
+| Node.js, `@types/node`                     | `@types/node` minors and patches                                                     | [Node.js](#nodejs)                                                                       |
+| pnpm                                       | nothing (it never edits `packageManager`)                                            | [pnpm](#pnpm)                                                                            |
+| GitHub Actions                             | new SHA and version comment, in the workflows and `.github/actions/*`                | merging: the auto-merge never merges a change to a workflow or an action                 |
+| Tool images                                | tag and digest together                                                              | PostgreSQL and Redis majors ([PostgreSQL and Redis](#postgresql-and-redis))              |
+| The API's images and `docker-compose.yml`  | tag and digest together, Node.js minors                                              | the Node.js major ([Node.js](#nodejs)); PostgreSQL and Redis majors                      |
+| EAS CLI, Maestro, JDK, emulator            | nothing                                                                              | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
+| Terraform providers, Terraform             | the providers' version and checksums together (`terraform`)                          | Terraform's own minor: `required_version` in `versions.tf`, with the tool image          |
+| Ubuntu (the runners)                       | nothing                                                                              | [Ubuntu](#ubuntu)                                                                        |
 
 ### Ubuntu
 
