@@ -19,7 +19,7 @@ also installs the Git hooks.
 ## From issue to main
 
 1. **Issue.** Use the feature or bug template: acceptance criteria, screens and states, release
-   impact.
+   impact. A story starts once it is ready ([docs/definition-of-ready.md](docs/definition-of-ready.md)).
 2. **Branch** from an up-to-date `main` ([below](#branches)). Never commit to `main`.
 3. **The API first** when the contract changes: the route and its schemas in `apps/api`, then
    `pnpm contract`, and commit both generated files ([openapi/README.md](openapi/README.md)); a
@@ -27,7 +27,7 @@ also installs the Git hooks.
 4. **Code and tests together**, following [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) and
    [docs/testing.md](docs/testing.md).
    [docs/mobile-architecture.md](docs/mobile-architecture.md#adding-a-feature) has the steps for a
-   new feature.
+   new feature, and [docs/how-to.md](docs/how-to.md) the recipes for the usual changes.
 5. **Try it on devices**: Android and iOS, light and dark, a large font size, offline.
 6. **Commit** with Conventional Commits ([below](#commits)).
 7. **Verify**: `pnpm verify`; `pnpm test:e2e:mobile` when a critical flow changed.
@@ -44,7 +44,7 @@ Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `build`, `perf`
 
 Short-lived branches off `main`, merged back by pull request. No long-lived `develop` or release
 branches: a release is a tag on `main`, and a fix for a released version ships from `main` (as an
-OTA update when it is JavaScript only).
+OTA update when it is JavaScript only). The strategy and hotfixes: [docs/branching.md](docs/branching.md).
 
 ## Commits
 
@@ -68,6 +68,8 @@ BREAKING CHANGE: items without a title are rejected.
 - Pull requests are squash-merged: the title is what lands on `main`, so it must follow the rule;
   individual commits on a branch can be informal.
 
+Scopes, footers (`Release-As`, references) and habits: [docs/commits.md](docs/commits.md).
+
 ## Git hooks
 
 Installed by `pnpm install` (Husky, `.husky/`):
@@ -80,7 +82,8 @@ Installed by `pnpm install` (Husky, `.husky/`):
 
 The hooks are a fast first line; CI runs every gate regardless. Do not bypass them with
 `--no-verify`; the one exception is the very first push of a new repository
-(`git push --no-verify -u origin main`).
+(`git push --no-verify -u origin main`). Details and troubleshooting:
+[docs/git-hooks.md](docs/git-hooks.md).
 
 ## Pull requests and review
 
@@ -97,7 +100,9 @@ Reviewers check, beyond correctness:
 - tests that would fail if the change broke.
 
 Code owners ([.github/CODEOWNERS](.github/CODEOWNERS)) must approve changes to sensitive paths:
-auth, storage, observability, native configuration, release and CI files.
+auth, storage, observability, native configuration, the server's deployment, release and CI files.
+The author's and the reviewer's checklists, and the etiquette:
+[docs/code-review.md](docs/code-review.md).
 
 ## Adding a dependency
 
