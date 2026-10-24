@@ -375,6 +375,77 @@ describe('forget', () => {
   });
 });
 
+// After a link ended every session of an account, which may be this one.
+describe('revalidate', () => {
+  async function signedIn() {
+    fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });
+    const session = create();
+    await session.signIn({ email: user.email, password: 'pw' });
+    return session;
+  }
+
+  function refreshes() {
+    return fetchStub.requests.filter((request) => request.url.endsWith('/refresh'));
+  }
+
+  it('asks the server nothing while signed out', async () => {
+    fetchStub = stubFetch({});
+    const session = create();
+    useSessionStore.setState({ status: 'signedOut', endedBy: null, user: null });
+    await session.revalidate();
+    expect(fetchStub.requests).toHaveLength(0);
+  });
+
+  it('ends a session the server ended at once, as an expired one', async () => {
+    const session = await signedIn();
+    const onSignOut = jest.fn();
+    session.onSignOut(onSignOut);
+    fetchStub.on('POST /api/auth/refresh', () => failure(401, 'Invalid refresh token'));
+    // The access token is still fresh: no request would have found out yet.
+    await session.revalidate();
+    expect(useSessionStore.getState()).toEqual({
+      status: 'signedOut',
+      endedBy: 'expired',
+      user: null,
+    });
+    expect(await bodyOf(refreshes()[0]!)).toEqual({ refreshToken: 'refresh-1' });
+    expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBeNull();
+    expect(onSignOut).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a session the server still holds (another account’s), renewed', async () => {
+    const session = await signedIn();
+    fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('2')));
+    await session.revalidate();
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user });
+    expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBe('refresh-2');
+    await expect(session.getAccessToken()).resolves.toBe('access-2');
+  });
+
+  it('keeps the session when the server cannot answer, and never rejects', async () => {
+    const session = await signedIn();
+    fetchStub.on('POST /api/auth/refresh', () =>
+      Promise.reject(new TypeError('Network request failed')),
+    );
+    await expect(session.revalidate()).resolves.toBeUndefined();
+    expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user });
+    expect(await secure.getItem(STORAGE_KEYS.refreshToken)).toBe('refresh-1');
+  });
+
+  it('shares a renewal already in flight', async () => {
+    const session = await signedIn();
+    const pending = deferred();
+    fetchStub.on('POST /api/auth/refresh', () => pending.promise);
+    const rejected = session.refreshAfterRejection('access-1');
+    const revalidated = session.revalidate();
+    pending.resolve(failure(401, 'Invalid refresh token'));
+    await expect(rejected).resolves.toBeNull();
+    await revalidated;
+    expect(refreshes()).toHaveLength(1);
+    expect(useSessionStore.getState().status).toBe('signedOut');
+  });
+});
+
 describe('renewal', () => {
   async function signedIn() {
     fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });

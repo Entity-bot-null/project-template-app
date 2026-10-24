@@ -318,6 +318,13 @@ feature's `api.ts`, its states and its integration test:
 | Account deletion   | `(app)/account/delete-account`                                    | the password and a destructive confirmation; after the 204, `forget()` as a sign-out does       |
 | Administration     | `(app)/admin/users`, `(app)/admin/invitations`                    | the accounts, and the pending invitations (invite, revoke); admins only                         |
 
+**Links that end every session.** A password reset, a confirmed change of email and its undo end
+every session of the account. The phone that opened the link may be signed in to that account, to
+another one or to none: once the link succeeds, `session.revalidate()` renews its session, so a
+session the server ended ends at once, with "Your session has ended" on the sign-in screen, rather
+than at a next request that fresh data may not make for minutes. Another account's session carries
+on; offline, the next request finds out.
+
 **What the server offers.** `useCapabilities()` (`GET /api/auth/capabilities`, fresh for an hour)
 says whether this deployment offers password recovery, public sign-up, change of email and
 invitations (a server that sends no email offers none of them). Screens offer an entry only once the
@@ -601,6 +608,7 @@ What the app does in each situation a phone puts it in, and what proves it:
 | Request interrupted (screen left, app killed) | queries are cancelled; a write already sent completes: no half-done state, no navigation once its screen is gone                      | `http.spec.ts` (cancellation), `items.int.spec.tsx`, `navigation.int.spec.tsx`                                                                        |
 | Network lost during a request                 | the request fails as `network` within the timeout; queries pause and retry when the network returns; writes fail visibly              | `http.spec.ts` (network error, timeout), `SignInScreen.int.spec.tsx` (offline message), Maestro `01-onboarding-and-sign-in` (no answer), `05-offline` |
 | Session expires while in the background       | the next request renews it; if the server refuses, the user is signed out with "Your session has ended"                               | `session.spec.ts` (renewal, refused renewal), Maestro `06-session-ends`                                                                               |
+| A link ended every session of the account     | the session is renewed at once: one the server ended ends with "Your session has ended"; another account's carries on                 | `session.spec.ts` (revalidate), `links.int.spec.tsx`, Maestro stack `02-change-email`                                                                 |
 | Notification opens a killed app               | the launching tap is read at startup and its link opened once                                                                         | `notifications.spec.ts`                                                                                                                               |
 | Link opens a killed app                       | the session is restored first; the link's screen opens over the home screen, so back stays in the app; signed out, the sign-in screen | `navigation.int.spec.tsx`, Maestro `07-deep-links`, `08-sign-out`                                                                                     |
 | Duplicate notification                        | handled once per notification id                                                                                                      | `notifications.spec.ts`                                                                                                                               |

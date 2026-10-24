@@ -47,7 +47,8 @@ env:
       id: confirm-email-change-done
     timeout: 15000
 - tapOn: Continue
-# The session on this phone ended with the others: the next request finds out.
+# The session on this phone ended with the others: the app asks the server
+# at once, and signs out.
 - extendedWaitUntil:
     visible:
       id: sign-in-screen
