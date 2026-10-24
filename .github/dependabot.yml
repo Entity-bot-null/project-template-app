@@ -77,6 +77,17 @@ updates:
           - '@react-native/*'
           - '@sentry/react-native'
         update-types: [patch]
+      # Prisma's CLI, client and driver adapter work only at one version
+      # (scripts/dependency-policy.json, releaseSets): one pull request moves
+      # the three, majors included. Before development and production on
+      # purpose: a dependency goes to the first group it matches. When the
+      # install policy refuses one of the new versions (a trust downgrade,
+      # SECURITY.md#dependencies), Dependabot opens the pull request with the
+      # others and `pnpm deps:check` fails it until all three can move.
+      prisma:
+        patterns:
+          - prisma
+          - '@prisma/*'
       development:
         dependency-type: development
         update-types: [minor, patch]
