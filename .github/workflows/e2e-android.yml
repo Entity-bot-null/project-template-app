@@ -263,9 +263,17 @@ jobs:
           # One command per line: the action runs each with sh. Stylus
           # handwriting off: on Google images (most local emulators), Gboard's
           # first-use tutorial can cover the keyboard and swallow typed text.
+          # Error dialogs off: the software-rendered emulator can leave a
+          # system process unresponsive for a while, and its "isn't
+          # responding" dialog covered the app and failed a flow (the
+          # launcher, Quickstep). Without dialogs, Android kills the process
+          # that stopped responding instead (AppErrors.handleShowAnrUi): the
+          # launcher restarts behind the app, and an app that stops
+          # responding is still killed and fails its flow.
           script: |
             adb reverse tcp:4010 tcp:4010
             adb shell settings put secure stylus_handwriting_enabled 0
+            adb shell settings put global hide_error_dialogs 1
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             maestro test .maestro --format junit --output .maestro/results/report.xml --test-output-dir .maestro/results
             adb reverse tcp:4010 tcp:3010

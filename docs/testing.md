@@ -338,6 +338,7 @@ pnpm --filter mobile exec expo prebuild --platform android --clean --no-install
 (cd apps/mobile/android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64)
 adb reverse tcp:4010 tcp:4010                   # the emulator's localhost:4010 → this machine
 adb shell settings put secure stylus_handwriting_enabled 0   # see below
+adb shell settings put global hide_error_dialogs 1           # see below
 adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
 pnpm test:e2e:mobile
 ```
@@ -352,6 +353,10 @@ Local requirements that CI (Linux) already meets:
 - **Stylus handwriting off on the emulator** (the `adb shell settings` line above): on recent
   Android images, Gboard's stylus tutorial can open over the keyboard and swallow the text Maestro
   types.
+- **Error dialogs off on the emulator** (the second `adb shell settings` line): a slow emulator can
+  leave a system process unresponsive for a while, and its "isn't responding" dialog covers the app
+  (the launcher, Quickstep, failed a flow in CI that way). Without dialogs, Android kills the
+  process that stopped responding instead: an app that stops responding still fails its flow.
 - **On Windows**, more requirements, all found while building this template (the C++ parts of the
   native modules are compiled with CMake and ninja):
   - a short project path (for example `C:\dev\<app>`) with Windows long paths enabled: CMake
