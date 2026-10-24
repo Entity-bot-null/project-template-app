@@ -301,6 +301,7 @@ store binary 1.5.0 (build 57) ──fingerprint──▶ runtime version B ◀�
 | A config plugin or its options; permissions; `apps/mobile/app.config.ts` native fields (identifier, scheme, associated domains, intent filters, Info.plist, Android manifest) |            | yes         |
 | App icon, splash screen, app name                                                                                                                                             |            | yes         |
 | Expo SDK or React Native upgrade                                                                                                                                              |            | yes         |
+| `apps/mobile/eas.json`, any change (the build servers' Node.js or pnpm, a profile): it is part of the fingerprint                                                             |            | yes         |
 
 The fingerprint enforces the right column: such a change gives a new runtime version, and an
 update published after it reaches only builds made after it. The pull request template asks which
