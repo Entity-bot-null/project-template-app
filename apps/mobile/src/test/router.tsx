@@ -2,6 +2,22 @@ import { render } from '@testing-library/react-native';
 import { ExpoRoot } from 'expo-router';
 import { getMockContext } from 'expo-router/testing-library';
 
+import { queryClient } from '@/lib/query/queryClient';
+
+// The routes use the app's own query client, kept as it is except for its
+// garbage-collection timers, as in testQueryClient(): gcTime Infinity, for
+// mutations too. Each query and mutation whose screen unmounts would
+// otherwise leave a 5-minute timer behind, which `queryClient.clear()` does
+// not stop for mutations: a spec run alone never exits, and in a full run
+// Jest force-exits the worker. Set when a spec imports this file, before
+// its first test creates a query.
+const defaults = queryClient.getDefaultOptions();
+queryClient.setDefaultOptions({
+  ...defaults,
+  queries: { ...defaults.queries, gcTime: Infinity },
+  mutations: { ...defaults.mutations, gcTime: Infinity },
+});
+
 /**
  * Renders the app's real routes (src/app) at `url`, the way the app starts.
  *
