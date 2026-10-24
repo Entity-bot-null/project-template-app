@@ -352,6 +352,7 @@ APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://local
 cd ../../..
 adb reverse tcp:4010 tcp:4010
 adb shell settings put secure stylus_handwriting_enabled 0
+adb shell settings put global hide_error_dialogs 1
 adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
 pnpm test:e2e:mobile
 ```
