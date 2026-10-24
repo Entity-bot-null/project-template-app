@@ -17,8 +17,13 @@
 //    package the trust policy skips, a version exempt from the delay) is a
 //    reviewed exception with its reason, and a delay exemption also expires
 //    (scripts/install-settings.mjs).
+// 4. Release sets: packages published together as one release (Prisma's CLI
+//    and the client whose code it generates) resolve to one version wherever
+//    the workspace uses them, so an update cannot move one of them alone
+//    (scripts/release-sets.mjs).
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { parseAllDocuments } from 'yaml';
 
 import {
   checkInstallSettings,
@@ -26,6 +31,7 @@ import {
   WorkspaceYamlError,
 } from './install-settings.mjs';
 import { isAllowed } from './licenses.mjs';
+import { checkReleaseSets } from './release-sets.mjs';
 
 const policy = JSON.parse(readFileSync(new URL('dependency-policy.json', import.meta.url), 'utf8'));
 /** @type {string[]} */
@@ -149,6 +155,19 @@ try {
   );
 }
 
+// --- Release sets ------------------------------------------------------------
+
+// pnpm-lock.yaml holds two YAML documents: pnpm's own installation
+// (packageManagerDependencies), then the workspace's dependencies.
+const documents = parseAllDocuments(lockfile);
+const unreadable = documents.flatMap((document) => document.errors);
+if (unreadable.length > 0) {
+  problems.push(`pnpm-lock.yaml does not parse as YAML: ${unreadable[0]?.message}`);
+} else {
+  const importers = documents.map((document) => document.toJS()?.importers ?? {});
+  problems.push(...checkReleaseSets(importers, policy.releaseSets.sets));
+}
+
 // --- Report ----------------------------------------------------------------
 
 if (problems.length > 0) {
@@ -159,5 +178,5 @@ if (problems.length > 0) {
   process.exit(1);
 }
 console.log(
-  `Dependency policy OK: ${checked} lockfile sources, licenses of ${prodPackages.size} production and ${allPackages.size} total package versions.`,
+  `Dependency policy OK: ${checked} lockfile sources, licenses of ${prodPackages.size} production and ${allPackages.size} total package versions, release sets on one version (${Object.keys(policy.releaseSets.sets).join(', ')}).`,
 );
