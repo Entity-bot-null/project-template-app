@@ -269,11 +269,16 @@ jobs:
           # launcher, Quickstep). Without dialogs, Android kills the process
           # that stopped responding instead (AppErrors.handleShowAnrUi): the
           # launcher restarts behind the app, and an app that stops
-          # responding is still killed and fails its flow.
+          # responding is still killed and fails its flow. The setting does
+          # not close a dialog already shown (the launcher stopped responding
+          # while the emulator booted, in two runs on 2026-10-24), so the
+          # launcher (the HOME app) is then restarted once: ending its
+          # process closes its dialogs.
           script: |
             adb reverse tcp:4010 tcp:4010
             adb shell settings put secure stylus_handwriting_enabled 0
             adb shell settings put global hide_error_dialogs 1
+            adb shell 'am force-stop "$(cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -n 1 | cut -d/ -f1)"'
             adb install -r android/app/build/outputs/apk/release/app-release.apk
             maestro test .maestro --format junit --output .maestro/results/report.xml --test-output-dir .maestro/results
             adb reverse tcp:4010 tcp:3010
