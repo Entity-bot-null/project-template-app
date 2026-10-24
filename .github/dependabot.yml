@@ -79,19 +79,27 @@ updates:
         update-types: [patch]
       # Prisma's CLI, client and driver adapter work only at one version
       # (scripts/dependency-policy.json, releaseSets): one pull request moves
-      # the three, majors included. Before development and production on
-      # purpose: a dependency goes to the first group it matches. When the
-      # install policy refuses one of the new versions (a trust downgrade,
-      # SECURITY.md#dependencies), Dependabot opens the pull request with the
-      # others and `pnpm deps:check` fails it until all three can move.
+      # the three, majors included. When the install policy refuses one of the
+      # new versions (a trust downgrade, SECURITY.md#dependencies), Dependabot
+      # opens the pull request with the others and `pnpm deps:check` fails it
+      # until all three can move.
       prisma:
         patterns:
           - prisma
           - '@prisma/*'
+      # The two catch-all groups match every name ('*') on purpose. A
+      # dependency that several groups match goes to the most specific one
+      # (Dependabot's updater scores the patterns: an exact name 1000, a group
+      # with no patterns 500, `expo-*` or `@prisma/*` about 90, `*` 1), not to
+      # the first one listed: without '*' these two outranked the groups above,
+      # and `@prisma/client` or `expo-router` came in them, apart from their
+      # set.
       development:
+        patterns: ['*']
         dependency-type: development
         update-types: [minor, patch]
       production:
+        patterns: ['*']
         dependency-type: production
         update-types: [minor, patch]
     commit-message:
