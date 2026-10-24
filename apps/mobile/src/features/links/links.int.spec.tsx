@@ -410,6 +410,91 @@ describe('RevertEmailChangeScreen', () => {
   });
 });
 
+// Every session of the account ends with these links. This phone may be
+// signed in to that account, or to another one, or to none: it asks the
+// server at once rather than at a next request that fresh data may never
+// need (the Maestro journey that confirms a change of email stayed signed
+// in).
+describe('a link that ends every session of the account', () => {
+  const links = [
+    [
+      'reset-password',
+      ResetPasswordScreen,
+      'POST /api/auth/password-resets/confirm',
+      async () => {
+        await typePasswords('New password');
+        await userEvent.press(screen.getByRole('button', { name: 'Change password' }));
+      },
+    ],
+    [
+      'confirm-email-change',
+      ConfirmEmailChangeScreen,
+      'POST /api/auth/email-changes/confirm',
+      async () => {
+        await userEvent.press(screen.getByRole('button', { name: 'Confirm the new address' }));
+      },
+    ],
+    [
+      'revert-email-change',
+      RevertEmailChangeScreen,
+      'POST /api/auth/email-changes/revert',
+      async () => {
+        await typePasswords('New password');
+        await userEvent.press(screen.getByRole('button', { name: 'Undo the change' }));
+      },
+    ],
+  ] as const;
+
+  it.each(links)(
+    '%s signs this phone out at once when it was signed in to that account',
+    async (name, LinkScreen, route, submit) => {
+      await signInForTest(fetchStub);
+      linkTokens.keep(name, TOKEN);
+      fetchStub.on(route, () => noContent());
+      fetchStub.on('POST /api/auth/refresh', () => failure(401, 'Invalid refresh token'));
+      await renderWithProviders(<LinkScreen />);
+      await submit();
+      expect(await screen.findByTestId(`${name}-done`)).toBeOnTheScreen();
+      expect(useSessionStore.getState()).toEqual({
+        status: 'signedOut',
+        endedBy: 'expired',
+        user: null,
+      });
+      await userEvent.press(screen.getByRole('button', { name: 'Continue' }));
+      expect(router.replace).toHaveBeenCalledWith('/sign-in');
+    },
+  );
+
+  it.each(links)(
+    '%s keeps the session of another account, which the server still holds',
+    async (name, LinkScreen, route, submit) => {
+      await signInForTest(fetchStub);
+      linkTokens.keep(name, TOKEN);
+      fetchStub.on(route, () => noContent());
+      fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('2')));
+      await renderWithProviders(<LinkScreen />);
+      await submit();
+      expect(await screen.findByTestId(`${name}-done`)).toBeOnTheScreen();
+      expect(sent('/auth/refresh')).toHaveLength(1);
+      expect(useSessionStore.getState()).toEqual({ status: 'signedIn', endedBy: null, user });
+      await userEvent.press(screen.getByRole('button', { name: 'Continue' }));
+      expect(router.replace).toHaveBeenCalledWith('/');
+    },
+  );
+
+  it.each(links)(
+    '%s asks nothing more when signed out',
+    async (name, LinkScreen, route, submit) => {
+      linkTokens.keep(name, TOKEN);
+      fetchStub.on(route, () => noContent());
+      await renderWithProviders(<LinkScreen />);
+      await submit();
+      expect(await screen.findByTestId(`${name}-done`)).toBeOnTheScreen();
+      expect(fetchStub.requests).toHaveLength(1);
+    },
+  );
+});
+
 describe('SignedInNotice', () => {
   it('names no account while a session restored offline does not know it yet', async () => {
     linkTokens.keep('accept-invitation', TOKEN);

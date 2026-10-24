@@ -10,7 +10,10 @@ import { session } from '@/auth/session';
 // what this server offers, signing up, recovering a password, and the
 // screens of the links the API emails. The ones that answer a session (a
 // confirmed sign-up, an accepted invitation) hand it to the session, which
-// adopts it; the navigation follows (src/app/_layout.tsx).
+// adopts it; the navigation follows (src/app/_layout.tsx). The ones that end
+// every session of an account (a password reset, a confirmed change of email
+// and its undo) have the session revalidated: when this device was signed in
+// to that account, it is signed out at once.
 
 export type Capabilities = components['schemas']['Capabilities'];
 
@@ -67,12 +70,17 @@ export function useRequestPasswordReset() {
   });
 }
 
-/** Chooses a new password with a reset link's token; every session of the account ends. */
+/**
+ * Chooses a new password with a reset link's token; every session of the
+ * account ends, this device's at once when it is one of them.
+ */
 export function useResetPassword() {
   return useMutation({
     mutationKey: ['auth', 'reset-password'],
-    mutationFn: (body: Body<'/api/auth/password-resets/confirm'>) =>
-      expectSuccess(publicApi.POST('/api/auth/password-resets/confirm', { body })),
+    mutationFn: async (body: Body<'/api/auth/password-resets/confirm'>) => {
+      await expectSuccess(publicApi.POST('/api/auth/password-resets/confirm', { body }));
+      await session.revalidate();
+    },
   });
 }
 
@@ -87,20 +95,30 @@ export function useAcceptInvitation() {
   });
 }
 
-/** Confirms a new email address; every session of the account ends. */
+/**
+ * Confirms a new email address; every session of the account ends, this
+ * device's at once when it is one of them.
+ */
 export function useConfirmEmailChange() {
   return useMutation({
     mutationKey: ['auth', 'confirm-email-change'],
-    mutationFn: (body: Body<'/api/auth/email-changes/confirm'>) =>
-      expectSuccess(publicApi.POST('/api/auth/email-changes/confirm', { body })),
+    mutationFn: async (body: Body<'/api/auth/email-changes/confirm'>) => {
+      await expectSuccess(publicApi.POST('/api/auth/email-changes/confirm', { body }));
+      await session.revalidate();
+    },
   });
 }
 
-/** Undoes a change of email with a new password; every session of the account ends. */
+/**
+ * Undoes a change of email with a new password; every session of the account
+ * ends, this device's at once when it is one of them.
+ */
 export function useRevertEmailChange() {
   return useMutation({
     mutationKey: ['auth', 'revert-email-change'],
-    mutationFn: (body: Body<'/api/auth/email-changes/revert'>) =>
-      expectSuccess(publicApi.POST('/api/auth/email-changes/revert', { body })),
+    mutationFn: async (body: Body<'/api/auth/email-changes/revert'>) => {
+      await expectSuccess(publicApi.POST('/api/auth/email-changes/revert', { body }));
+      await session.revalidate();
+    },
   });
 }
