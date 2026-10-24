@@ -253,6 +253,8 @@ a `faceIDPermission` text in `apps/mobile/app.config.ts`); screenshot blocking w
   enough. From that date `pnpm deps:check` fails until both entries are deleted.
 - `pnpm audit --audit-level=high` in `pnpm security` and CI; Dependabot security updates.
 - Expo SDK packages move together through SDK upgrades; Dependabot proposes their patches only.
+  Prisma's packages move together in one pull request
+  ([release sets](#dependency-policy)).
 - Every release carries a CycloneDX SBOM of the production dependencies (`pnpm sbom:generate`):
   the npm packages they resolve to in the lockfile, peer dependencies included (so some tools
   appear, Jest through a peer of `expo-router`). It does not list the native libraries Gradle and
@@ -298,6 +300,11 @@ exemption also fails the check from its expiry date on.
   Source License). An SPDX expression passes when it can be met with allowed licenses alone, read
   as SPDX reads it (`(MIT OR Apache-2.0) AND GPL-3.0` needs GPL-3.0), each version on its own
   (`scripts/licenses.mjs`);
+- release sets: packages published together as one release resolve to one version wherever the
+  workspace uses them (`scripts/release-sets.mjs`). Prisma's CLI, client and driver adapter are
+  one: the CLI generates the code the client runs, so an update that moved the client alone (the
+  trust policy had refused the CLI's new version) would build and pass the tests with two releases
+  mixed. Each set has a Dependabot group of its own;
 - the supply-chain settings above cannot be weakened without failing the check
   (`scripts/install-settings.mjs`, which reads `pnpm-workspace.yaml` as YAML and fails on what it
   cannot read unambiguously, such as anchors or a key set twice):
