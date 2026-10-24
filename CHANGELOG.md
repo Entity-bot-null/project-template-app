@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0](https://github.com/Entity-bot-null/project-template-app/compare/v0.2.0...v1.0.0) (2026-10-24)
+
+
+### Features
+
+* **api:** add the NestJS API ported from project-template-web ([#41](https://github.com/Entity-bot-null/project-template-app/issues/41)) ([c45bf2e](https://github.com/Entity-bot-null/project-template-app/commit/c45bf2e652bfeebf753a9c4adf06389abeebb936))
+* **deploy:** deploy the API and the landing to a server ([#49](https://github.com/Entity-bot-null/project-template-app/issues/49)) ([549f704](https://github.com/Entity-bot-null/project-template-app/commit/549f704cd3ebecf11ed6f5a2233a21a4788e71f2))
+* **doberman:** audit in rounds that fix what each one finds (--loop) ([#56](https://github.com/Entity-bot-null/project-template-app/issues/56)) ([f6e8fa7](https://github.com/Entity-bot-null/project-template-app/commit/f6e8fa7ee822a1195d669aff30275f3de05f2531))
+* **landing:** add the Astro landing and the public web image ([#46](https://github.com/Entity-bot-null/project-template-app/issues/46)) ([97557ea](https://github.com/Entity-bot-null/project-template-app/commit/97557ea1179f2a4987367111db05ac65f057c637))
+* **mobile:** use the real API: accounts, email links, admin and minimum version ([#45](https://github.com/Entity-bot-null/project-template-app/issues/45)) ([42f41fe](https://github.com/Entity-bot-null/project-template-app/commit/42f41feb9031835552944ea8304d443e05bf81ed))
+* **push:** push notifications through an outbox and Expo's push service ([#55](https://github.com/Entity-bot-null/project-template-app/issues/55)) ([9ad9fbb](https://github.com/Entity-bot-null/project-template-app/commit/9ad9fbbd05b66390bf62c86c289ee0c10e8befa1))
+
+
+### Bug fixes
+
+* **deps:** install the fixes of the advisories published on 2026-10-23 ([#52](https://github.com/Entity-bot-null/project-template-app/issues/52)) ([b241304](https://github.com/Entity-bot-null/project-template-app/commit/b241304de084a07b31edf78efa2f5e24c1927725))
+* **mobile:** sign this phone out at once when a link ends every session ([#53](https://github.com/Entity-bot-null/project-template-app/issues/53)) ([a107264](https://github.com/Entity-bot-null/project-template-app/commit/a107264280723b158ad66c4784a8b01d49e7eb89))
+* port the session, email change, outbox and gate fixes of the web template's v2.0.0 audit ([#57](https://github.com/Entity-bot-null/project-template-app/issues/57)) ([29ba717](https://github.com/Entity-bot-null/project-template-app/commit/29ba717a38d25b7f27857a3b969792f2e0828abf))
+
 ## [0.2.0](https://github.com/Entity-bot-null/project-template-app/compare/v0.1.3...v0.2.0) (2026-10-21)
 
 
