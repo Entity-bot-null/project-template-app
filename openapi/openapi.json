@@ -2669,7 +2669,7 @@
   "info": {
     "title": "API",
     "description": "REST API under /api for the mobile app. Every response body is { data, message }; errors carry data: null, and a 400 that names its fields lists them in errors. Authenticated routes take the access token of a session (POST /api/auth/sign-in) as a bearer token; POST /api/auth/refresh exchanges the refresh token for a new session. The app sends X-App-Platform (ios, android) and X-App-Version with every request: below the oldest version the API serves, it answers 426.",
-    "version": "0.2.0",
+    "version": "1.0.0",
     "contact": {}
   },
   "tags": [],
