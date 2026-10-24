@@ -702,13 +702,16 @@ GRANT CONNECT ON DATABASE app TO app_runtime;
 GRANT USAGE ON SCHEMA public TO app_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_runtime;
 ```
 
 **Check:** each statement answers `CREATE ROLE`, `GRANT ROLE`, `CREATE DATABASE`, `GRANT` or
 `ALTER DEFAULT PRIVILEGES`, without errors. Without `GRANT app_migrator TO CURRENT_USER`,
 PostgreSQL 16 and later refuse `CREATE DATABASE` (`must be able to SET ROLE "app_migrator"`): the
 providers' administrators are not superusers. The migrator will own and change the schema; the
-API connects as `app_runtime`, which reads and writes data only.
+API connects as `app_runtime`, which reads and writes data only (not the migration history: the
+first deployment's migrations take its rights on it back).
 
 ### 7.6 Put the deployment files on the server
 
@@ -906,7 +909,9 @@ cd /srv/app
 ```
 
 **Check:** it prints `rollback: running <commit of 7.8>`; https://staging.acme.com/release.json
-names that commit; the site and the app still work.
+names that commit; the site and the app still work. After a deployment that only redeployed the
+release already running, `rollback.sh` refuses (exit 2) and names the release before it:
+`./rollback.sh --previous` starts that one.
 
 Then bring staging back through the workflow, as for any deployment:
 

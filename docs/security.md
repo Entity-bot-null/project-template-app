@@ -294,8 +294,9 @@ someone else's hands cannot take the account for good (`account/email-change.ser
   account, its owner gets a notice instead and the person asking is answered the same (202, the
   lookup after the answer): no enumeration. Limited per address like every link.
 - **Confirming** (`POST /api/auth/email-changes/confirm`, from the new mailbox, signed in or not):
-  the token works once and only while the account is as it was when it was sent (same address and
-  `security_version`: a password change in between voids it). In one transaction under the
+  the token works once and only while the account is as it was when the change was asked for
+  (same address and `security_version`: a password change in between voids it, and a request whose
+  message is still in the outbox then goes out with no link). In one transaction under the
   account's row lock: the address changes, `security_version` increases (every access token ends at
   once), every session ends (sign in again with the new address), the other reset and change links
   of the account are dropped, and the **previous** address gets a notice with a link to undo the
@@ -303,9 +304,26 @@ someone else's hands cannot take the account for good (`account/email-change.ser
 - **Undoing** (`POST /api/auth/email-changes/revert`, from the previous mailbox, within **7
   days**): the previous address comes back **with a new password chosen there** (whoever changed
   the address knew the old one), `security_version` increases and every session ends. Every other
-  link of the account is dropped **except the undo links minted before this one**: they undo
-  earlier changes, so the earliest owner wins. Whoever took the account and undoes their own later
-  change cannot void the owner's link; the owner's link voids theirs (both orders are tested). The
+  link of the account is dropped **except the undo links of earlier changes**, so the earliest owner
+  wins. They are ranked by the change they undo (the account's `security_version` right after it),
+  not by when their notice went out: a notice that waited in the outbox still outranks the links of
+  later changes, and the notices of later changes still waiting in the outbox are dropped unsent
+  (one being composed at that moment is not sent: its template reads its own row under the
+  account's lock the undo holds; one already composed goes out with a link the undo voided). The
+  previous release's undo drops nothing, so a notice also refuses its link when an undo link of
+  its change or an earlier one was used after it was queued (used links are kept a day), and a
+  notice of the previous release older than that is dropped (only a failed one put back by hand
+  gets there). A row another worker took over mints no second link. A change made after an undo
+  is told as usual. An undo that loses a deadlock to the outbox's sweep runs once more. Two limits
+  hold only while a deployment replaces the previous release: a notice that release queued carries
+  no rank, so it is ranked by the account as it is when it goes out, and an undo of any later
+  change, the thief's own included, refuses it (it cannot tell the owner's notice from one that
+  would undo an undo; drain the outbox's `email_changed` notices before deploying to avoid it,
+  `pnpm --filter api mail status`); and an undo the previous release makes counts from when its
+  request arrived (its password hash comes after), so a notice this release queues during those
+  milliseconds still goes out. Whoever took
+  the account and undoes their own later change cannot void the owner's link; the owner's link
+  voids theirs, whichever notice went out first (every order is tested). The
   undo link is **not bound to the account's later state** and is never replaced by a newer one:
   changing the address again or the password does not void it either. A refused password keeps the
   link usable; an address taken meanwhile answers 409.
@@ -620,7 +638,8 @@ When `SENTRY_DSN` is set (OPTIONAL), the API's reports go to a third party
   the build instead of silently re-enabling a default.
 - **Scrubbed again before sending** (`scrubEvent`): request reduced to method and URL without query,
   user to its id, breadcrumbs and stack frame variables dropped, every message and field through
-  the log redaction.
+  the log redaction. A Prisma error goes by its class, code and frames, never its message, which
+  can quote the query's arguments (logs too).
 - **Production DSNs must be https** (boot check); a malformed DSN fails the boot instead of turning
   error tracking off silently. Use a Sentry project of its own for the API (the app has another),
   restrict who can read it, and set the data retention the project's policy allows.
@@ -694,8 +713,10 @@ The API's dependencies live in the repository's one lockfile and pass the same c
 app's: the release delay, the trust policy, the install-script allowlist, registry-only sources,
 the license policy and `pnpm audit` ([SECURITY.md](../SECURITY.md#dependencies),
 [Dependency policy](../SECURITY.md#dependency-policy)). An advisory in a package the API's tree
-pins is handled in the open, with a scoped override in `pnpm-workspace.yaml` that names it (one is
-there now, for a package pinned by Prisma's configuration loader)
+pins, or a transitive one `pnpm update` does not move (it updates direct dependencies only), is
+handled in the open, with a scoped override in `pnpm-workspace.yaml` that names it (those of the
+API's tree now: two packages pinned by the Prisma CLI and its configuration loader, `multer` pinned
+by `@nestjs/platform-express`, `body-parser` and `fast-uri` within their parents' ranges)
 ([Known advisories](../SECURITY.md#known-advisories)).
 
 Dependabot also proposes the base images of `apps/api/Dockerfile`, the tool images CI runs

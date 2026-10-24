@@ -732,13 +732,17 @@ GRANT CONNECT ON DATABASE app TO app_runtime;
 GRANT USAGE ON SCHEMA public TO app_runtime;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_runtime;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_runtime;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_runtime;
 ```
 
 **Comprobación:** cada sentencia responde `CREATE ROLE`, `GRANT ROLE`, `CREATE DATABASE`, `GRANT` o
 `ALTER DEFAULT PRIVILEGES`, sin errores. Sin `GRANT app_migrator TO CURRENT_USER`, PostgreSQL 16 y
 posteriores rechazan `CREATE DATABASE` (`must be able to SET ROLE "app_migrator"`): los
 administradores de los proveedores no son superusuarios. El migrador será el propietario del
-esquema y quien lo cambie; la API se conecta como `app_runtime`, que solo lee y escribe datos.
+esquema y quien lo cambie; la API se conecta como `app_runtime`, que solo lee y escribe datos (no
+el historial de migraciones: las migraciones del primer despliegue le retiran sus derechos sobre
+él).
 
 ### 7.6 Copia los ficheros de despliegue al servidor
 
@@ -941,7 +945,9 @@ cd /srv/app
 ```
 
 **Comprobación:** imprime `rollback: running <commit del 7.8>`; https://staging.acme.com/release.json
-nombra ese commit; el sitio y la app siguen funcionando.
+nombra ese commit; el sitio y la app siguen funcionando. Tras un despliegue que solo volvió a
+desplegar la release que ya corría, `rollback.sh` se niega (salida 2) y nombra la release anterior:
+`./rollback.sh --previous` arranca esa.
 
 Después devuelve staging con el workflow, como cualquier despliegue:
 
