@@ -12,6 +12,7 @@ import { HealthModule } from './health/health.module.js';
 import { CacheModule } from './infrastructure/cache/cache.module.js';
 import { CoordinationModule } from './infrastructure/coordination/coordination.module.js';
 import { MailModule } from './infrastructure/mail/mail.module.js';
+import { PushModule } from './infrastructure/push/push.module.js';
 import { RateLimitModule } from './infrastructure/rate-limit/rate-limit.module.js';
 import {
   RATE_LIMIT_STORE,
@@ -19,6 +20,7 @@ import {
 } from './infrastructure/rate-limit/rate-limit.store.js';
 import { RedisModule } from './infrastructure/redis/redis.module.js';
 import { InvitationsModule } from './invitations/invitations.module.js';
+import { DevicesModule } from './devices/devices.module.js';
 import { ItemsModule } from './items/items.module.js';
 import { GracefulShutdown, ShutdownStateModule } from './lifecycle/shutdown.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -53,10 +55,14 @@ import { UsersModule } from './users/users.module.js';
     // order of these imports, so the mail worker stops (finishing the message
     // it is sending) before the database pool closes.
     MailModule,
+    // Push notifications (docs/architecture.md#push-notifications); off
+    // without PUSH_ENABLED. After PrismaModule for the same reason.
+    PushModule,
     AuthModule,
     AccountModule,
     InvitationsModule,
     ItemsModule,
+    DevicesModule,
     UsersModule,
     HealthModule,
   ],

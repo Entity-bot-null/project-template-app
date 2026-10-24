@@ -562,39 +562,40 @@ open-in-app page, at the same address ([architecture.md](architecture.md#public-
 
 ## Notifications
 
-`apps/mobile/src/lib/notifications/index.ts`, backend-agnostic. The whole lifecycle, and who owns
-each part:
+Push notifications come from the API: its outbox and Expo's push service
+([architecture.md](architecture.md#push-notifications), [ADR 0011](adr/0011-push-notifications-outbox.md)).
+On the phone, `apps/mobile/src/lib/notifications/index.ts` is the platform side (permission, token,
+display, taps) and `apps/mobile/src/features/notifications/` the registration with the API. The
+whole lifecycle:
 
-| Moment                | Behavior                                                                                                                                                                                      | Status                 |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| Permission            | asked from a screen that explains why (`PermissionPrompt` in Settings), never at launch; `usePermission` tracks undetermined → granted / denied / blocked (blocked opens the system settings) | CORE, tested           |
-| Token                 | `getPushToken()`: the Expo push token, or the raw FCM/APNs token for a backend that talks to them directly; nothing on simulators or without an EAS project id                                | CORE, tested           |
-| Registration          | `PushTokenRegistrar.register(token)` sends it to the backend: **not wired**, the sample contract has no endpoint; implement it, call it where Settings gets the token and after each sign-in  | REQUIERE CONFIGURACIÓN |
-| Token changes         | tokens change (reinstall, backup restore, OS refresh): register again after each sign-in and from `Notifications.addPushTokenListener`                                                        | REQUIERE CONFIGURACIÓN |
-| Sign-out              | the backend detaches this device's token from the account (sent with the logout call, or a delete endpoint called before the session ends); the app stores no token itself                    | REQUIERE CONFIGURACIÓN |
-| App in the foreground | shown as a banner (`configureNotifications()`); Android channels created there                                                                                                                | CORE                   |
-| App in the background | shown by the operating system; a tap brings the app back and the response listener opens the link                                                                                             | CORE                   |
-| App killed            | the tap that launched the app is read at startup (`getLastNotificationResponse`)                                                                                                              | CORE, tested           |
-| Links                 | `data.url` goes through the deep link allowlist (`apps/mobile/src/lib/links.ts`); anything else is ignored                                                                                    | CORE, tested           |
-| Duplicates            | the same notification (by id) is handled once, even when both the launch and the listener report it                                                                                           | CORE, tested           |
-| Tap while signed out  | the guards send the user to sign-in; the link is not resumed after signing in (add that if the product needs it)                                                                              | CORE                   |
+| Moment                | Behavior                                                                                                                                                                                                                                                                                                                                                                                                           | Status       |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ |
+| Permission            | asked from a screen that explains why (`PermissionPrompt` in Settings), never at launch; `usePermission` tracks undetermined → granted / denied / blocked (blocked opens the system settings)                                                                                                                                                                                                                      | CORE, tested |
+| Token                 | `getPushToken()`: the Expo push token; nothing on simulators and emulators, or without an EAS project id                                                                                                                                                                                                                                                                                                           | CORE, tested |
+| Registration          | `registerForPush()`: once the permission is granted, `PUT /api/devices/{installationId}` with the token, under a random id the installation keeps (`STORAGE_KEYS.pushInstallationId`); at every start and sign-in (`usePushRegistration`, in `(app)/_layout.tsx`) and right after the user allows notifications in Settings. It never asks for the permission; a failure is reported and retried at the next start | CORE, tested |
+| Token changes         | `onPushTokenChange()` (Expo's `addPushTokenListener`): the new token is registered at once. A reinstall is a new installation id: the API moves the token to it                                                                                                                                                                                                                                                    | CORE, tested |
+| Another account here  | adopting another account's session (an accepted invitation) registers again: the API moves the installation to that account                                                                                                                                                                                                                                                                                        | CORE, tested |
+| Sign-out              | `session.onBeforeSignOut()`: `DELETE /api/devices/{installationId}` while the session still works, before it ends and is revoked; best effort, 3 seconds at most (the button shows it). Offline, the API keeps the registration until another account registers here or the push service reports the token gone                                                                                                    | CORE, tested |
+| App in the foreground | shown as a banner (`configureNotifications()`); Android channels created there                                                                                                                                                                                                                                                                                                                                     | CORE         |
+| App in the background | shown by the operating system; a tap brings the app back and the response listener opens the link                                                                                                                                                                                                                                                                                                                  | CORE         |
+| App killed            | the tap that launched the app is read at startup (`getLastNotificationResponse`)                                                                                                                                                                                                                                                                                                                                   | CORE, tested |
+| Links                 | `data.url` goes through the deep link allowlist (`apps/mobile/src/lib/links.ts`); anything else is ignored                                                                                                                                                                                                                                                                                                         | CORE, tested |
+| Duplicates            | the same notification (by id) is handled once, even when both the launch and the listener report it                                                                                                                                                                                                                                                                                                                | CORE, tested |
+| Tap while signed out  | the guards send the user to sign-in; the link is not resumed after signing in (add that if the product needs it)                                                                                                                                                                                                                                                                                                   | CORE         |
 
-The backend side of registration (REQUIERE CONFIGURACIÓN), whatever the push provider:
+**What ships.** One kind: `password_changed`, the security notice that also goes by email, to every
+device of the account ("Your password was changed", opening Settings). A product adds its kinds in
+the API (`apps/api/src/infrastructure/push/push.templates.ts`, [how-to.md](how-to.md#send-a-push-notification)); the app
+opens their `data.url` only if `links.ts` accepts it. The text passes through Expo, Apple and Google
+and shows on lock screens: never personal data.
 
-- store **one row per token**, upserted by the token: the same registration twice is one row;
-- a token belongs to **one account at a time**: registering it under another account moves it (a
-  shared device that changes user);
-- an account has **as many tokens as devices**; send to all of them;
-- delete a token at **sign-out** and when the push service reports it invalid (Expo push receipts
-  `DeviceNotRegistered`, FCM `UNREGISTERED`);
-- keep the platform, app version and last registration time, to clean up stale tokens;
-- payloads carry what the user should see and an internal `url`, never personal data beyond that
-  (lock screens show them).
-
-Credentials, per project: Android needs the Firebase project's `google-services.json` in the build
-(the file-type EAS variable `GOOGLE_SERVICES_JSON`, read by `apps/mobile/app.config.ts`; never
-committed) and the FCM V1 key on EAS; iOS needs an APNs key on EAS
-([releases.md](releases.md#store-and-service-credentials)).
+**Credentials, per project** (REQUIERE CONFIGURACIÓN; [releases.md](releases.md#store-and-service-credentials)):
+an EAS project id (`eas init`), without which there is no Expo push token; on Android, the Firebase
+project's `google-services.json` in the build (the file-type EAS variable `GOOGLE_SERVICES_JSON`,
+read by `apps/mobile/app.config.ts`; never committed) and the FCM V1 key on EAS; on iOS, an APNs
+key on EAS. On the API, `PUSH_ENABLED` and, for Expo's enhanced push security, `EXPO_ACCESS_TOKEN`
+([environment.md](environment.md)). Push works on a real device with a development or release
+build only.
 
 ## App lifecycle
 

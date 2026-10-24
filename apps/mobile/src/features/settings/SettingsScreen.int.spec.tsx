@@ -1,4 +1,4 @@
-import { fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
@@ -8,7 +8,7 @@ import { capabilitiesKey } from '@/features/auth/api';
 import { OnboardingScreen } from '@/features/onboarding/OnboardingScreen';
 import { DEFAULT_PREFERENCES, usePreferences } from '@/store/preferences';
 import { account, capabilities } from '@/test/fixtures';
-import { failure, ok, stubFetch, type StubbedFetch } from '@/test/http';
+import { failure, noContent, ok, stubFetch, type StubbedFetch } from '@/test/http';
 import { renderWithProviders } from '@/test/render';
 import { endTestSession, signInForTest } from '@/test/session';
 
@@ -17,6 +17,12 @@ import { SettingsScreen } from './SettingsScreen';
 jest.mock('expo-router', () => ({
   ...jest.requireActual<object>('expo-router'),
   router: { push: jest.fn() },
+}));
+// A phone with push available: a device, and an EAS project.
+jest.mock('expo-device', () => ({ __esModule: true, isDevice: true }));
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: { expoConfig: { extra: { eas: { projectId: 'project-1' } } } },
 }));
 
 let fetchStub: StubbedFetch;
@@ -125,13 +131,35 @@ describe('SettingsScreen', () => {
     });
   });
 
+  it('registers this phone for push notifications once the user allows them', async () => {
+    const granted = { granted: true, canAskAgain: true, status: 'granted' } as never;
+    jest.mocked(Notifications.requestPermissionsAsync).mockImplementation(() => {
+      jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue(granted);
+      return Promise.resolve(granted);
+    });
+    fetchStub.on('PUT /api/devices/:installationId', () => noContent());
+    await renderWithProviders(<SettingsScreen />);
+    await userEvent.press(await screen.findByRole('button', { name: 'Allow' }));
+    await waitFor(() => {
+      expect(
+        fetchStub.requests.filter(
+          (request) => request.method === 'PUT' && request.url.includes('/api/devices/'),
+        ),
+      ).toHaveLength(1);
+    });
+  });
+
   it('signs out after a confirmation', async () => {
     const alert = jest.spyOn(Alert, 'alert');
     await renderWithProviders(<SettingsScreen />);
     await userEvent.press(await screen.findByRole('button', { name: 'Sign out' }));
     expect(useSessionStore.getState().status).toBe('signedIn');
     const buttons = alert.mock.calls[0]![2]!;
-    buttons.find((button) => button.style === 'destructive')?.onPress?.();
+    await act(() => {
+      buttons.find((button) => button.style === 'destructive')?.onPress?.();
+    });
+    // Busy while the sign-out runs: no second tap.
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeBusy();
     await waitFor(() => {
       expect(useSessionStore.getState()).toEqual({
         status: 'signedOut',

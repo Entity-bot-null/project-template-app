@@ -87,6 +87,8 @@ export const ROUTES = Object.freeze([
   'POST /api/auth/invitations/accept',
   'GET /api/users',
   'GET /api/users/{id}',
+  'PUT /api/devices/{installationId}',
+  'DELETE /api/devices/{installationId}',
 ]);
 
 /** The ids `pnpm db:seed` gives the member's items: Item 1 is …0001. */
@@ -98,6 +100,7 @@ const REFRESH_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const LINK_TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const IDEMPOTENCY_KEY = /^[\x21-\x7E]{1,255}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EXPO_PUSH_TOKEN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{1,200}\]$/;
 
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
@@ -160,6 +163,11 @@ export function createMockApi({
   const linkTokens = new Map();
   /** @type {MockInvitation[]} */
   const invitations = [];
+  /**
+   * The devices registered for push, by installation id (the mock sends no notification).
+   * @type {Map<string, { userId: string; pushToken: string; platform: string }>}
+   */
+  const devices = new Map();
 
   /** @type {MockItem[]} */
   const items = Array.from({ length: 45 }, (_, index) => ({
@@ -650,6 +658,9 @@ export function createMockApi({
       for (let index = items.length - 1; index >= 0; index -= 1) {
         if (items[index]?.ownerId === user.id) items.splice(index, 1);
       }
+      for (const [installationId, device] of devices) {
+        if (device.userId === user.id) devices.delete(installationId);
+      }
       mail(user.email, 'your account was deleted');
       noContent(response);
     },
@@ -830,6 +841,56 @@ export function createMockApi({
           : undefined;
       if (!found) return fail(context.response, 404, 'User not found');
       send(context.response, 200, account(found), 'Operation successful');
+    },
+
+    async 'PUT /api/devices/{installationId}'(context) {
+      const user = signedIn(context);
+      if (!user) return;
+      const { request, response } = context;
+      const installationId = context.params.installationId ?? '';
+      if (!UUID.test(installationId)) {
+        return fail(response, 400, 'Validation failed (uuid is expected)');
+      }
+      const body = fieldsOf(await readJson(request));
+      /** @type {FieldError[]} */
+      const errors = [];
+      if (typeof body.pushToken !== 'string' || !EXPO_PUSH_TOKEN.test(body.pushToken)) {
+        errors.push({ path: 'pushToken', message: 'Not an Expo push token' });
+      }
+      if (body.platform !== 'ios' && body.platform !== 'android') {
+        errors.push({
+          path: 'platform',
+          message: 'Invalid option: expected one of "ios"|"android"',
+        });
+      }
+      if (body.kind !== undefined && body.kind !== 'expo') {
+        errors.push({ path: 'kind', message: 'Invalid input: expected "expo"' });
+      }
+      if (errors.length > 0) return invalid(response, errors);
+      // The token belongs to this installation only; the installation to the caller.
+      for (const [other, device] of devices) {
+        if (device.pushToken === body.pushToken && other !== installationId) devices.delete(other);
+      }
+      devices.set(installationId, {
+        userId: user.id,
+        pushToken: /** @type {string} */ (body.pushToken),
+        platform: /** @type {string} */ (body.platform),
+      });
+      noContent(response);
+    },
+
+    'DELETE /api/devices/{installationId}'(context) {
+      const user = signedIn(context);
+      if (!user) return;
+      const installationId = context.params.installationId ?? '';
+      if (!UUID.test(installationId)) {
+        return fail(context.response, 400, 'Validation failed (uuid is expected)');
+      }
+      if (devices.get(installationId)?.userId !== user.id) {
+        return fail(context.response, 404, 'Device not found');
+      }
+      devices.delete(installationId);
+      noContent(context.response);
     },
   };
 

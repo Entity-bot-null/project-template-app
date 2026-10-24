@@ -9,14 +9,16 @@ import { z } from 'zod';
 import { toInternalPath } from '@/lib/links';
 import type { PermissionSource } from '@/lib/permissions/usePermission';
 
-// Push notifications, prepared and backend-agnostic
-// (docs/mobile-architecture.md#notifications):
+// Push notifications on this device (docs/mobile-architecture.md#notifications):
 //   - the permission is asked from Settings, after an explanation, never on launch;
-//   - the token is handed to a PushTokenRegistrar: the backend endpoint that
-//     stores it is the project's (REQUIERE CONFIGURACIÓN);
+//   - the token is handed to a PushTokenRegistrar: the API's devices
+//     (src/features/notifications), registered while signed in and removed at
+//     sign-out;
 //   - tapping a notification opens its `data.url`, validated like any deep link.
 // Push needs a development or release build on a real device (not Expo Go,
-// not a simulator) and, for Expo's push service, an EAS project id.
+// not a simulator) and an EAS project id: the API sends through Expo's push
+// service, so only Expo push tokens are registered (REQUIERE CONFIGURACIÓN:
+// `eas init`, and the FCM and APNs credentials in EAS).
 
 export const notificationPermission: PermissionSource = {
   get: () => Notifications.getPermissionsAsync(),
@@ -45,32 +47,48 @@ export function configureNotifications(): void {
 }
 
 export interface PushToken {
-  /** Expo push token (Expo's push service) or the raw FCM / APNs token. */
-  kind: 'expo' | 'device';
+  /** The push service the token belongs to: Expo's, the one the API sends through. */
+  kind: 'expo';
+  /** ExponentPushToken[…] */
   value: string;
   platform: 'ios' | 'android';
 }
 
-/** Where tokens go: implement with the backend's endpoint. */
+/** Where this installation's push token goes, and how it leaves. */
 export interface PushTokenRegistrar {
+  /** Registers the token for the signed-in account; safe to repeat. */
   register(token: PushToken): Promise<void>;
+  /** Stops push notifications to this installation (at sign-out). */
+  unregister(): Promise<void>;
 }
 
 const ExtraSchema = z.object({ eas: z.object({ projectId: z.string().min(1) }) });
 
-/** The push token of this device, or null where push is unavailable. */
+/**
+ * This device's Expo push token, or null where push is unavailable: a
+ * simulator or an emulator, or a build without an EAS project id. Rejects
+ * when the platform's service refuses (on Android, FCM credentials missing).
+ */
 export async function getPushToken(): Promise<PushToken | null> {
   if (!Device.isDevice) return null;
-  const platform = Platform.OS === 'ios' ? 'ios' : 'android';
   const extra = ExtraSchema.safeParse(Constants.expoConfig?.extra);
-  if (extra.success) {
-    const token = await Notifications.getExpoPushTokenAsync({
-      projectId: extra.data.eas.projectId,
-    });
-    return { kind: 'expo', value: token.data, platform };
-  }
-  const token = await Notifications.getDevicePushTokenAsync();
-  return { kind: 'device', value: String(token.data), platform };
+  if (!extra.success) return null;
+  const token = await Notifications.getExpoPushTokenAsync({ projectId: extra.data.eas.projectId });
+  return { kind: 'expo', value: token.data, platform: Platform.OS === 'ios' ? 'ios' : 'android' };
+}
+
+/**
+ * Calls `listener` when the push service replaces this device's token while
+ * the app runs (rare): the old one stops working, so the new one is
+ * registered at once. Returns the unsubscribe function.
+ */
+export function onPushTokenChange(listener: () => void): () => void {
+  const subscription = Notifications.addPushTokenListener(() => {
+    listener();
+  });
+  return () => {
+    subscription.remove();
+  };
 }
 
 const handled = new Set<string>();

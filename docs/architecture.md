@@ -186,13 +186,15 @@ src/
                      (OpenTelemetry SDK, loaded only when on), application metrics
   infrastructure/    optional infrastructure behind interfaces: redis/ (connection),
                      rate-limit/, cache/, coordination/ (locks, idempotency), mail/ (outbox,
-                     worker, SMTP, templates, the `mail` command)
+                     worker, SMTP, templates, the `mail` command), push/ (outbox, worker, Expo's
+                     push service, templates, the `push` command)
   lifecycle/         shutdown sequence (drain, close, flush)
   auth/              sign-in, refresh rotation with its reuse window, logout, JWT guard, roles
                      guard, @Auth(), password policy, one-time tokens, password recovery, sign-up
   account/           the signed-in user's own account (password, change of email, deletion)
   invitations/       administrators invite people to create an account
   items/             example resource: an owner's items, search, pagination, idempotent create
+  devices/           the installations of the app that get push notifications (register, remove)
   users/             me, admin list, owner-or-admin read; the `user:create` command
   health/            liveness and readiness probes
   prisma/            PrismaService (generated client in prisma/generated, ignored by git)
@@ -469,6 +471,79 @@ MailWorker (every instance) ── claim one due row (lease 2 min, FOR UPDATE SK
   when anyone can cause it, its validity, `compose`), and `MailOutboxService.enqueue(tx, ...)` in
   the transaction of the change it reports, with ids in the payload, never personal data or secrets.
 
+### Push notifications
+
+`devices/` and `infrastructure/push/`, OPTIONAL (`PUSH_ENABLED`, and `EXPO_ACCESS_TOKEN` for
+Expo's enhanced security; [ADR 0011](adr/0011-push-notifications-outbox.md)). The email outbox's
+design, for Expo's push service, which hands notifications to Apple (APNs) and Google (FCM):
+
+```
+app (signed in, notifications allowed) ── PUT /api/devices/{installationId} { pushToken, platform }
+                                          devices: one row per installation, one per token
+feature transaction ─┬─ the business change (a changed password...)
+                     └─ PushOutboxService.enqueue(tx, { kind, userId, payload: ids only })
+                                │ a row of push_messages per working device of the account: no text
+                                ▼
+PushWorker (every instance) ── claim up to 100 due rows (lease 1 min, FOR UPDATE SKIP LOCKED)
+                             ── render each (title, body, data.url) ── POST /push/send, no
+                                transaction open ── record each ticket, fenced by the claim
+                             ── 15 minutes later: claim the sent rows, POST /push/getReceipts ──
+                                delivered, failed, or the device disabled (DeviceNotRegistered)
+```
+
+- **Devices:** the app registers its Expo push token for the signed-in account under a random id
+  of the installation (`PUT`, 204, safe to repeat) at every start and sign-in once notifications
+  are allowed, when the user allows them, and when the token changes; at sign-out, before the
+  session is revoked, `DELETE` ([mobile-architecture.md](mobile-architecture.md#notifications)).
+  One row per installation and one per token: the same installation under another account moves to
+  it (a shared phone), a token registered by another installation (a reinstall) leaves its old row.
+  Only the caller's own installation can be removed; another account's answers 404, like a missing
+  one ([authorization.md](authorization.md)). Registration works with push off too, so turning it on
+  later reaches every phone that registered.
+- **Atomic with the change:** the notifications exist if and only if the transaction that called
+  for them committed, one per device of the account whose token works at that moment. After the
+  commit, `notifyQueued()` wakes this instance's worker at once; otherwise every worker polls every
+  5 seconds.
+- **Several instances:** one atomic `UPDATE ... WHERE id IN (SELECT ... FOR UPDATE SKIP LOCKED)`
+  claims a batch (Expo takes at most 100 per request) for one worker; every later transition
+  requires the same claim (a send: status `sending` and the attempt; a receipt: status `sent` and
+  its ticket), so a worker whose lease ran out cannot overwrite another's outcome.
+- **Retries:** a request that fails (timeout, network, 429, 5xx) leaves the whole batch for a retry
+  (30 s doubling to an hour, equal jitter, at most 5 attempts); the HTTP client never retries a
+  send by itself, which could notify twice. Per notification, its ticket or receipt decides:
+  `MessageRateExceeded` is retried, `DeviceNotRegistered` disables the device (nothing more goes to
+  it until the app registers again; outcome `unregistered`), any other error fails it, and refused
+  credentials (`InvalidCredentials`, `MismatchSenderId`) also reach the error tracker. A
+  notification past its kind's validity (a day for `password_changed`) is dropped unsent; a receipt
+  still missing a day after the send never comes (`no_receipt`).
+- **Delivery is at least once:** if the process dies after Expo accepted a batch and before the
+  tickets are recorded, the lease runs out and another worker sends it again.
+- **What is stored:** a device's token, platform, app version (its `X-App-Version`, when valid) and
+  last registration; a notification's kind, account, device, ids, status and the category of its
+  last failure, never the service's text. The text is rendered when it is sent and stored nowhere.
+  CHECK constraints keep the states consistent. Retention, by an hourly sweep: finished rows after
+  30 days, a device whose token died 30 days after, one not registered for 270 days (when Firebase
+  treats a token as stale). A deleted account's devices and notifications go with it (cascade).
+- **What a notification carries:** a title, a body and `data.url`, an internal path the app opens
+  only through its link allowlist; sound, high priority and the Android channel `default`. The text
+  passes through Expo, Apple and Google and shows on lock screens: never personal data. Tokens are
+  device identifiers: never logged (a device is named by its id).
+- **Security:** without `EXPO_ACCESS_TOKEN` (with push security turned on in the Expo account),
+  anyone who learns a device's push token can send to it through Expo
+  ([security.md](security.md#push-notifications)).
+- **Without configuration:** nothing is queued, the worker never starts, readiness says
+  `checks.push: "disabled"`.
+- **Operating it:** `pnpm --filter api push status` ([manual](manual.md#59-push-notifications));
+  metrics `app.push.*` and alerts `ApiPushBacklog`, `ApiPushDeliveryFailed`
+  ([observability.md](observability.md#metrics),
+  [incident-response.md](incident-response.md#19-push-notifications-not-delivered)). The
+  integration suite runs the worker against a fake push service.
+- **Adding a notification:** a kind in the `PushKind` enum (`prisma/schema.prisma`, with its
+  migration), a template in `infrastructure/push/push.templates.ts` (its validity, `render`: the
+  title, the body and a `data.url` the app's `links.ts` accepts), and
+  `PushOutboxService.enqueue(tx, ...)` in the transaction of the change it reports, then
+  `notifyQueued()` after the commit ([how-to.md](how-to.md#send-a-push-notification)).
+
 ### Account credentials
 
 Password recovery and change ([security.md](security.md#password-recovery)):
@@ -514,8 +589,8 @@ templates/invitation.template.ts     the invitation link (7 days)
 ### Job queues
 
 Not included: no queue library is installed until a project needs one. The integration point, when
-work must leave the request (image processing, document generation, push notifications, heavy
-computations):
+work must leave the request (image processing, document generation, heavy computations; email
+and push notifications have their own outboxes, above):
 
 ```
 API ──enqueue (job name, payload with ids only)──► queue (Redis: BullMQ, or SQS / Pub/Sub / ...)

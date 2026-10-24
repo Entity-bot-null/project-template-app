@@ -288,6 +288,31 @@ staging, the `production` builds at production, and its domain is the app's link
 `pnpm iac:check` and `pnpm observability:check` check the server's code locally (Docker), as CI
 does.
 
+### 5.9 Push notifications
+
+The API sends push notifications through Expo's push service, to every phone of the account that
+allowed them; one kind ships, the security notice of a changed password ("Your password was
+changed", opening Settings). Off by default: `PUSH_ENABLED=true` turns it on, and
+`EXPO_ACCESS_TOKEN` (an access token of the Expo account, with push security turned on at
+expo.dev/settings/access-tokens) keeps anyone who learns a phone's token from sending to it
+([environment.md](environment.md#api-variables)). The app registers the phone once the user allows
+notifications in Settings, and removes it at sign-out
+([mobile-architecture.md](mobile-architecture.md#notifications)).
+
+To receive them you need a real phone with a development or release build, built with an EAS
+project (`eas init`) and its credentials (REQUIERE CONFIGURACIÓN; step by step in
+[step-by-step.md](step-by-step.md#84-push-and-error-reporting-services-optional)): on Android, the
+Firebase project's `google-services.json` as the file-type EAS variable `GOOGLE_SERVICES_JSON` and
+its FCM V1 key; on iOS, an APNs key. Emulators and simulators get no push token: the app registers
+nothing there. The outbox's command:
+
+```sh
+pnpm --filter api push status   # whether push is on, the queue, the devices, the latest failures
+```
+
+How the outbox works: [architecture.md](architecture.md#push-notifications); when notifications do
+not arrive: [incident-response.md](incident-response.md#19-push-notifications-not-delivered).
+
 ## 6. Daily development
 
 1. `git switch main && git pull`, then `pnpm install` when the lockfile changed.
@@ -398,6 +423,7 @@ one, naming it; every variable, its default and rules: [environment.md](environm
 | `pnpm verify`                                     | format, lint, typecheck, coverage, expo-doctor, security, build, budgets                                                                                                                                                                                                                  |
 | `pnpm --filter api user:create`                   | an account, its password from standard input (section 5.6)                                                                                                                                                                                                                                |
 | `pnpm --filter api mail <command>`                | the email outbox: `test`, `status`, `retry` (section 5.3)                                                                                                                                                                                                                                 |
+| `pnpm --filter api push status`                   | the push outbox: whether push is on, the queue, the devices, the latest failures (section 5.9)                                                                                                                                                                                            |
 | `docker compose --profile stack up --build`       | the production-like stack on `localhost:8090`: the web image in front of the API (section 5.5)                                                                                                                                                                                            |
 
 EAS (global CLI, `eas <command>`): `login`, `init`, `build`, `build:list`, `submit`, `update`,

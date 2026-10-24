@@ -305,6 +305,32 @@ de `production` a producción, y su dominio es el dominio de los enlaces de la a
 `pnpm iac:check` y `pnpm observability:check` comprueban el código del servidor en local (Docker),
 como hace la CI.
 
+### 5.9 Notificaciones push
+
+La API envía notificaciones push a través del servicio push de Expo, a cada teléfono de la cuenta
+que las haya permitido; viene un tipo, el aviso de seguridad de una contraseña cambiada ("Your
+password was changed", que abre Ajustes). Desactivadas por defecto: `PUSH_ENABLED=true` las
+activa, y `EXPO_ACCESS_TOKEN` (un token de acceso de la cuenta de Expo, con la seguridad de push
+activada en expo.dev/settings/access-tokens) impide que quien conozca el token de un teléfono le
+envíe nada ([environment.md](environment.md#api-variables)). La app registra el teléfono cuando el
+usuario permite las notificaciones en Ajustes, y lo quita al cerrar sesión
+([mobile-architecture.md](mobile-architecture.md#notifications)).
+
+Para recibirlas necesitas un teléfono real con un build de desarrollo o de release, hecho con un
+proyecto de EAS (`eas init`) y sus credenciales (REQUIERE CONFIGURACIÓN; paso a paso en
+[step-by-step.es.md](step-by-step.es.md#84-servicios-de-push-y-de-reporte-de-errores-opcional)): en Android, el
+`google-services.json` del proyecto de Firebase como variable de EAS de tipo archivo
+`GOOGLE_SERVICES_JSON` y su clave FCM V1; en iOS, una clave APNs. Los emuladores y simuladores no
+reciben token push: la app no registra nada en ellos. El comando del outbox:
+
+```sh
+pnpm --filter api push status   # si push está activo, la cola, los dispositivos, los últimos fallos
+```
+
+Cómo funciona el outbox: [architecture.md](architecture.md#push-notifications); cuando las
+notificaciones no llegan:
+[incident-response.md](incident-response.md#19-push-notifications-not-delivered).
+
 ## 6. Desarrollo diario
 
 1. `git switch main && git pull`, y después `pnpm install` si cambió el lockfile.
@@ -418,6 +444,7 @@ sus valores por defecto y sus reglas: [environment.md](environment.md).
 | `pnpm verify`                                     | formato, lint, typecheck, cobertura, expo-doctor, seguridad, build, presupuestos                                                                                                                                                                                                                                            |
 | `pnpm --filter api user:create`                   | una cuenta, con su contraseña por la entrada estándar (sección 5.6)                                                                                                                                                                                                                                                         |
 | `pnpm --filter api mail <comando>`                | el outbox de correo: `test`, `status`, `retry` (sección 5.3)                                                                                                                                                                                                                                                                |
+| `pnpm --filter api push status`                   | el outbox de push: si está activo, la cola, los dispositivos, los últimos fallos (sección 5.9)                                                                                                                                                                                                                              |
 | `docker compose --profile stack up --build`       | el stack parecido a producción en `localhost:8090`: la imagen web delante de la API (sección 5.5)                                                                                                                                                                                                                           |
 
 EAS (CLI global, `eas <comando>`): `login`, `init`, `build`, `build:list`, `submit`, `update`,

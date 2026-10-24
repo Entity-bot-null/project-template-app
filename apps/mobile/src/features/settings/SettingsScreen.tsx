@@ -1,14 +1,15 @@
 import * as Application from 'expo-application';
 import { router } from 'expo-router';
 import * as Updates from 'expo-updates';
+import { useState } from 'react';
 import { Alert, Pressable, Switch, View } from 'react-native';
 
 import { session, useSessionUser } from '@/auth/session';
 import { useMe } from '@/features/account/api';
 import { useCapabilities } from '@/features/auth/api';
+import { registerForPush } from '@/features/notifications/api';
 import { analytics } from '@/lib/analytics';
-import { getPushToken, notificationPermission } from '@/lib/notifications';
-import { logger } from '@/lib/observability';
+import { notificationPermission } from '@/lib/notifications';
 import { usePermission } from '@/lib/permissions/usePermission';
 import { THEME_PREFERENCES, type ThemePreference, usePreferences } from '@/store/preferences';
 import {
@@ -48,6 +49,9 @@ const useStyles = createStyles((theme) => ({
 }));
 
 export function SettingsScreen() {
+  // A sign-out first tells the server to stop this phone's push notifications
+  // (a few seconds at most): the button waits with it.
+  const [signingOut, setSigningOut] = useState(false);
   return (
     <Screen scroll edges={['left', 'right']} testID="settings-screen">
       <AccountSection />
@@ -60,6 +64,7 @@ export function SettingsScreen() {
         label="Sign out"
         variant="danger"
         testID="settings-sign-out"
+        loading={signingOut}
         onPress={() => {
           Alert.alert('Sign out?', 'You will need to sign in again on this device.', [
             { text: 'Cancel', style: 'cancel' },
@@ -68,6 +73,7 @@ export function SettingsScreen() {
               style: 'destructive',
               onPress: () => {
                 analytics.track('sign_out', {});
+                setSigningOut(true);
                 void session.signOut();
               },
             },
@@ -204,14 +210,8 @@ function NotificationsSection() {
       rationale="Get told when something needs your attention. You can turn them off at any time."
       state={permission.state}
       onRequest={() => {
-        void permission.request().then(async (state) => {
-          if (state !== 'granted') return;
-          // Hand the token to the backend here (PushTokenRegistrar, src/lib/notifications).
-          const token = await getPushToken().catch(() => null);
-          logger.info(
-            'app',
-            token === null ? 'Push unavailable on this device' : 'Push token obtained',
-          );
+        void permission.request().then((state) => {
+          if (state === 'granted') void registerForPush();
         });
       }}
       onOpenSettings={() => void permission.openSettings()}

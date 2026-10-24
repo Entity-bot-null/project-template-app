@@ -105,26 +105,26 @@ in files on the server, readable by the deploy user only.
 
 `deploy/vps/` in the repository, copied to `/srv/app` on the server:
 
-| File                   | What it is                                                                                                                                                      | Committed        |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| `compose.yaml`         | the services: `proxy` (Caddy), `web` (`APP_ORIGIN` from `APP_DOMAIN`), `api`, `migrate` (once per deployment), `redis`; `db` and `backup` with the `db` profile | yes              |
-| `Caddyfile`            | TLS for `APP_DOMAIN`, HSTS, compression, every path forwarded to `web` as it came (no redirect: the app's links and their files need it)                        | yes              |
-| `realip.conf`          | mounted into the web image: the client address comes from Caddy, not from the connection                                                                        | yes              |
-| `deploy.sh`            | one deployment (the steps above)                                                                                                                                | yes              |
-| `rollback.sh`          | back to the previous release, without the registry                                                                                                              | yes              |
-| `db-init.sh`           | creates the database `app` and its roles at PostgreSQL's first start, on an empty volume (`db` profile)                                                         | yes              |
-| `backup.sh`            | the nightly backup (`db` profile), and one at once with `now`                                                                                                   | yes              |
-| `*.env.example`        | the settings to fill in                                                                                                                                         | yes              |
-| `server.env`           | `APP_DOMAIN`, `COMPOSE_PROFILES=db` (the database on this server), optional `BACKUP_KEEP_DAYS` and `BACKUP_AT`                                                  | no (server only) |
-| `api.env`              | `DATABASE_URL` (runtime role), `REDIS_URL`, `JWT_ACCESS_SECRET`, `APP_ENVIRONMENT`, `APP_ORIGIN`, optional `MAIL_SMTP_URL`, `MAIL_FROM`, `MOBILE_MIN_VERSION_*` | no (server only) |
-| `migrate.env`          | `DATABASE_URL` (migrator role)                                                                                                                                  | no (server only) |
-| `web.env`              | the app's identity, for the files that let the phones open its links: `APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE`, `ANDROID_SHA256_CERT_FINGERPRINTS`   | no (server only) |
-| `redis.env`            | `REDIS_PASSWORD`, the password of Redis's one user                                                                                                              | no (server only) |
-| `db.env`               | the superuser's password and the three roles' (`db` profile)                                                                                                    | no (server only) |
-| `backup.env`           | `PGPASSWORD`, the backup role's (`db` profile)                                                                                                                  | no (server only) |
-| `release.env`          | the digests and release running now (written by `deploy.sh`)                                                                                                    | no (server only) |
-| `release.previous.env` | the release before it                                                                                                                                           | no (server only) |
-| `.deploy.lock`         | held by `deploy.sh` or `rollback.sh` while it runs: one at a time                                                                                               | no (server only) |
+| File                   | What it is                                                                                                                                                                                           | Committed        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| `compose.yaml`         | the services: `proxy` (Caddy), `web` (`APP_ORIGIN` from `APP_DOMAIN`), `api`, `migrate` (once per deployment), `redis`; `db` and `backup` with the `db` profile                                      | yes              |
+| `Caddyfile`            | TLS for `APP_DOMAIN`, HSTS, compression, every path forwarded to `web` as it came (no redirect: the app's links and their files need it)                                                             | yes              |
+| `realip.conf`          | mounted into the web image: the client address comes from Caddy, not from the connection                                                                                                             | yes              |
+| `deploy.sh`            | one deployment (the steps above)                                                                                                                                                                     | yes              |
+| `rollback.sh`          | back to the previous release, without the registry                                                                                                                                                   | yes              |
+| `db-init.sh`           | creates the database `app` and its roles at PostgreSQL's first start, on an empty volume (`db` profile)                                                                                              | yes              |
+| `backup.sh`            | the nightly backup (`db` profile), and one at once with `now`                                                                                                                                        | yes              |
+| `*.env.example`        | the settings to fill in                                                                                                                                                                              | yes              |
+| `server.env`           | `APP_DOMAIN`, `COMPOSE_PROFILES=db` (the database on this server), optional `BACKUP_KEEP_DAYS` and `BACKUP_AT`                                                                                       | no (server only) |
+| `api.env`              | `DATABASE_URL` (runtime role), `REDIS_URL`, `JWT_ACCESS_SECRET`, `APP_ENVIRONMENT`, `APP_ORIGIN`, optional `MAIL_SMTP_URL`, `MAIL_FROM`, `MOBILE_MIN_VERSION_*`, `PUSH_ENABLED`, `EXPO_ACCESS_TOKEN` | no (server only) |
+| `migrate.env`          | `DATABASE_URL` (migrator role)                                                                                                                                                                       | no (server only) |
+| `web.env`              | the app's identity, for the files that let the phones open its links: `APPLE_TEAM_ID`, `IOS_BUNDLE_ID`, `ANDROID_PACKAGE`, `ANDROID_SHA256_CERT_FINGERPRINTS`                                        | no (server only) |
+| `redis.env`            | `REDIS_PASSWORD`, the password of Redis's one user                                                                                                                                                   | no (server only) |
+| `db.env`               | the superuser's password and the three roles' (`db` profile)                                                                                                                                         | no (server only) |
+| `backup.env`           | `PGPASSWORD`, the backup role's (`db` profile)                                                                                                                                                       | no (server only) |
+| `release.env`          | the digests and release running now (written by `deploy.sh`)                                                                                                                                         | no (server only) |
+| `release.previous.env` | the release before it                                                                                                                                                                                | no (server only) |
+| `.deploy.lock`         | held by `deploy.sh` or `rollback.sh` while it runs: one at a time                                                                                                                                    | no (server only) |
 
 Why `realip.conf`: the web image replaces `X-Forwarded-For` with the address that connected to it
 (so a client cannot choose its own address). Behind Caddy that address would be Caddy's, and the
@@ -336,7 +336,7 @@ With a managed database, leave the `db.env` and `backup.env` lines out, and writ
 
 ```
 nano server.env      # APP_DOMAIN=app.example.com; without COMPOSE_PROFILES=db for a managed database
-nano api.env         # APP_ENVIRONMENT, APP_ORIGIN; email: MAIL_SMTP_URL, MAIL_FROM
+nano api.env         # APP_ENVIRONMENT, APP_ORIGIN; email: MAIL_SMTP_URL, MAIL_FROM; push: PUSH_ENABLED, EXPO_ACCESS_TOKEN
 nano web.env         # the app's identity, once the app has one (below)
 grep -nE '^[^#].*(<|example\.com)|^[A-Z_]+=$' *.env      # what is still a placeholder: nothing
 ```
@@ -350,6 +350,12 @@ checks the whole path ([manual](manual.md#53-email)). DigitalOcean blocks outbou
 465 and 587) on the Droplets of many accounts: if `mail test` ends in `connection` or a timeout, use
 the port your provider offers for that case (2525 with STARTTLS: `smtp://...:2525`, at Postmark,
 SendGrid, Mailgun or Brevo, among others) or ask DigitalOcean's support to lift the block.
+
+Push notifications are off until `PUSH_ENABLED=true`; set `EXPO_ACCESS_TOKEN` with them, an access
+token of the Expo account with enhanced push security turned on ([manual](manual.md#59-push-notifications)).
+The API reaches Expo's push service over HTTPS (port 443, like any outbound call). After the
+deployment, `docker compose ... run --rm -T api node dist/infrastructure/push/push.cli.js status`
+prints `Push is on.` and the queue.
 
 **The database's URLs.** On this server, `db:5432` on the internal network, without TLS: the
 connection never leaves the server. A managed database: its host, over TLS, as `api.env.example` and
@@ -827,8 +833,9 @@ like this; never reuse a compromised one: keep it off for the investigation
      the app's refresh token ([security.md](security.md#secret-rotation)).
    - `server.env`, `APP_ENVIRONMENT`, `APP_ORIGIN`, `MOBILE_MIN_VERSION_*`: as in section 6;
      `web.env`, the app's identity (the same values as before: they describe the app, not the
-     server); the optional settings (`SENTRY_DSN`, `MAIL_SMTP_URL` and `MAIL_FROM`, ...) from their
-     services. Email still waiting in the outbox is sent once the API runs again.
+     server); the optional settings (`SENTRY_DSN`, `MAIL_SMTP_URL` and `MAIL_FROM`,
+     `EXPO_ACCESS_TOKEN`, ...) from their services. Email and push notifications still waiting in
+     their outboxes are sent once the API runs again (those past their validity are dropped).
 3. **GitHub**: `DEPLOY_KNOWN_HOSTS` with the new server's host key (section 4).
    `DEPLOY_SSH_KEY` stays when the new server has the same deploy key (Terraform registers it);
    after a compromise, a new key pair, on the server and in the environment.

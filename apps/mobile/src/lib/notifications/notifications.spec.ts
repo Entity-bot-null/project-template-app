@@ -9,6 +9,7 @@ import {
   configureNotifications,
   getPushToken,
   notificationPermission,
+  onPushTokenChange,
   useNotificationNavigation,
 } from './index';
 
@@ -61,19 +62,63 @@ describe('notifications', () => {
     listener?.(tap('n3', { url: '/items/9' }));
     expect(jest.mocked(router.push).mock.calls).toEqual([['/items/7'], ['/items/9']]);
   });
+
+  // What the API sends for a changed password (apps/api/src/infrastructure/push/push.templates.ts).
+  it('opens Settings from the security notice the API sends', async () => {
+    let listener: ((response: Notifications.NotificationResponse) => void) | undefined;
+    notifications.addNotificationResponseReceivedListener.mockImplementation((handler) => {
+      listener = handler;
+      return { remove: jest.fn() };
+    });
+    await renderHook(() => {
+      useNotificationNavigation();
+    });
+    listener?.(tap('password-changed', { url: '/settings' }));
+    expect(router.push).toHaveBeenCalledWith('/settings');
+  });
+
+  it('tells when the push service replaces the token, until unsubscribed', () => {
+    const remove = jest.fn();
+    let tokenListener: (() => void) | undefined;
+    notifications.addPushTokenListener.mockImplementation((handler) => {
+      tokenListener = () => {
+        handler({ type: 'android', data: 'new-device-token' });
+      };
+      return { remove };
+    });
+    const listener = jest.fn();
+    const unsubscribe = onPushTokenChange(listener);
+    tokenListener?.();
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+    expect(remove).toHaveBeenCalled();
+  });
 });
 
 describe('getPushToken', () => {
-  it('uses the Expo push service when the EAS project is known', async () => {
+  it('gets the Expo push token when the EAS project is known', async () => {
     Object.assign(Constants, { expoConfig: { extra: { eas: { projectId: 'project-1' } } } });
-    await expect(getPushToken()).resolves.toMatchObject({ kind: 'expo', value: 'expo-token' });
+    await expect(getPushToken()).resolves.toEqual({
+      kind: 'expo',
+      value: 'ExponentPushToken[test]',
+      platform: 'ios',
+    });
     expect(notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({ projectId: 'project-1' });
   });
 
-  it('falls back to the raw device token, and to nothing on simulators', async () => {
+  it('names the platform the token is for', async () => {
+    Object.assign(Constants, { expoConfig: { extra: { eas: { projectId: 'project-1' } } } });
+    Platform.OS = 'android';
+    await expect(getPushToken()).resolves.toMatchObject({ platform: 'android' });
+    Platform.OS = 'ios';
+  });
+
+  it('is unavailable without an EAS project id, and on simulators', async () => {
     Object.assign(Constants, { expoConfig: { extra: {} } });
-    await expect(getPushToken()).resolves.toMatchObject({ kind: 'device', value: 'device-token' });
+    await expect(getPushToken()).resolves.toBeNull();
+    Object.assign(Constants, { expoConfig: { extra: { eas: { projectId: 'project-1' } } } });
     jest.replaceProperty(Device, 'isDevice', false);
     await expect(getPushToken()).resolves.toBeNull();
+    expect(notifications.getExpoPushTokenAsync).not.toHaveBeenCalled();
   });
 });

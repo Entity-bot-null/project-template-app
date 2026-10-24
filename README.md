@@ -164,8 +164,8 @@ apps/
     eas.json          build profiles, submission (EAS runs from apps/mobile)
     package.json      the app's dependencies and scripts
   api/                the NestJS API (package "api")
-    src/              modules (auth, account, invitations, items, users, health), common, infrastructure,
-                      observability, env, prisma, seed, openapi
+    src/              modules (auth, account, invitations, items, users, devices, health), common,
+                      infrastructure, observability, env, prisma, seed, openapi
     prisma/           schema and migrations
     test/             integration test plumbing
     Dockerfile        the API image and its migration job
@@ -221,8 +221,8 @@ where it lives):
    ([docs/environment.md](docs/environment.md#web-variables)).
 8. **The landing**: name, privacy address, store pages, texts and the privacy policy's legal text
    ([docs/manual.md](docs/manual.md#57-the-landing)).
-9. **Push notifications** (optional): FCM and APNs credentials on EAS, and a `PushTokenRegistrar`
-   for the API ([docs/mobile-architecture.md](docs/mobile-architecture.md#notifications)).
+9. **Push notifications** (optional): FCM and APNs credentials on EAS, and `PUSH_ENABLED` with
+   `EXPO_ACCESS_TOKEN` on the API ([docs/manual.md](docs/manual.md#59-push-notifications)).
 10. **Analytics** (optional): a provider in `apps/mobile/src/lib/analytics/providers.ts`.
 11. **Repository**: rulesets, environments, secrets, CODEOWNERS, the security contact and response
     times in `SECURITY.md` ([docs/ci-cd.md](docs/ci-cd.md#setting-up-the-repository)).
@@ -324,4 +324,4 @@ The most common problems; every message and its fix is in
 | `pnpm services:up`: "port is already allocated"                                         | another project holds the port: another one in the root `.env`, and the matching URL in `apps/api/.env`                                                            |
 | The app gets 426 "no longer supported" from the API                                     | `MOBILE_MIN_VERSION_*` is above the app's version: unset it locally                                                                                                |
 | A Jest test hangs or Jest does not exit                                                 | a missing `await` (RNTL 14 is async) or a timer left running; see [docs/testing.md](docs/testing.md#flaky-tests)                                                   |
-| Push notifications do not arrive                                                        | development or release build on a **real device**, permission granted, EAS project id set, FCM/APNs credentials on EAS                                             |
+| Push notifications do not arrive                                                        | development or release build on a **real device**, permission granted, EAS project id set, FCM/APNs credentials on EAS, `PUSH_ENABLED` on the API (`push status`)  |

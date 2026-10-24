@@ -64,6 +64,12 @@ export const useSessionStore = create<SessionState>()(() => ({
 /** Renew the access token this long before it expires: it must not die in flight. */
 const EXPIRY_MARGIN_MS = 30_000;
 
+/**
+ * How long a sign-out waits for its hooks (onBeforeSignOut) at most: the user
+ * asked to leave, and a slow network must not keep them signed in.
+ */
+export const BEFORE_SIGN_OUT_TIMEOUT_MS = 3_000;
+
 export interface SessionDependencies {
   /** Secure storage: the refresh token. */
   storage: KeyValueStorage;
@@ -82,7 +88,11 @@ export interface Session extends AuthHandlers {
    * invitation, a changed password), replacing the current one if any.
    */
   adopt(session: SessionBody): Promise<User>;
-  /** Ends the session on this device at once, and on the server when reachable. */
+  /**
+   * Ends the session on this device once its hooks ran (onBeforeSignOut, a
+   * few seconds at most), and on the server when reachable. A second call
+   * while one runs waits for it.
+   */
   signOut(): Promise<void>;
   /**
    * Ends the session on this device only, the way signOut() does, for one the
@@ -101,6 +111,15 @@ export interface Session extends AuthHandlers {
   revalidate(): Promise<void>;
   onSignIn(listener: (user: User) => void): () => void;
   onSignOut(listener: () => void): () => void;
+  /**
+   * Runs `hook` when the user signs out, before the session ends here and is
+   * revoked, while its requests still go through (this installation leaving
+   * the push notifications, src/features/notifications). Best effort: the
+   * hooks run together, a failing one is ignored, and the sign-out goes on
+   * after BEFORE_SIGN_OUT_TIMEOUT_MS at most. Not run when the session ends
+   * otherwise (expired, a deleted account, another account adopted).
+   */
+  onBeforeSignOut(hook: () => Promise<void>): () => void;
 }
 
 export function createSession({ storage, installation, api, now }: SessionDependencies): Session {
@@ -115,6 +134,8 @@ export function createSession({ storage, installation, api, now }: SessionDepend
   let generation = 0;
   const signInListeners = new Set<(user: User) => void>();
   const signOutListeners = new Set<() => void>();
+  const beforeSignOutHooks = new Set<() => Promise<void>>();
+  let signingOut: Promise<void> | null = null;
   const setState = useSessionStore.setState;
 
   async function keep(tokens: Tokens): Promise<void> {
@@ -172,6 +193,23 @@ export function createSession({ storage, installation, api, now }: SessionDepend
     }
     setState({ status: 'signedOut', endedBy, user: null });
     for (const listener of signOutListeners) listener();
+  }
+
+  /**
+   * The sign-out hooks, together, for BEFORE_SIGN_OUT_TIMEOUT_MS at most; only
+   * for a session that is signed in (their requests need it).
+   */
+  async function beforeSignOut(): Promise<void> {
+    if (beforeSignOutHooks.size === 0 || useSessionStore.getState().status !== 'signedIn') return;
+    const hooks = Promise.allSettled(
+      [...beforeSignOutHooks].map((hook) => Promise.resolve().then(hook)),
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, BEFORE_SIGN_OUT_TIMEOUT_MS);
+    });
+    await Promise.race([hooks, timeout]);
+    clearTimeout(timer);
   }
 
   function revoke(refreshToken: string): void {
@@ -268,10 +306,19 @@ export function createSession({ storage, installation, api, now }: SessionDepend
       return start(SessionSchema.parse(body));
     },
 
-    async signOut() {
-      const refreshToken = await storedRefreshToken();
-      await end('user');
-      if (refreshToken !== null) revoke(refreshToken);
+    signOut() {
+      signingOut ??= (async () => {
+        try {
+          await beforeSignOut();
+          // Read after the hooks: their requests may have renewed the session.
+          const refreshToken = await storedRefreshToken();
+          await end('user');
+          if (refreshToken !== null) revoke(refreshToken);
+        } finally {
+          signingOut = null;
+        }
+      })();
+      return signingOut;
     },
 
     async forget() {
@@ -318,6 +365,13 @@ export function createSession({ storage, installation, api, now }: SessionDepend
       signOutListeners.add(listener);
       return () => {
         signOutListeners.delete(listener);
+      };
+    },
+
+    onBeforeSignOut(hook) {
+      beforeSignOutHooks.add(hook);
+      return () => {
+        beforeSignOutHooks.delete(hook);
       };
     },
   };

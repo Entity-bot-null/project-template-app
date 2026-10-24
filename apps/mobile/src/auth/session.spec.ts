@@ -446,6 +446,91 @@ describe('revalidate', () => {
   });
 });
 
+describe('onBeforeSignOut', () => {
+  async function signedIn() {
+    fetchStub = stubFetch({
+      'POST /api/auth/sign-in': () => ok(sessionFixture('1')),
+      'POST /api/auth/logout': () => noContent(),
+    });
+    const session = create();
+    await session.signIn({ email: user.email, password: 'pw' });
+    return session;
+  }
+
+  it('runs the hooks while the session still works, then ends it and revokes it', async () => {
+    const session = await signedIn();
+    const seen: string[] = [];
+    session.onBeforeSignOut(async () => {
+      seen.push(`hook: ${useSessionStore.getState().status}`);
+      seen.push(`token: ${String(await session.getAccessToken())}`);
+    });
+    session.onSignOut(() => seen.push('signed out'));
+    await session.signOut();
+    expect(seen).toEqual(['hook: signedIn', 'token: access-1', 'signed out']);
+    await new Promise(process.nextTick);
+    expect(await bodyOf(fetchStub.requests.at(-1)!)).toEqual({ refreshToken: 'refresh-1' });
+  });
+
+  it('revokes the token a hook renewed, not the one it replaced', async () => {
+    const session = await signedIn();
+    fetchStub.on('POST /api/auth/refresh', () => ok(sessionFixture('2')));
+    session.onBeforeSignOut(async () => {
+      clock = 900_000; // the access token is about to expire: the hook's request renews it
+      await session.getAccessToken();
+    });
+    await session.signOut();
+    await new Promise(process.nextTick);
+    const logout = fetchStub.requests.filter((request) => request.url.endsWith('/logout'));
+    expect(await bodyOf(logout[0]!)).toEqual({ refreshToken: 'refresh-2' });
+  });
+
+  it('signs out even when a hook fails', async () => {
+    const session = await signedIn();
+    const other = jest.fn(() => Promise.resolve());
+    session.onBeforeSignOut(() => Promise.reject(new Error('offline')));
+    session.onBeforeSignOut(other);
+    await session.signOut();
+    expect(other).toHaveBeenCalled();
+    expect(useSessionStore.getState().status).toBe('signedOut');
+  });
+
+  it('runs one sign-out at a time: a second call waits for the first', async () => {
+    const session = await signedIn();
+    let release: () => void = () => undefined;
+    const hook = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    session.onBeforeSignOut(hook);
+    const first = session.signOut();
+    const second = session.signOut();
+    await new Promise(process.nextTick);
+    release();
+    await Promise.all([first, second]);
+    expect(hook).toHaveBeenCalledTimes(1);
+    await new Promise(process.nextTick);
+    expect(fetchStub.requests.filter((request) => request.url.endsWith('/logout'))).toHaveLength(1);
+  });
+
+  it('runs no hook without a session, nor after unsubscribing', async () => {
+    fetchStub = stubFetch({});
+    const session = create();
+    useSessionStore.setState({ status: 'signedOut', endedBy: null, user: null });
+    const hook = jest.fn(() => Promise.resolve());
+    const unsubscribe = session.onBeforeSignOut(hook);
+    await session.signOut();
+    expect(hook).not.toHaveBeenCalled();
+
+    const signed = await signedIn();
+    signed.onBeforeSignOut(hook)();
+    await signed.signOut();
+    expect(hook).not.toHaveBeenCalled();
+    unsubscribe();
+  });
+});
+
 describe('renewal', () => {
   async function signedIn() {
     fetchStub = stubFetch({ 'POST /api/auth/sign-in': () => ok(sessionFixture('1')) });

@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   observeMailOutbox,
+  observePushOutbox,
   recordAccountDeletion,
   recordOutdatedClient,
   recordCacheRead,
@@ -18,6 +19,8 @@ import {
   recordMailDelivery,
   recordMailLatency,
   recordMailSuppressed,
+  recordPushDelivery,
+  recordPushDeviceDisabled,
   recordServerError,
   recordSlowQuery,
 } from './metrics.js';
@@ -116,6 +119,9 @@ describe('observability/api-metrics.json', () => {
       observeMailOutbox(() => ({ waiting: 2, oldestAgeSeconds: 40 }));
       recordAccountDeletion();
       recordOutdatedClient('ios');
+      recordPushDelivery('password_changed', 'sent');
+      recordPushDeviceDisabled();
+      observePushOutbox(() => ({ waiting: 1, oldestAgeSeconds: 12 }));
       await telemetry.flush();
 
       const exported = exporter

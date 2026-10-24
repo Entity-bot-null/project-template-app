@@ -27,14 +27,16 @@ export default defineConfig({
         'src/**/*.controller.ts',
         'src/**/*.module.ts',
         // Process entry points: exercised by the integration and E2E suites
-        // (the mail CLI by hand, docs/manual.md#53-email; what it calls, the
-        // outbox and MailStore, by mail-outbox.int.spec.ts).
+        // (the mail and push CLIs by hand, docs/manual.md#53-email and #59;
+        // what they call, the outboxes and their stores, by
+        // mail-outbox.int.spec.ts and push-outbox.int.spec.ts).
         'src/main.ts',
         'src/server.ts',
         'src/openapi/export.ts',
         'src/seed/run.ts',
         'src/users/create-user.cli.ts',
         'src/infrastructure/mail/mail.cli.ts',
+        'src/infrastructure/push/push.cli.ts',
       ],
       reporter: ['text-summary', 'html', 'lcov', 'json-summary'],
       // Ratchet: the unit coverage measured when the template was built,
