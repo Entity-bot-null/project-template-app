@@ -89,6 +89,16 @@ export interface Session extends AuthHandlers {
    * server already ended (a deleted account): nothing is left to revoke.
    */
   forget(): Promise<void>;
+  /**
+   * Asks the server now whether this device's session still holds, after
+   * every session of an account ended and this device may be signed in to
+   * that account (a password reset, a confirmed change of email or its undo,
+   * from a link): a session the server ended ends here at once, as an expired
+   * one does, rather than at a next request that fresh data may never need.
+   * Signed out, it does nothing; offline or on a server error the session is
+   * kept, and the next request finds out. Never rejects.
+   */
+  revalidate(): Promise<void>;
   onSignIn(listener: (user: User) => void): () => void;
   onSignOut(listener: () => void): () => void;
 }
@@ -266,6 +276,17 @@ export function createSession({ storage, installation, api, now }: SessionDepend
 
     async forget() {
       await end('user');
+    },
+
+    async revalidate() {
+      if (useSessionStore.getState().status !== 'signedIn') return;
+      try {
+        // A renewal is the check: the server refuses the refresh token of an
+        // ended session, and renew() then ends it here.
+        await renewOnce();
+      } catch {
+        logger.info('auth', 'Session not revalidated (offline or server error)');
+      }
     },
 
     async getAccessToken() {
