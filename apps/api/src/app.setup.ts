@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { appVersionGate } from './common/http/app-version.middleware.js';
 import { jsonOnly } from './common/http/json-only.middleware.js';
+import { malformedJson } from './common/http/malformed-json.middleware.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 import { requestContext } from './common/logging/request-context.middleware.js';
 import { env } from './env/env.js';
@@ -41,6 +42,11 @@ export function configureApp(app: NestExpressApplication): void {
   }
   // JSON bodies only: form posts are refused before parsing (CSRF defense in depth).
   app.use(jsonOnly);
+  // Nest's own JSON parser, with its defaults, registered here instead of at
+  // init so that a malformed body is answered with one plain message, never
+  // the parser's text (common/http/malformed-json.middleware.ts).
+  app.useBodyParser('json');
+  app.use(malformedJson);
   app.enableShutdownHooks();
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());

@@ -26,15 +26,16 @@ below).
 
 ## Routes
 
-| Rule                       | Example                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------- |
-| Plural nouns, kebab-case   | `/api/users`, `/api/auth/password-resets`                                                   |
-| Nest by ownership only     | `/api/projects/:projectId/tasks` (not deeper than one level)                                |
-| Actions as sub-resources   | `POST /api/auth/sign-in`, `POST /api/auth/invitations/accept`, `POST /api/account/deletion` |
-| ids are UUIDs              | `@Param('id', ParseUUIDPipe)`; params named `id`/`…Id` are documented as `uuid`             |
-| `camelCase` JSON fields    | `createdAt`, `accessToken`                                                                  |
-| Timestamps in ISO 8601 UTC | `2026-01-31T12:00:00.000Z`                                                                  |
-| Public routes              | under `/api/auth/` (sessions, account links, capabilities) or `/api/health/` (probes) only  |
+| Rule                       | Example                                                                                                                                               |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plural nouns, kebab-case   | `/api/users`, `/api/auth/password-resets`                                                                                                             |
+| Nest by ownership only     | `/api/projects/:projectId/tasks` (not deeper than one level)                                                                                          |
+| Actions as sub-resources   | `POST /api/auth/sign-in`, `POST /api/auth/invitations/accept`, `POST /api/account/deletion`                                                           |
+| `/api/auth/` is anonymous  | sign-in and its session, emailed links; the app calls it through `publicApi`, which sends no token (`apps/api/src/openapi/openapi.spec.ts` checks it) |
+| ids are UUIDs              | `@Param('id', ParseUUIDPipe)`; params named `id`/`…Id` are documented as `uuid`                                                                       |
+| `camelCase` JSON fields    | `createdAt`, `accessToken`                                                                                                                            |
+| Timestamps in ISO 8601 UTC | `2026-01-31T12:00:00.000Z`                                                                                                                            |
+| Public routes              | under `/api/auth/` (sessions, account links, capabilities) or `/api/health/` (probes) only                                                            |
 
 ## Methods and status codes
 

@@ -195,6 +195,12 @@ pnpm --filter api mail status [--to <address>]     # the queue, or one address's
 pnpm --filter api mail retry --id <id> | --failed  # send failed messages again
 ```
 
+A retry starts a message's attempts again, each with a new validity; `--id` fails when that message
+is not failed or has lost its address. A dropped (`expired`) message's last error says why: `expired`
+(too late), `not_applicable` (no longer applies), `superseded` (an undone change of email made it
+moot); `:held` after it means a worker was sending it at that moment, and that worker records its
+outcome (it may still have gone out).
+
 The links in those messages (`<APP_ORIGIN>/app/<screen>#token=…`) open the app's screens on a phone
 once `APP.linkDomain` is that domain ([mobile-architecture.md](mobile-architecture.md#deep-links)).
 A development build claims no domain: open the link with its scheme instead, keeping the screen and
@@ -413,7 +419,7 @@ one, naming it; every variable, its default and rules: [environment.md](environm
 | `pnpm lint:workflows`                             | actionlint, zizmor, shellcheck (Docker)                                                                                                                                                                                                                                                   |
 | `pnpm contract`                                   | `openapi/openapi.json` from the API, then `apps/mobile/src/api/schema.d.ts` from it                                                                                                                                                                                                       |
 | `pnpm build`                                      | the API (`apps/api/dist/`), the landing (`apps/landing/dist/`) and the app's production JavaScript bundles of both platforms (`apps/mobile/dist/`)                                                                                                                                        |
-| `pnpm perf:check`                                 | the landing's and the app's budgets, after `pnpm build`                                                                                                                                                                                                                                   |
+| `pnpm perf:check`                                 | the landing's and the app's budgets, after `pnpm build`; the landing's pages and stylesheets against the web server's CSP too                                                                                                                                                             |
 | `pnpm smoke`                                      | the read-only smoke test of a deployment or the stack (`--url`, `--api`, `--release`, `--require-app-links`)                                                                                                                                                                              |
 | `pnpm iac:check`                                  | Terraform (fmt, validate, tests), TFLint, Trivy, cloud-init, the database roles and `db-init.sh` on PostgreSQL (Docker)                                                                                                                                                                   |
 | `pnpm iac:database`                               | the managed database's roles, from the server Terraform built (section 5.8)                                                                                                                                                                                                               |
