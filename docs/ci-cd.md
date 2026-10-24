@@ -536,7 +536,10 @@ together, in one pull request with the full CI:
 
 `.nvmrc` holds one exact version for CI and the Git hooks; `apps/mobile/eas.json`
 (`build.base.node`) holds the same one for the build servers. A patch or minor release (security
-releases are announced on nodejs.org) changes both files and nothing else.
+releases are announced on nodejs.org) changes both files and nothing else. `eas.json` is part of
+the app's fingerprint, so the change gives a new runtime version: updates published after it reach
+only builds made after it ([releases.md](releases.md#what-can-ship-as-an-ota-update)); merge it
+before a store build, not between a build and its updates.
 
 A major moves once it is an LTS release (an even major, from its October):
 
@@ -565,7 +568,8 @@ A major moves once it is an LTS release (an even major, from its October):
 `packageManager` in `package.json` pins pnpm for developers (pnpm switches to it by itself) and CI
 (`pnpm/action-setup` reads it); `pnpm-lock.yaml` records it with its checksum
 (`packageManagerDependencies`); `apps/mobile/eas.json` (`build.base.pnpm`) pins it for the build
-servers. Dependabot only rewrites dependency declarations, never `packageManager`.
+servers, which gives a new runtime version, as for Node.js. Dependabot only rewrites dependency
+declarations, never `packageManager`.
 
 1. Read the release notes: the settings of `pnpm-workspace.yaml` (the supply-chain policies) change
    between majors; `pnpm deps:check` (in `pnpm security`) checks they still hold.
