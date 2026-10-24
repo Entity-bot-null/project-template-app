@@ -51,9 +51,11 @@ blockExoticSubdeps: true
 allowBuilds:
   # Each one ships its native binary as a platform package in
   # optionalDependencies (locked with integrity); the install script only
-  # checks it or falls back to a download.
+  # checks it, falls back to a download, or (@parcel/watcher, the file
+  # watcher of Jest 30's haste map) builds from source when asked to.
   '@sentry/cli': false
   unrs-resolver: false
+  '@parcel/watcher': false
   # The API (apps/api). argon2's install script picks the prebuilt binding
   # for the platform, or builds it: the native password hashing.
   argon2: true

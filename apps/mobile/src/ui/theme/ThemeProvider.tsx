@@ -63,12 +63,19 @@ export function useTheme(): Theme {
 }
 
 /**
+ * What StyleSheet.create accepts: named view, text and image styles. React
+ * Native's strict TypeScript API (0.87 and later) keeps the type itself
+ * internal, so it is taken from the function.
+ */
+type NamedStyles = Parameters<typeof StyleSheet.create>[0];
+
+/**
  * Styles that depend on the theme, created once per theme:
  *
  *   const useStyles = createStyles((theme) => ({ card: { padding: theme.spacing.lg } }));
  *   const styles = useStyles();
  */
-export function createStyles<T extends StyleSheet.NamedStyles<T>>(factory: (theme: Theme) => T) {
+export function createStyles<T extends NamedStyles>(factory: (theme: Theme) => T) {
   const cache = new Map<Theme, T>();
   return function useStyles(): T {
     const theme = useTheme();

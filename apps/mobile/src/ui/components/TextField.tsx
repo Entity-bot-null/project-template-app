@@ -1,5 +1,5 @@
 import { type Ref, useState } from 'react';
-import { TextInput, type TextInputProps, View } from 'react-native';
+import { TextInput, type TextInputInstance, type TextInputProps, View } from 'react-native';
 
 import { createStyles, useTheme } from '../theme/ThemeProvider';
 import { AlertText } from './AlertText';
@@ -14,7 +14,7 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable
   error?: string | undefined;
   hint?: string;
   disabled?: boolean;
-  ref?: Ref<TextInput>;
+  ref?: Ref<TextInputInstance>;
 }
 
 const useStyles = createStyles((theme) => ({

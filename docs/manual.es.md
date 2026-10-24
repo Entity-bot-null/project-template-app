@@ -32,7 +32,7 @@ proyecto puede decidir o aportar.
 
 ## 1. Qué es la plantilla
 
-Una app React Native para Android e iOS hecha con Expo (SDK 57), lista para publicarse en las
+Una app React Native para Android e iOS hecha con Expo (SDK 58), lista para publicarse en las
 tiendas, y la API HTTP con la que habla. La app: TypeScript estricto, navegación basada en ficheros
 con grupos de rutas protegidos, un cliente de API tipado generado a partir del contrato OpenAPI de
 la API, una sesión segura (el refresh token en el Keychain/Keystore), detección de la falta de
