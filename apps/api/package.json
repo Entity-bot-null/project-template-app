@@ -19,7 +19,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "prisma generate && nest build && node dist/seed/run.js",
     "user:create": "prisma generate && nest build && node dist/users/create-user.cli.js",
-    "mail": "prisma generate && nest build && node dist/infrastructure/mail/mail.cli.js"
+    "mail": "prisma generate && nest build && node dist/infrastructure/mail/mail.cli.js",
+    "push": "prisma generate && nest build && node dist/infrastructure/push/push.cli.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.3",

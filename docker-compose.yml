@@ -109,6 +109,9 @@ services:
       # with the observability profile, STACK_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-lgtm:4318.
       SENTRY_DSN: ${STACK_SENTRY_DSN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${STACK_OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      # Push notifications to a phone with a build that points at the stack.
+      PUSH_ENABLED: ${STACK_PUSH_ENABLED:-false}
+      EXPO_ACCESS_TOKEN: ${STACK_EXPO_ACCESS_TOKEN:-}
     depends_on:
       db:
         condition: service_healthy

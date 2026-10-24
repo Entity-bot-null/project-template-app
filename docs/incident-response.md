@@ -53,7 +53,7 @@ impact yet (WARNING). The incident commander of a SEV1 coordinates and communica
 | Which version is running?     | The API: `release` on the log lines and spans (`service.version`). The web image: `/release.json`. The app: release, build and `update.id` on its Sentry events                                                                                    |
 | Is the database the problem?  | Readiness `Database unreachable`, `error.origin=database`, `db_client_connection_*` pool metrics, `Slow query` warnings                                                                                                                            |
 | Is Redis the problem?         | Readiness `checks.redis`, `Redis unavailable`, `Redis is not answering` and the matching recovery lines, `app_degraded_operations_total`                                                                                                           |
-| The overall picture?          | Grafana → Application: "API service" (traffic, errors by origin, runtime, database, Redis, dependencies, email, installed apps), "API SLOs" (budget, burn rates)                                                                                   |
+| The overall picture?          | Grafana → Application: "API service" (traffic, errors by origin, runtime, database, Redis, dependencies, email, installed apps, push), "API SLOs" (budget, burn rates)                                                                             |
 | Is the app the problem?       | The app's Sentry project by release, build and `update.id`; its `network` breadcrumbs carry the request ids of the calls that failed ([observability.md](observability.md#the-app)); Play Console's Android vitals and App Store Connect's crashes |
 | Are old apps refused?         | `app_client_outdated_total` by `app_platform` ("API service" → Installed apps); the API's `MOBILE_MIN_VERSION_*`                                                                                                                                   |
 | Is a provider the problem?    | `app_dependency_duration_seconds` by `dependency_name` and `outcome`, `External:<name>` log lines, the provider's status page                                                                                                                      |
@@ -593,6 +593,59 @@ version still in use ([api-conventions.md](api-conventions.md)).
   an iPhone with the production app installed.
 - **Document:** what changed (identity, certificate, domain), how long links opened the browser,
   and the check that would have caught it before release.
+
+### 19. Push notifications not delivered
+
+- **Alerts:** `ApiPushBacklog` (notifications wait more than 15 minutes), `ApiPushDeliveryFailed`
+  (`push_kind` label: notifications given up on). Dead tokens (`outcome="unregistered"`: apps
+  uninstalled) are normal and do not alert.
+- **Symptoms:** phones do not get the security notice of a changed password (or a product's own
+  kinds); readiness `checks.push: "degraded"` (200, the instance still serves); in the log
+  `Could not send <kind> notification <id> (attempt n): <category>; retrying in <s> s`,
+  `Gave up on <kind> notification <id> (attempt n): <category>`,
+  `Push <kind> notification <id> refused: <code>`, `Could not read <n> push receipts`, or
+  `Push worker paused: <reason>` (the database); `app_push_outbox_oldest_age_seconds` rising,
+  `app_push_deliveries_total{outcome="retry"}` rising without `outcome="sent"`. Refused credentials
+  also reach the error tracker as `Push service refused the configuration (<code>)`
+  (`dependency: expo-push`).
+- **Impact:** degraded, not down. Nothing is lost while it waits: the outbox keeps every
+  notification ([architecture.md](architecture.md#push-notifications)) and retries with backoff,
+  but one that waits past its kind's validity (a day for `password_changed`) is dropped unsent
+  (`expired`). The email notice goes out regardless; sign-in and every other feature work.
+- **First checks:** `pnpm --filter api push status` (in a deployment:
+  `docker compose ... run --rm -T api node dist/infrastructure/push/push.cli.js status`): whether
+  push is on, counts by status and kind, the age of the oldest waiting notification, the devices
+  and the latest failures with their category. The category says where to look: `timeout`,
+  `network` or `http_5xx` (Expo's service: [status.expo.dev](https://status.expo.dev)), `http_401`
+  or `http_403` (`EXPO_ACCESS_TOKEN` refused: revoked, or enhanced security turned on without it),
+  `http_429` or `MessageRateExceeded` (too many at once: they are retried),
+  `InvalidCredentials` or `MismatchSenderId` (the FCM V1 key or the APNs key of the EAS project is
+  missing, expired or for another app: Android or iOS notifications fail for everyone),
+  `MessageTooBig` (a template's payload: a bug), `malformed_response` (the service answered
+  something unexpected), `no_receipt` (Expo never had its receipt: sent, its fate unknown).
+- **Signals:** `app_push_outbox_waiting`, `app_push_outbox_oldest_age_seconds`,
+  `app_push_deliveries_total` by `outcome` (`sent`, `delivered`, `retry`, `failed`,
+  `unregistered`, `expired`), `app_push_devices_disabled_total`; "API service" → Push
+  notifications.
+- **Immediate actions:** none needed for a transient outage of the push service: every instance
+  retries on its own (30 s, then doubling to an hour, with jitter). If nothing moves at all, check
+  that an API instance runs with `PUSH_ENABLED` set: the workers live in the API.
+- **Mitigation:** credentials: upload a valid FCM V1 key or APNs key to the EAS project
+  (`eas credentials`), or rotate `EXPO_ACCESS_TOKEN` at expo.dev and redeploy the API
+  ([environment.md](environment.md#api-variables)); waiting notifications go out with their next
+  attempt. Notifications given up on (`failed`) are not sent again: a security notice that late is
+  noise, and its email went out. A template bug: fix it and deploy.
+- **Roll back when:** a deployment changed `PUSH_ENABLED`, `EXPO_ACCESS_TOKEN` or a push template,
+  or a new app build changed the EAS project or its credentials.
+- **Recovered when:** `app_push_deliveries_total{outcome="sent"}` and, 15 minutes later,
+  `outcome="delivered"` rise again; readiness `checks.push: "ok"`;
+  `app_push_outbox_oldest_age_seconds` back under a minute.
+- **Validate after:** on a real phone with the release build, signed in with notifications
+  allowed, change the password of a test account: the notice arrives and its tap opens Settings.
+  Delivery is at least once: a worker that died after the service accepted a notification and
+  before recording it sends it again when its lease ends (a minute).
+- **Document:** duration, the category, how many notifications were delayed, dropped (`expired`) or
+  given up on, and what would have told you sooner.
 
 ## After the incident
 

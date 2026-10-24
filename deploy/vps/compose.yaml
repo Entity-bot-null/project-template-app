@@ -91,7 +91,9 @@ services:
       # One hop: the web image, which forwards the client address it got
       # from Caddy (realip.conf).
       TRUST_PROXY: '1'
-    stop_grace_period: 30s
+    # The shutdown's drain (15 s), then up to 10 s each for an email and a
+    # batch of push notifications in flight (docs/observability.md#graceful-shutdown).
+    stop_grace_period: 40s
     depends_on:
       # When this server runs the database.
       db:

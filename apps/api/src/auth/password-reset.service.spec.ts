@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
+import type { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { hashAccountToken } from './account-tokens.js';
 import { checkPassword } from './password.js';
@@ -94,11 +95,13 @@ function setup({
     }),
     notifyQueued: vi.fn(),
   };
+  const push = { enqueue: vi.fn(() => Promise.resolve(1)), notifyQueued: vi.fn() };
   const service = new PasswordResetService(
     prisma as unknown as PrismaService,
     mail as unknown as MailOutboxService,
+    push as unknown as PushOutboxService,
   );
-  return { service, prisma, tx, mail, calls };
+  return { service, prisma, tx, mail, push, calls };
 }
 
 beforeEach(() => {
@@ -162,7 +165,7 @@ describe('PasswordResetService.request', () => {
 
 describe('PasswordResetService.confirm', () => {
   it('in one transaction, under the account lock: takes the token, replaces the password, ends every session, drops other links, queues a notice', async () => {
-    const { service, tx, mail, calls } = setup();
+    const { service, tx, mail, push, calls } = setup();
     await service.confirm(TOKEN, GOOD);
     expect(calls).toEqual([
       'lock user',
@@ -185,6 +188,8 @@ describe('PasswordResetService.confirm', () => {
       payload: { changedAt: expect.any(String) as string, via: 'reset' },
     });
     expect(mail.notifyQueued).toHaveBeenCalledOnce();
+    expect(push.enqueue).toHaveBeenCalledWith(tx, { kind: 'password_changed', userId: 'u1' });
+    expect(push.notifyQueued).toHaveBeenCalledOnce();
     const [, hash] = tx.$queryRaw.mock.calls[1] as unknown as [unknown, string];
     expect(hash).toBe(hashAccountToken(TOKEN));
   });

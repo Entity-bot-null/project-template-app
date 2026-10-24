@@ -1,6 +1,7 @@
 import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { withDeadline } from '../common/utils/deadline.js';
 import { MailWorker } from '../infrastructure/mail/mail-worker.service.js';
+import { PushWorker } from '../infrastructure/push/push-worker.service.js';
 import { type RedisHealth, RedisService } from '../infrastructure/redis/redis.service.js';
 import { ShutdownState } from '../lifecycle/shutdown.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -22,6 +23,7 @@ export class HealthService {
     private readonly redis: RedisService,
     private readonly shutdown: ShutdownState,
     private readonly mail: MailWorker,
+    private readonly push: PushWorker,
   ) {}
 
   /** The process is up and serving requests. Checks nothing else on purpose. */
@@ -35,8 +37,9 @@ export class HealthService {
    * reports "degraded" with 200: the instance still serves (features degrade,
    * docs/architecture.md#degradation), and pulling every instance out of the
    * load balancer for it would turn a degraded service into an outage. Both
-   * are checked at once, each within READINESS_TIMEOUT_MS. Email never fails
-   * the probe either: its state is the worker's last reading, no I/O here.
+   * are checked at once, each within READINESS_TIMEOUT_MS. Email and push
+   * never fail the probe either: their state is their worker's last reading,
+   * no I/O here.
    */
   async ready() {
     if (this.shutdown.shuttingDown) throw new ServiceUnavailableException('Shutting down');
@@ -50,10 +53,11 @@ export class HealthService {
       throw new ServiceUnavailableException('Redis unreachable');
     }
     const mail = this.mail.health();
+    const push = this.push.health();
+    const degraded = redis === 'unavailable' || mail === 'degraded' || push === 'degraded';
     return {
-      status:
-        redis === 'unavailable' || mail === 'degraded' ? ('degraded' as const) : ('ok' as const),
-      checks: { database: 'ok' as const, redis, mail },
+      status: degraded ? ('degraded' as const) : ('ok' as const),
+      checks: { database: 'ok' as const, redis, mail, push },
     };
   }
 

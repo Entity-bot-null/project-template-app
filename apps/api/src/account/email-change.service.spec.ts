@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hashAccountToken } from '../auth/account-tokens.js';
 import { checkPassword, hashPassword } from '../auth/password.js';
 import type { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
+import type { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import { Prisma } from '../prisma/generated/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import {
@@ -119,11 +120,13 @@ async function setup({
     }),
     notifyQueued: vi.fn(),
   };
+  const push = { enqueue: vi.fn(() => Promise.resolve(1)), notifyQueued: vi.fn() };
   const service = new EmailChangeService(
     prisma as unknown as PrismaService,
     mail as unknown as MailOutboxService,
+    push as unknown as PushOutboxService,
   );
-  return { service, prisma, tx, mail, calls };
+  return { service, prisma, tx, mail, push, calls };
 }
 
 beforeEach(() => {
@@ -291,7 +294,7 @@ describe('EmailChangeService.revert', () => {
   const taken = { ...ACCOUNT, email: 'thief@example.test', securityVersion: 7 };
 
   it('puts the previous address back with a new password, whatever happened since, ending every session', async () => {
-    const { service, tx, mail, calls } = await setup({
+    const { service, tx, mail, push, calls } = await setup({
       user: taken,
       tokenRow: revertRow,
       lockedRows: [
@@ -336,6 +339,8 @@ describe('EmailChangeService.revert', () => {
       userId: 'u1',
       payload: { changedAt: new Date(NOW).toISOString(), via: 'reset' },
     });
+    expect(push.enqueue).toHaveBeenCalledWith(tx, { kind: 'password_changed', userId: 'u1' });
+    expect(push.notifyQueued).toHaveBeenCalledOnce();
   });
 
   it('refuses a weak password before taking the link, judged against the restored address', async () => {

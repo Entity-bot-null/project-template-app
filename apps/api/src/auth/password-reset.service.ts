@@ -3,6 +3,7 @@ import { fieldError } from '../common/errors/validation-failed.exception.js';
 import { errorSummary } from '../common/logging/error-summary.js';
 import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
 import type { PasswordChangedPayload } from '../infrastructure/mail/templates/password-changed.template.js';
+import { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import { Prisma } from '../prisma/generated/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { consumeAccountToken, tokenOwner } from './account-tokens.js';
@@ -28,6 +29,7 @@ export class PasswordResetService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mail: MailOutboxService,
+    private readonly push: PushOutboxService,
   ) {}
 
   /** A link can be sent: email is configured. */
@@ -109,8 +111,10 @@ export class PasswordResetService {
         userId: account.id,
         payload,
       });
+      await this.push.enqueue(tx, { kind: 'password_changed', userId: account.id });
     }, ACCOUNT_TRANSACTION);
     this.mail.notifyQueued();
+    this.push.notifyQueued();
     this.logger.log(`Password reset for user ${owner.id}: every session ended`);
   }
 

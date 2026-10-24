@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 
 import { useSessionUser } from '@/auth/session';
 import { useMe } from '@/features/account/api';
+import { usePushRegistration } from '@/features/notifications/usePushRegistration';
 import { analytics } from '@/lib/analytics';
 import { useNotificationNavigation } from '@/lib/notifications';
 import { errorReporter } from '@/lib/observability';
@@ -16,10 +17,12 @@ export const unstable_settings = { anchor: '(tabs)' };
 /**
  * Signed in: the tabs, and the screens pushed or presented over them. The
  * administration is there only for an admin (the role of the session, as
- * the latest sign-in or renewal told it); the API authorizes anyway.
+ * the latest sign-in or renewal told it); the API authorizes anyway. Push
+ * notifications: this installation registered, and their taps opened.
  */
 export default function AppLayout() {
   useNotificationNavigation();
+  usePushRegistration();
   useIdentifyUser();
   const bannerOptions = useOfflineBannerStackOptions();
   const isAdmin = useSessionUser()?.role === 'admin';

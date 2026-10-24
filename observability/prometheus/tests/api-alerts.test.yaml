@@ -328,6 +328,78 @@ tests:
               runbook_url: docs/incident-response.md#16-email-not-delivered
               dashboard_uid: app-api
 
+  # The push queue's oldest notification ages a minute a minute: nothing leaves it.
+  - name: a push backlog that lasts warns
+    interval: 1m
+    input_series:
+      - series: 'app_push_outbox_oldest_age_seconds{job="api", deployment_environment_name="production", instance="i-1"}'
+        values: '0+60x40'
+      - series: 'app_push_outbox_oldest_age_seconds{job="api", deployment_environment_name="production", instance="i-2"}'
+        values: '0+60x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ApiPushBacklog
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: ApiPushBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: api
+              deployment_environment_name: production
+            exp_annotations:
+              summary: 'Push notifications wait in the outbox (api, production)'
+              description: 'The oldest notification waiting to be sent is 30m 0s old, for more than 10 minutes. Security notices reach the phones late.'
+              runbook_url: docs/incident-response.md#19-push-notifications-not-delivered
+              dashboard_uid: app-api
+
+  # A queue that drains, even slowly, does not warn.
+  - name: a short push backlog does not warn
+    interval: 1m
+    input_series:
+      - series: 'app_push_outbox_oldest_age_seconds{job="api", deployment_environment_name="production", instance="i-1"}'
+        values: '0+60x10 0x30'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: ApiPushBacklog
+        exp_alerts: []
+
+  - name: push notifications given up on warn
+    interval: 1m
+    input_series:
+      - series: 'app_push_deliveries_total{job="api", deployment_environment_name="production", instance="i-1", push_kind="password_changed", outcome="failed"}'
+        values: '0x5 1 2x30'
+      - series: 'app_push_deliveries_total{job="api", deployment_environment_name="production", instance="i-1", push_kind="password_changed", outcome="delivered"}'
+        values: '0+5x40'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ApiPushDeliveryFailed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: ApiPushDeliveryFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: api
+              deployment_environment_name: production
+              push_kind: password_changed
+            exp_annotations:
+              summary: 'password_changed push notification was given up on (api, production)'
+              description: '2 notification(s) failed for good in the last 30 minutes (refused by the push service, or out of attempts).'
+              runbook_url: docs/incident-response.md#19-push-notifications-not-delivered
+              dashboard_uid: app-api
+
+  # Uninstalled apps: their tokens die, their devices are disabled. Normal.
+  - name: dead push tokens do not warn
+    interval: 1m
+    input_series:
+      - series: 'app_push_deliveries_total{job="api", deployment_environment_name="production", instance="i-1", push_kind="password_changed", outcome="unregistered"}'
+        values: '0+1x40'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: ApiPushDeliveryFailed
+        exp_alerts: []
+
   # A minimum above the version in the store: 30 % of the requests are
   # refused (the iOS installs, each trying once per launch), steadily.
   - name: most installs of a platform refused as outdated warns

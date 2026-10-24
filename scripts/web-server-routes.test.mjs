@@ -86,3 +86,22 @@ test("the screens the API's emails link to are links the app accepts", () => {
   // And every screen that reads a token is one an email links to.
   for (const screen of tokenScreens) assert.ok(linked.has(screen), `no email links to ${screen}`);
 });
+
+test("the screens the API's push notifications open are links the app accepts", () => {
+  const templates = read('apps/api/src/infrastructure/push/push.templates.ts');
+  const urls = [...templates.matchAll(/\burl: '([^']*)'/g)].map(([, url = '']) => url);
+  assert.ok(urls.length > 0, 'the push notifications open screens of the app');
+  const links = read('apps/mobile/src/lib/links.ts');
+  for (const url of urls) {
+    // An internal path: the app opens data.url only through its allowlist.
+    assert.match(
+      url,
+      /^\/[a-z-]+$/,
+      `the push notification's link ${url} is not a screen of the app`,
+    );
+    assert.ok(
+      links.includes(`pattern: /^\\${url}$/`),
+      `the app does not accept the push notification's link ${url}`,
+    );
+  }
+});

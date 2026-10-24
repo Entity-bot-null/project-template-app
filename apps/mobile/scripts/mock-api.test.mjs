@@ -222,6 +222,48 @@ describe('the mock API (scripts/mock-api.mjs) against openapi/openapi.json', () 
     assert.equal((await call('POST /api/auth/logout', { body: {} })).status, 400);
   });
 
+  test('devices: register, move, refuse, and remove only the owner’s', async () => {
+    const installation = '0190b6a1-0000-4000-8000-0000000000a1';
+    const path = `/api/devices/${installation}`;
+    const pushToken = 'ExponentPushToken[mock-token]';
+    const member = await signIn();
+    const admin = await signIn('admin@example.com', 'admin-password');
+    assert.equal(
+      (
+        await call('PUT /api/devices/{installationId}', {
+          path,
+          body: { pushToken, platform: 'ios' },
+        })
+      ).status,
+      401,
+    );
+    const register = (/** @type {string} */ token, /** @type {unknown} */ body) =>
+      call('PUT /api/devices/{installationId}', { path, token, body });
+    assert.equal((await register(member.accessToken, { pushToken, platform: 'ios' })).status, 204);
+    assert.equal(
+      (await register(member.accessToken, { pushToken: 'fcm:abc', platform: 'web' })).status,
+      400,
+    );
+    assert.equal(
+      (
+        await call('PUT /api/devices/{installationId}', {
+          path: '/api/devices/not-a-uuid',
+          token: member.accessToken,
+          body: { pushToken, platform: 'ios' },
+        })
+      ).status,
+      400,
+    );
+    // Another account cannot remove it; once it signs in there, it is its own.
+    const remove = (/** @type {string} */ token) =>
+      call('DELETE /api/devices/{installationId}', { path, token });
+    assert.equal((await remove(admin.accessToken)).status, 404);
+    assert.equal((await register(admin.accessToken, { pushToken, platform: 'ios' })).status, 204);
+    assert.equal((await remove(member.accessToken)).status, 404);
+    assert.equal((await remove(admin.accessToken)).status, 204);
+    assert.equal((await remove(admin.accessToken)).status, 404);
+  });
+
   test('the account', async () => {
     const { accessToken } = await signIn();
     assert.equal((await call('GET /api/users/me', { token: accessToken })).status, 200);

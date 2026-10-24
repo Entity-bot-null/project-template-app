@@ -119,6 +119,14 @@ In the template:
   Accepting one is public (`POST /api/auth/invitations/accept`): the link's token is the
   authorization, and it works only while whoever sent the invitation is still an administrator (the
   acceptance reads the inviter's role under the invitation's lock).
+- **Devices** (`/api/devices/{installationId}`, push notifications): an installation is the phone's
+  own record, named by a random UUID the app made, which only the phone and the API know. A
+  registration (`PUT`) is an upsert that **moves** the installation, and its token, to the caller:
+  a shared phone changes account by signing in, and the previous account must stop getting its
+  notices there. Were someone to learn another phone's installation id, a registration would only
+  divert that phone's notifications until its next start registers it back; nothing is read
+  through it. A removal (`DELETE`) touches the caller's own installation only (rules 1 and 2):
+  another account's answers 404 like a missing one.
 - **The account** (`/api/account/*`) acts on the caller only, taken from the token. The routes that
   change credentials or delete the account also ask for the current password, and answer 403 when
   it is wrong: the session is fine, and a 401 would make the app renew it and send the request
@@ -159,6 +167,9 @@ The integration specs (`pnpm test:integration`, against PostgreSQL) that cover a
 - `apps/api/src/users/users.int.spec.ts`: `GET /api/users/{id}` with an admin (`admin: asAdmin()`):
   the owner and admins read the record, another member gets a missing record's 404; the id matches
   whatever its letter case; a non-UUID id is a 400; `GET /api/users` refuses members (403).
+- `apps/api/src/devices/devices.int.spec.ts`: both routes need a session; a registration moves an
+  installation to whoever signs in on it, and a token to its new installation; a removal of
+  another account's installation answers 404 like a missing one and leaves it; a non-UUID id is a 400.
 - `apps/api/src/invitations/invitations.int.spec.ts`: every invitation route refuses members (403);
   an invitation stops working once whoever sent it is no longer an administrator.
 

@@ -10,6 +10,7 @@ import type { AuthService } from '../auth/auth.service.js';
 import { checkPassword, hashPassword } from '../auth/password.js';
 import type { SessionsService } from '../auth/sessions.service.js';
 import type { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
+import type { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { AccountService, LAST_ADMIN } from './account.service.js';
 
@@ -113,18 +114,20 @@ function setup({ storedHashInTransaction, role = 'member', admins = 1 }: Setup =
     }),
     notifyQueued: vi.fn(),
   };
+  const push = { enqueue: vi.fn(() => Promise.resolve(1)), notifyQueued: vi.fn() };
   const service = new AccountService(
     prisma as unknown as PrismaService,
     auth as unknown as AuthService,
     sessions as unknown as SessionsService,
     mail as unknown as MailOutboxService,
+    push as unknown as PushOutboxService,
   );
-  return { service, prisma, tx, sessions, auth, mail, calls };
+  return { service, prisma, tx, sessions, auth, mail, push, calls };
 }
 
 describe('AccountService.changePassword', () => {
   it('ends every session, then starts a new one for this device, with the new password', async () => {
-    const { service, tx, sessions, mail, calls } = setup();
+    const { service, tx, sessions, mail, push, calls } = setup();
     const result = await service.changePassword('u1', CURRENT, NEXT);
     expect(calls).toEqual([
       'lock user',
@@ -155,6 +158,9 @@ describe('AccountService.changePassword', () => {
       payload: { changedAt: expect.any(String) as string, via: 'change' },
     });
     expect(mail.notifyQueued).toHaveBeenCalledOnce();
+    // The same notice on every device of the account, in the same transaction.
+    expect(push.enqueue).toHaveBeenCalledWith(tx, { kind: 'password_changed', userId: 'u1' });
+    expect(push.notifyQueued).toHaveBeenCalledOnce();
   });
 
   it('refuses a weak new password with 400 before checking anything else', async () => {

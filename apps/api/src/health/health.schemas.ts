@@ -19,5 +19,12 @@ export const ReadinessSchema = z.object({
      * messages have waited longer than 15 minutes. Never fails the probe.
      */
     mail: z.enum(['ok', 'degraded', 'disabled']),
+    /**
+     * "disabled": push is off (PUSH_ENABLED unset). "degraded": the latest
+     * sends to the push service failed for a reason of the service's or
+     * ours, or notifications have waited longer than 15 minutes. Never fails
+     * the probe.
+     */
+    push: z.enum(['ok', 'degraded', 'disabled']),
   }),
 });

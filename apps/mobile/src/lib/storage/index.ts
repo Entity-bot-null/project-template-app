@@ -19,4 +19,11 @@ export const STORAGE_KEYS = {
    * belongs to a previous installation and is wiped (src/auth/session.ts).
    */
   installation: 'app.installation',
+  /**
+   * persistentStorage: a random id this installation gives itself the first
+   * time it registers for push notifications (src/features/notifications).
+   * Names the installation to the API, not the user: kept across sign-outs,
+   * gone with an uninstall (the next installation registers anew).
+   */
+  pushInstallationId: 'push.installationId',
 } as const;

@@ -117,6 +117,50 @@ const mailOutboxGauges = lazy<[ObservableGauge, ObservableGauge]>(() => {
   return [waiting, oldest];
 });
 
+// Push notifications (docs/architecture.md#push-notifications). Attributes
+// are the notification's kind and the outcome: never a user, a device or a
+// token.
+const pushDeliveries = lazy<Counter>(() =>
+  meter().createCounter('app.push.deliveries', {
+    description:
+      'Push notifications by outcome (sent, delivered, retry, failed, unregistered, expired)',
+  }),
+);
+
+const pushDevicesDisabled = lazy<Counter>(() =>
+  meter().createCounter('app.push.devices.disabled', {
+    description: 'Devices disabled because the push service reported their token dead',
+  }),
+);
+
+/** The push queue's numbers, as the worker last read them (undefined until then). */
+export interface PushOutboxGaugeValues {
+  waiting: number;
+  oldestAgeSeconds: number;
+}
+
+let pushOutboxValues: (() => PushOutboxGaugeValues | undefined) | undefined;
+
+const pushOutboxGauges = lazy<[ObservableGauge, ObservableGauge]>(() => {
+  const waiting = meter().createObservableGauge('app.push.outbox.waiting', {
+    description: 'Push notifications still to send (pending, or being sent)',
+  });
+  const oldest = meter().createObservableGauge('app.push.outbox.oldest_age', {
+    description: 'Age of the oldest push notification still to send',
+    unit: 's',
+  });
+  meter().addBatchObservableCallback(
+    (result) => {
+      const values = pushOutboxValues?.();
+      if (values === undefined) return;
+      result.observe(waiting, values.waiting);
+      result.observe(oldest, values.oldestAgeSeconds);
+    },
+    [waiting, oldest],
+  );
+  return [waiting, oldest];
+});
+
 // Requests from app versions older than the minimum (common/http/
 // app-version.middleware.ts), by platform: how many installs an update
 // screen is stopping, after MOBILE_MIN_VERSION_* is raised.
@@ -188,6 +232,23 @@ export function recordMailSuppressed(kind: string): void {
 export function observeMailOutbox(read: () => MailOutboxGaugeValues | undefined): void {
   mailOutboxValues = read;
   mailOutboxGauges();
+}
+
+export type PushOutcome = 'sent' | 'delivered' | 'retry' | 'failed' | 'unregistered' | 'expired';
+
+/** One push notification's outcome: a ticket, a receipt, a retry or a refusal. */
+export function recordPushDelivery(kind: string, outcome: PushOutcome): void {
+  pushDeliveries().add(1, { 'push.kind': kind, outcome });
+}
+
+export function recordPushDeviceDisabled(): void {
+  pushDevicesDisabled().add(1);
+}
+
+/** Registers the worker's reading of the queue for the push outbox gauges. */
+export function observePushOutbox(read: () => PushOutboxGaugeValues | undefined): void {
+  pushOutboxValues = read;
+  pushOutboxGauges();
 }
 
 export function recordAccountDeletion(): void {

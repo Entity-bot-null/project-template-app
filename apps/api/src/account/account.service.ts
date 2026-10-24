@@ -14,6 +14,7 @@ import { fieldError } from '../common/errors/validation-failed.exception.js';
 import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
 import type { AccountDeletedPayload } from '../infrastructure/mail/templates/account-deleted.template.js';
 import type { PasswordChangedPayload } from '../infrastructure/mail/templates/password-changed.template.js';
+import { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import { recordAccountDeletion } from '../observability/metrics.js';
 import { Prisma } from '../prisma/generated/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -34,6 +35,7 @@ export class AccountService {
     private readonly auth: AuthService,
     private readonly sessions: SessionsService,
     private readonly mail: MailOutboxService,
+    private readonly push: PushOutboxService,
   ) {}
 
   /**
@@ -88,8 +90,10 @@ export class AccountService {
         userId: user.id,
         payload,
       });
+      await this.push.enqueue(tx, { kind: 'password_changed', userId: user.id });
     }, ACCOUNT_TRANSACTION);
     this.mail.notifyQueued();
+    this.push.notifyQueued();
     this.logger.log(`Password changed by user ${user.id}: every other session ended`);
 
     const { passwordHash: _hash, ...authUser } = user;

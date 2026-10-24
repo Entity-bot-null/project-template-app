@@ -501,6 +501,7 @@ export default defineConfig([
       'apps/api/src/seed/run.ts',
       'apps/api/src/users/create-user.cli.ts',
       'apps/api/src/infrastructure/mail/mail.cli.ts',
+      'apps/api/src/infrastructure/push/push.cli.ts',
       'apps/api/test/**',
       'apps/api/*.config.ts',
     ],
