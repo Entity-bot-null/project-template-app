@@ -409,14 +409,20 @@ time, on its own branch, when its first patch releases are out (and past the sev
 supply-chain delay):
 
 1. Read the SDK's changelog and breaking changes (`https://expo.dev/changelog`).
-2. `pnpm --filter mobile exec expo install expo@^<next>.0.0 --fix`: the SDK and every SDK-managed
-   package.
+2. `EXPO_OFFLINE=1 pnpm --filter mobile exec expo install expo@^<next>.0.0 --fix`: the SDK and
+   every SDK-managed package. Offline, the versions come from the installed `expo` package (the newest
+   one older than the release delay); online, Expo's list names the SDK's newest patches, which pnpm
+   refuses for seven days (`ERR_PNPM_NO_MATURE_MATCHING_VERSION`). Then
+   `EXPO_OFFLINE=1 pnpm --filter mobile exec expo install --check`: development packages it lists
+   (`jest-expo`, `eslint-config-expo`) go in with `expo install <names> -- -D`.
 3. `pnpm expo:doctor`, `pnpm typecheck`, `pnpm lint`, `pnpm test`; fix what changed.
 4. `pnpm prebuild` and a local Android/iOS build; run the Maestro flows.
 5. Update `apps/mobile/eas.json` (`node`, `pnpm`) if the SDK requires newer ones. `--fix` leaves
    Jest and TypeScript alone: move Jest (and `@types/jest`) to the major the new `jest-expo` depends
    on (`pnpm view jest-expo@<next> dependencies`, `babel-jest`), and TypeScript as
-   [ci-cd.md](ci-cd.md#typescript) says.
+   [ci-cd.md](ci-cd.md#typescript) says. Also by hand: `@react-native/jest-preset` to the new React
+   Native version (a peer of `jest-expo`), `@types/react` to the new React minor, and the peer
+   warnings of `pnpm peers check` compared with `main`'s.
 6. Measure the bundle (`pnpm build && pnpm perf:check`) and raise the budget if the SDK itself grew.
    Raise `expo-doctor` too (`pnpm --filter mobile add -D expo-doctor@latest`): Dependabot proposes only its
    patches, since its name matches the `expo-*` rule that holds the SDK's packages back.

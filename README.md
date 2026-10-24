@@ -38,7 +38,7 @@ every command (en español: [docs/manual.es.md](docs/manual.es.md)).
 
 | Area          | Choice                                                                                                                     |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Platform      | Expo SDK 57, React Native 0.86 (New Architecture only), React 19.2, Hermes                                                 |
+| Platform      | Expo SDK 58, React Native 0.88 (New Architecture only), React 19.3, Hermes                                                 |
 | Language      | TypeScript 6, strict                                                                                                       |
 | Navigation    | Expo Router (file-based, typed routes, protected route groups)                                                             |
 | Data          | TanStack Query (server state), Zustand (client state), Zod (validation)                                                    |

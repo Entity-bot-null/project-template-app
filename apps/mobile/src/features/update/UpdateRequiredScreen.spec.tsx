@@ -25,7 +25,7 @@ describe('UpdateRequiredScreen', () => {
   }
 
   it('opens the app’s page in the store', async () => {
-    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await renderScreen();
     expect(screen.getByText(/no longer supported\. Update it to continue\./)).toBeOnTheScreen();
     await userEvent.press(screen.getByRole('button', { name: /^Update from / }));

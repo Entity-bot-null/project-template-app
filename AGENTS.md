@@ -35,8 +35,8 @@ instead of copying it.
 Expo ships breaking changes every SDK release; APIs you remember may be renamed, moved or removed.
 Before writing code that touches an Expo, EAS or React Native API:
 
-1. Read the major version of `expo` in `apps/mobile/package.json` (this template: SDK 57).
-2. Use the docs of that version: `https://docs.expo.dev/versions/v57.0.0/` (append `.md` to a docs
+1. Read the major version of `expo` in `apps/mobile/package.json` (this template: SDK 58).
+2. Use the docs of that version: `https://docs.expo.dev/versions/v58.0.0/` (append `.md` to a docs
    URL for a Markdown version).
 3. For anything else, start from `https://docs.expo.dev/llms.txt`, an index of the Expo docs with
    corrections to common LLM misconceptions, and follow it to the page you need. Never answer from

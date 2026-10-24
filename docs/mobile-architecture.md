@@ -35,7 +35,7 @@ tests in [testing.md](testing.md).
 
 | Concern            | Choice                                                                                       | Where                                                                 |
 | ------------------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Runtime            | React Native with the New Architecture (the only one), Hermes                                | Expo SDK 57                                                           |
+| Runtime            | React Native with the New Architecture (the only one), Hermes                                | Expo SDK 58                                                           |
 | Native projects    | Generated from `apps/mobile/app.config.ts` and config plugins (Continuous Native Generation) | `apps/mobile/android/` and `apps/mobile/ios/` are never committed     |
 | Navigation         | Expo Router (file-based, typed routes)                                                       | `apps/mobile/src/app/`                                                |
 | Server state       | TanStack Query                                                                               | `apps/mobile/src/lib/query/`, `apps/mobile/src/features/*/api.ts`     |
@@ -124,12 +124,16 @@ apps/mobile/src/app/
 | any of the three above (never after a 426) | `(links)`, last   |
 | signed in with the `admin` role            | `(app)/admin`     |
 
-`(links)` is declared last, so it is never the screen a guard falls back to. The admin guard reads
+Every guard that does not hold redirects to the first screen of the flow the state allows
+(`allowedScreen()` in the root layout, given to each group as Expo Router's `redirectTo`): a link to
+`/items/…` while signed out opens sign-in, and `(links)` is never where a guard sends anyone. Expo
+Router renders a guarded screen as a redirect, and without a target picks its own fallback, which
+can be the not-found screen. The admin guard reads
 the role of the session (`useSessionUser()`, from the latest sign-in or renewal): a role changed on
 the server shows at the next renewal, and the API authorizes every request anyway.
 
-When the state changes (sign-in, sign-out, session expired), the router moves to the first available
-screen by itself. Screens never navigate to "sign-in" or "home" after an auth event, and no screen
+When the state changes (sign-in, sign-out, session expired), the router moves to that screen by
+itself. Screens never navigate to "sign-in" or "home" after an auth event, and no screen
 decides who is signed in: they read `useSessionStatus()` and the preferences store, nothing else.
 
 While the session is restoring, the root layout renders nothing and the splash screen stays up: the

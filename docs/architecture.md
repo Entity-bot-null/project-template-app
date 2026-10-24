@@ -653,7 +653,7 @@ the fragment, which neither nginx nor the API ever receives. The variables:
 
 ## Mobile app (`apps/mobile`)
 
-The client: Expo SDK 57 (React Native, New Architecture), Expo Router, TanStack Query for server
+The client: Expo SDK 58 (React Native, New Architecture), Expo Router, TanStack Query for server
 state, Zustand only for state the server does not own, native projects generated from
 `apps/mobile/app.config.ts` (never committed). It calls the API only through `apps/mobile/src/api/`
 (`api` with the session's token, `publicApi` without), typed by `apps/mobile/src/api/schema.d.ts`,

@@ -1,7 +1,7 @@
 import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { createRef } from 'react';
-import { AccessibilityInfo, Platform, type TextInput } from 'react-native';
+import { AccessibilityInfo, Platform, type TextInputInstance } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppError } from '@/lib/errors';
@@ -90,7 +90,7 @@ describe('TextField', () => {
     const onChangeText = jest.fn();
     const onFocus = jest.fn();
     const onBlur = jest.fn();
-    const ref = createRef<TextInput>();
+    const ref = createRef<TextInputInstance>();
     const view = await renderWithProviders(
       <TextField
         label="Title"
@@ -350,7 +350,8 @@ describe('theme', () => {
 
   it('follows the device unless the user chose a scheme', async () => {
     expect(resolveScheme('system', 'dark')).toBe('dark');
-    expect(resolveScheme('system', 'unspecified')).toBe('light');
+    // An unknown device scheme (null: React Native 0.88 dropped 'unspecified').
+    expect(resolveScheme('system', null)).toBe('light');
     expect(resolveScheme('light', 'dark')).toBe('light');
     await renderWithProviders(<SchemeProbe />);
     expect(screen.getByText('light')).toBeOnTheScreen();

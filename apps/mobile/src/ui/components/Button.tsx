@@ -55,7 +55,7 @@ export function Button({
   const theme = useTheme();
   const styles = useStyles();
   const colors = VARIANTS[variant];
-  const inactive = disabled === true || loading;
+  const inactive = disabled || loading;
   return (
     <Pressable
       accessibilityRole="button"
