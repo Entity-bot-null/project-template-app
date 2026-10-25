@@ -657,9 +657,11 @@ The client: Expo SDK 58 (React Native, New Architecture), Expo Router, TanStack 
 state, Zustand only for state the server does not own, native projects generated from
 `apps/mobile/app.config.ts` (never committed). It calls the API only through `apps/mobile/src/api/`
 (`api` with the session's token, `publicApi` without), typed by `apps/mobile/src/api/schema.d.ts`,
-and validates every response it reads with Zod. Its screens use sign-in, renewal and sign-out,
-`GET /api/users/me` and the items routes; the rest of the API (sign-up, password recovery, change
-of email, invitations, account deletion, capabilities) has no screen in the app.
+and validates every response it reads with Zod. Its screens cover the API: sign-in, renewal and
+sign-out, sign-up, password recovery and change, change of email, account deletion, the screens of
+the emailed links, the items, and for administrators the accounts and the invitations; it registers
+for push notifications and shows the update screen when the API answers 426
+([mobile-architecture.md](mobile-architecture.md#accounts)).
 
 Its layers, navigation, session, storage, errors, deep links and native code:
 [mobile-architecture.md](mobile-architecture.md); builds, OTA updates, store releases and its
