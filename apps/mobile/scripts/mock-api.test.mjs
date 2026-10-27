@@ -337,6 +337,16 @@ describe('the mock API (scripts/mock-api.mjs) against openapi/openapi.json', () 
     assert.equal('description' in created.body.data, false);
     const invalid = await call('POST /api/items', { token: accessToken, body: { title: '' } });
     assert.deepEqual(invalid.body.errors, [{ path: 'title', message: 'Title is required' }]);
+    // As the API: a NUL in typed text is a field error, never stored.
+    const nul = await call('POST /api/items', {
+      token: accessToken,
+      body: { title: 'a\u0000b', description: 'c\u0000' },
+    });
+    assert.equal(nul.status, 400);
+    assert.deepEqual(nul.body.errors, [
+      { path: 'title', message: 'Contains a character that is not allowed' },
+      { path: 'description', message: 'Contains a character that is not allowed' },
+    ]);
 
     const key = { 'Idempotency-Key': '00000000-0000-4000-8000-000000000001' };
     const first = await call('POST /api/items', {

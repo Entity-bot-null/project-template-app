@@ -453,7 +453,9 @@ MailWorker (every instance) ── claim one due row (lease 2 min, FOR UPDATE SK
   validity (`expiresAt`: 30 minutes for a password reset) is dropped unsent, never delivered late.
 - **Delivery is at least once:** if the process dies after the SMTP server accepted a message and
   before the outcome is recorded, the lease runs out and another worker sends it again, with the
-  same `Message-ID`. SMTP has no exactly-once; links stay single-use whatever the copies.
+  same `Message-ID`. SMTP has no exactly-once; links stay single-use whatever the copies: each
+  copy is rendered with a token of its own, the earlier copies' tokens keep working, and the first
+  one used ends the others ([security.md](security.md#one-time-tokens)).
 - **What is stored:** no body and no token, ever: the worker renders the message when it sends it
   and a link's token is minted then (its hash in the database, the token itself only in the
   message in flight). The address is kept while the message may need it (pending, sending,
@@ -507,7 +509,9 @@ PushWorker (every instance) ── claim up to 100 due rows (lease 1 min, FOR UP
   are allowed, when the user allows them, and when the token changes; at sign-out, before the
   session is revoked, `DELETE` ([mobile-architecture.md](mobile-architecture.md#notifications)).
   One row per installation and one per token: the same installation under another account moves to
-  it (a shared phone), a token registered by another installation (a reinstall) leaves its old row.
+  it (a shared phone), and what is still queued for the previous account is dropped unsent (the
+  worker compares the device's account with the notification's: `device_moved`); a token
+  registered by another installation (a reinstall) leaves its old row.
   Only the caller's own installation can be removed; another account's answers 404, like a missing
   one ([authorization.md](authorization.md)). Registration works with push off too, so turning it on
   later reaches every phone that registered.

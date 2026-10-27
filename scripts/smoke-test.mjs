@@ -28,6 +28,9 @@
 //   GET /api/<unknown>           404 in the API's envelope with a request id:
 //                                the web server reaches the API and the API
 //                                answers
+//   GET /api/auth/capabilities   200 with the API's data: a route reaches its
+//                                handler (an upstream with a path would send
+//                                every call to that path)
 //   GET /api/health/ready        404: the probes stay private
 // On the API itself (--api, from inside the platform's network: the probes
 // are not public):
@@ -248,6 +251,15 @@ if (site !== undefined) {
       status(response, 404);
       if (typeof json(body).message !== 'string') throw new Error('not the API error envelope');
       if (!response.headers.has('x-request-id')) throw new Error('no X-Request-Id header');
+    },
+  );
+
+  await expect(
+    'an API route through the web server',
+    `${site}/api/auth/capabilities`,
+    (response, body) => {
+      status(response, 200);
+      if (typeof data(body).signUp !== 'boolean') throw new Error('not what the API offers');
     },
   );
 

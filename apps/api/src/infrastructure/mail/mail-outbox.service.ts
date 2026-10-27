@@ -66,7 +66,11 @@ export class MailOutboxService {
    * request (the template's `limited`) are held back past one a minute and
    * MAIL_DAILY_LIMIT_PER_ADDRESS a day per address, counted in the database
    * so every instance shares the limits; the address's advisory lock makes
-   * concurrent requests for one address count one after the other. Answers
+   * concurrent requests for one address count one after the other, provided
+   * the caller's transaction is READ COMMITTED (each statement then sees what
+   * the transaction it waited for committed; a stricter default isolation
+   * would count from a snapshot taken before the lock): every caller pins it,
+   * whatever the database's default. Answers
    * the same to the caller's own caller whatever happens here: what was
    * queued is never told to a client (no account enumeration).
    */

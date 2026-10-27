@@ -432,7 +432,8 @@ Deploy workflow runs it), the landing and its links
 on the deployment's origin, the share picture, both languages, the not-found page, an app link
 answered with the open-in-app page without a redirect, the two link files (JSON claiming `/app/*`,
 or 404 while the app's identity is not set; `--require-app-links` makes that a failure), the API
-through the web server, the probes kept private, and with `--api` the API's own probes. Read-only:
+through the web server (an unknown path in its envelope, and a route that reaches its handler:
+`GET /api/auth/capabilities`), the probes kept private, and with `--api` the API's own probes. Read-only:
 it signs nobody in and writes nothing, so it is safe against production. Every check prints `ok` or
 `FAIL`, and any failure exits 1.
 

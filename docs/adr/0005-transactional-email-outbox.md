@@ -78,7 +78,9 @@ or vendor is required. Details that follow from the constraints:
   `test`, `retry`) and metrics; projects choose any provider by changing `MAIL_SMTP_URL`.
 - Harder: delivery is at least once. A worker that dies after the server accepted a message and
   before recording it sends it again when its lease ends (with the same `Message-ID`); links stay
-  single-use, so a duplicate is noise, not a risk. The worker polls every 5 seconds (or at once
+  single-use, so a duplicate is noise, not a risk: each copy is rendered with a token of its own,
+  the earlier copies' tokens keep working (a mailbox that sees one `Message-ID` twice may keep only
+  the first), and the first one used ends the others. The worker polls every 5 seconds (or at once
   after a commit in the same instance), so a message may wait a few seconds.
 - Throughput is one message at a time per instance: enough for transactional email (account
   flows), not for newsletters. A project that needs volume puts a queue behind the outbox

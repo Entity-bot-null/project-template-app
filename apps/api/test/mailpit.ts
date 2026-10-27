@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { parseEnv } from 'node:util';
+import type { INestApplication } from '@nestjs/common';
+import { vi } from 'vitest';
 import { deriveRecipientKey } from '../src/infrastructure/mail/mail.recipient.js';
+import { MailStore } from '../src/infrastructure/mail/mail.store.js';
 import type { MailOptions } from '../src/infrastructure/mail/mail.types.js';
+import type { MailWorker } from '../src/infrastructure/mail/mail-worker.service.js';
+import type { PrismaService } from '../src/prisma/prisma.service.js';
 
 // Mailpit for the outbox specs (*.int.spec.ts in src/infrastructure/mail):
 // MAIL_TEST_SMTP_URL and MAILPIT_TEST_URL (CI starts a throwaway Mailpit),
@@ -92,6 +97,38 @@ export async function readMessage(
 export async function deleteMessagesTo(address: string): Promise<void> {
   const query = encodeURIComponent(`to:"${address}"`);
   await api(`/api/v1/search?query=${query}`, { method: 'DELETE' });
+}
+
+/**
+ * Delivers the queue twice, as SMTP's at least once does: the worker dies
+ * after the server accepted each message and before recording it, and once
+ * its lease ends another one takes the message over and sends it again (same
+ * Message-ID, docs/architecture.md#email).
+ */
+export async function deliverTwice(
+  t: { app: INestApplication; prisma: PrismaService },
+  worker: MailWorker,
+): Promise<void> {
+  const markSent = vi
+    .spyOn(t.app.get(MailStore), 'markSent')
+    .mockRejectedValue(new Error('process died'));
+  await worker.runOnce();
+  markSent.mockRestore();
+  await t.prisma.mailMessage.updateMany({
+    where: { status: 'sending' },
+    data: { lockedUntil: new Date(Date.now() - 1) },
+  });
+  await worker.runOnce();
+}
+
+/** The tokens of `link` in every message to `to`, oldest first. */
+export async function linkTokensTo(to: string, link: RegExp): Promise<string[]> {
+  const tokens: string[] = [];
+  for (const message of (await messagesTo(to)).reverse()) {
+    const token = link.exec((await readMessage(message.ID)).text)?.[1];
+    if (token !== undefined) tokens.push(token);
+  }
+  return tokens;
 }
 
 /** Mailpit answers RCPT TO with this code (451: try later, 550: refused) until disarmed. */

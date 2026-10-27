@@ -96,7 +96,7 @@ function setup({
         : Promise.all(work as Promise<unknown>[]),
     ),
     invitation: {
-      findUnique: vi.fn(() => Promise.resolve(invitation)),
+      findFirst: vi.fn(() => Promise.resolve(invitation)),
       findMany: vi.fn(() => Promise.resolve([CREATED])),
       count: vi.fn(() => Promise.resolve(1)),
       deleteMany: vi.fn(() => Promise.resolve({ count: 1 })),
@@ -238,7 +238,9 @@ describe('InvitationsService.accept', () => {
       ...unknown[],
     ];
     expect(sql.join('?')).toContain('FOR UPDATE');
-    expect(values).toEqual(['i1', hashAccountToken(TOKEN)]);
+    // Still this invitation, with this link: the last token minted or an earlier copy's.
+    expect(sql.join('?')).toContain('i."token_hash" = ? OR ? = ANY(i."earlier_token_hashes")');
+    expect(values).toEqual(['i1', hashAccountToken(TOKEN), hashAccountToken(TOKEN)]);
     const [[{ data }]] = tx.user.create.mock.calls as unknown as [
       [{ data: { email: string; name: string; role: string; passwordHash: string } }],
     ];

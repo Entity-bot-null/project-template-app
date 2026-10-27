@@ -59,7 +59,10 @@ Option 4: `POST /api/account/deletion` with `{ password }` answers 204
 - **A notice** of kind `account_deleted` is queued in the same transaction, with no user: the
   address stays on the outbox row until the message is sent, then is cleared like any other
   ([ADR 0005](0005-transactional-email-outbox.md)). It carries no link and no secret, and tells a
-  person who did not ask for the deletion that someone knew their password. Without email
+  person who did not ask for the deletion that someone knew their password. The same notice goes
+  to every previous address that could still undo a change of email (a notice of the change still
+  queued, or an undo link still working), so a deletion right after a takeover is not silent.
+  Without email
   configured, the deletion happens without it. The new kind arrives with migration
   `20261021190200_add_account_deletion`.
 - **Every session ends at once:** every access token stops working (the guard finds no account,

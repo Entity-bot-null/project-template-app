@@ -163,6 +163,10 @@ export class SessionsService implements OnModuleInit, OnModuleDestroy {
           await revokeFamily(tx, current.familyId, now);
           return { error: 'reuse', userId: current.userId };
         }
+        // A family ends at its end whatever the activity, a retry included:
+        // expiryWithin would only clamp the successor's expiry, and the retry
+        // would still get a fresh access token past it.
+        if (current.familyExpiresAt.getTime() <= now) return { error: 'invalid' };
         // The successor was never used: its answer was lost. Replaced, and
         // marked so a late use of it reads as reuse.
         await tx.session.update({

@@ -478,6 +478,8 @@ are the references:
 - validate on submit, then as the user corrects (React Hook Form's defaults: `mode: 'onSubmit'`,
   `reValidateMode: 'onChange'`);
 - normalize input in the schema (`trim()`, lowercase emails), so what is sent is what was validated;
+  text the API keeps (a title, a name) is `freeText()` (`apps/mobile/src/lib/forms.ts`), which also
+  refuses a pasted NUL as the API does;
 - server field errors (`validation` errors with `details.fieldErrors`) go under their fields with
   `showFieldErrors()` (`apps/mobile/src/lib/forms.ts`); errors that name no field of the form, and
   other errors, show in an alert-role message above the submit button (`userMessage()`);

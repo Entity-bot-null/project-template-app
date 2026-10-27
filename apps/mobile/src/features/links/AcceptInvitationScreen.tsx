@@ -9,14 +9,14 @@ import type { User } from '@/auth/schemas';
 import { useAcceptInvitation } from '@/features/auth/api';
 import { analytics } from '@/lib/analytics';
 import { toAppError, userMessage } from '@/lib/errors';
-import { showFieldErrors } from '@/lib/forms';
+import { freeText, showFieldErrors } from '@/lib/forms';
 import { AlertText, Button, Screen, Text, TextField } from '@/ui';
 
 import { InvalidLink, LinkDone, SignedInNotice } from './LinkStates';
 
 export const AcceptInvitationSchema = withRepeatedPassword(
   z.object({
-    name: z.string().trim().min(1, 'Enter your name').max(100, 'At most 100 characters'),
+    name: freeText().min(1, 'Enter your name').max(100, 'At most 100 characters'),
     password: newPassword,
     repeatPassword: z.string(),
   }),

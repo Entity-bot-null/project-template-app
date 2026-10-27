@@ -15,8 +15,8 @@ import type { PushOutboxService } from './push-outbox.service.js';
 import type { PushOutboxStats, PushStore } from './push.store.js';
 import { PUSH_TEMPLATE_REGISTRY, type PushTemplates } from './push.templates.js';
 import type {
-  ClaimedPush,
   ClaimedReceipt,
+  ClaimedSend,
   ExpoReceipt,
   ExpoTicket,
   PushClient,
@@ -39,7 +39,7 @@ const options: PushOptions = {
 };
 
 let nextId = 0;
-type Claimed = ClaimedPush & { deviceDisabled: boolean };
+type Claimed = ClaimedSend;
 function push(overrides: Partial<Claimed> = {}): Claimed {
   nextId += 1;
   return {
@@ -54,6 +54,7 @@ function push(overrides: Partial<Claimed> = {}): Claimed {
     createdAt: new Date(Date.now() - 1_000),
     requestId: null,
     deviceDisabled: false,
+    deviceMoved: false,
     ...overrides,
   };
 }
@@ -305,17 +306,19 @@ describe('PushWorker, sending', () => {
     const exhausted = push({ attempts: 4 });
     const late = push({ expiresAt: new Date(Date.now() - 1) });
     const disabled = push({ deviceDisabled: true });
+    const moved = push({ deviceMoved: true });
     const inapplicable = push();
     const templates = {
       password_changed: { ttlMs: 60_000, render: vi.fn(() => null) },
     } as unknown as PushTemplates;
     const context = await started(
-      setup({ batches: [[exhausted, late, disabled, inapplicable]], templates }),
+      setup({ batches: [[exhausted, late, disabled, moved, inapplicable]], templates }),
     );
     expect(context.client.send).not.toHaveBeenCalled();
     expect(context.store.markFailed).toHaveBeenCalledWith(exhausted, 'attempts_exhausted');
     expect(context.store.markExpired).toHaveBeenCalledWith(late, 'expired');
     expect(context.store.markExpired).toHaveBeenCalledWith(disabled, 'device_disabled');
+    expect(context.store.markExpired).toHaveBeenCalledWith(moved, 'device_moved');
     expect(context.store.markExpired).toHaveBeenCalledWith(inapplicable, 'not_applicable');
   });
 

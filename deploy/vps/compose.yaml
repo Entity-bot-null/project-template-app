@@ -144,7 +144,7 @@ services:
     profiles: [db]
     # Tag for readers, digest for the server (Dependabot updates both): the
     # PostgreSQL of development and CI.
-    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    image: postgres:18-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
     restart: unless-stopped
     # As the postgres user from the start: no privilege to drop, and the data
     # directory is its own.
@@ -189,7 +189,7 @@ services:
     <<: *hardening
     logging: *logging
     profiles: [db]
-    image: postgres:18-alpine@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    image: postgres:18-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
     restart: unless-stopped
     user: postgres
     entrypoint: ['/bin/sh', '/usr/local/bin/backup.sh']
@@ -233,7 +233,7 @@ services:
     logging: *logging
     # Tag for readers, digest for the server (Dependabot updates both): the
     # Redis of development and CI.
-    image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    image: redis:8-alpine@sha256:0bf6577d7774e592b29d093e3ac9390eb91e13d72c21e506afce736de5e0eeb0
     restart: unless-stopped
     user: redis
     # REDIS_PASSWORD, the app user's; the API's REDIS_URL carries the same.

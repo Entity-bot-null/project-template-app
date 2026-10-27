@@ -712,7 +712,9 @@ ways.
   registry access needed). Like `deploy.sh`, it first starts the data services, or leaves them
   running, and stops before changing the release when they do not start. It ends once the API is
   ready, and fails, saying so, when the release it put back is not (a database credential changed
-  since, for example). While a deployment runs it stops at once: a failed deployment puts the
+  since, for example). When that release's containers do not even start, it puts the release that
+  was running back up, as a failed deployment does, and fails saying so: the pointers
+  (`release.env`) and the containers never disagree. While a deployment runs it stops at once: a failed deployment puts the
   running release back by itself. After a deployment that redeployed the release already running,
   nothing ran before it but that release: it refuses (exit 2), naming the release recorded before
   it, and `./rollback.sh --previous` starts that one.

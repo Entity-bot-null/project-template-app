@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
 import { Prisma } from '../prisma/generated/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
-import { hashAccountToken } from './account-tokens.js';
+import { hashAccountToken, matchesLinkToken } from './account-tokens.js';
 import type { AuthService } from './auth.service.js';
 import { checkPassword, hashPassword } from './password.js';
 import type { SessionsService } from './sessions.service.js';
@@ -103,7 +103,7 @@ async function setup({
     $transaction: vi.fn((work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     $queryRaw: vi.fn(() => Promise.resolve([{ failedAttempts: attempts }])),
     signUp: {
-      findUnique: vi.fn(() => Promise.resolve(found)),
+      findFirst: vi.fn(() => Promise.resolve(found)),
       deleteMany: vi.fn(() => Promise.resolve({ count: 1 })),
     },
   };
@@ -241,7 +241,9 @@ describe('SignUpService.confirm', () => {
       ...unknown[],
     ];
     expect(sql.join('?')).toContain('FOR UPDATE');
-    expect(values).toEqual(['s1', hashAccountToken(TOKEN)]);
+    // Still this sign-up, with this link: the last token minted or an earlier copy's.
+    expect(sql.join('?')).toContain('"token_hash" = ? OR ? = ANY("earlier_token_hashes")');
+    expect(values).toEqual(['s1', hashAccountToken(TOKEN), hashAccountToken(TOKEN)]);
     expect(tx.user.create).toHaveBeenCalledWith({
       data: { email: 'ada@example.test', name: 'Ada Lovelace', role: 'member', passwordHash },
       select: { id: true, email: true, name: true, role: true },
@@ -278,8 +280,10 @@ describe('SignUpService.confirm', () => {
     await expect(last.service.confirm(TOKEN, 'not the password', NOW)).rejects.toThrow(
       UnauthorizedException,
     );
+    // Only while its link is this token, the last one minted or an earlier
+    // copy's (asking again makes a new sign-up).
     expect(last.prisma.signUp.deleteMany).toHaveBeenCalledWith({
-      where: { id: 's1', tokenHash: hashAccountToken(TOKEN) },
+      where: { id: 's1', ...matchesLinkToken(hashAccountToken(TOKEN)) },
     });
   });
 

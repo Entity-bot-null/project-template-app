@@ -34,9 +34,16 @@ interface Setup {
   role?: 'admin' | 'member';
   /** Administrators counted under the lock. */
   admins?: number;
+  /** Previous addresses of changes of email: notices still queued, undo links still working. */
+  undoable?: { notices?: (string | null)[]; links?: (string | null)[] };
 }
 
-function setup({ storedHashInTransaction, role = 'member', admins = 1 }: Setup = {}) {
+function setup({
+  storedHashInTransaction,
+  role = 'member',
+  admins = 1,
+  undoable = {},
+}: Setup = {}) {
   const user = {
     id: 'u1',
     email: 'ada@example.test',
@@ -85,6 +92,15 @@ function setup({ storedHashInTransaction, role = 'member', admins = 1 }: Setup =
       deleteMany: vi.fn(() => {
         calls.push('drop reset links');
         return Promise.resolve({ count: 1 });
+      }),
+      findMany: vi.fn(() =>
+        Promise.resolve((undoable.links ?? []).map((targetEmail) => ({ targetEmail }))),
+      ),
+    },
+    mailMessage: {
+      findMany: vi.fn(() => {
+        calls.push('read undoable addresses');
+        return Promise.resolve((undoable.notices ?? []).map((recipient) => ({ recipient })));
       }),
     },
   };
@@ -208,8 +224,15 @@ describe('AccountService.deleteAccount', () => {
   it('deletes the account under its lock, then queues a notice that belongs to no account', async () => {
     const { service, tx, mail, calls } = setup();
     await service.deleteAccount('u1', CURRENT);
-    // A member: no count of administrators.
-    expect(calls).toEqual(['lock deletions', 'lock user', 'delete user', 'queue notice']);
+    // A member: no count of administrators. The previous addresses are read
+    // before the deletion's cascade takes the notices.
+    expect(calls).toEqual([
+      'lock deletions',
+      'lock user',
+      'read undoable addresses',
+      'delete user',
+      'queue notice',
+    ]);
     // The cascades take what it owned: items, sessions, links, its messages.
     expect(tx.user.delete).toHaveBeenCalledWith({ where: { id: 'u1' } });
     expect(mail.enqueue).toHaveBeenCalledWith(expect.anything(), {
@@ -243,9 +266,38 @@ describe('AccountService.deleteAccount', () => {
       'lock deletions',
       'lock user',
       'count administrators',
+      'read undoable addresses',
       'delete user',
       'queue notice',
     ]);
+  });
+
+  it('tells every previous address that could still undo a change of email, once each', async () => {
+    const { service, tx, mail } = setup({
+      undoable: {
+        notices: ['grace@example.test', null],
+        links: ['grace@example.test', 'older@example.test', 'ada@example.test'],
+      },
+    });
+    await service.deleteAccount('u1', CURRENT);
+    // Only working undo links: unused and unexpired, of the account.
+    expect(tx.accountToken.findMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'u1',
+        purpose: 'email_revert',
+        usedAt: null,
+        expiresAt: { gt: expect.any(Date) as Date },
+      },
+      select: { targetEmail: true },
+    });
+    expect(tx.mailMessage.findMany).toHaveBeenCalledWith({
+      where: { userId: 'u1', kind: 'email_changed', status: { in: ['pending', 'sending'] } },
+      select: { recipient: true },
+    });
+    const recipients = (mail.enqueue.mock.calls as unknown as [unknown, { to: string }][]).map(
+      ([, input]) => input.to,
+    );
+    expect(recipients).toEqual(['ada@example.test', 'grace@example.test', 'older@example.test']);
   });
 
   it('answers 409 when the password changed meanwhile, 404 when the account is gone', async () => {

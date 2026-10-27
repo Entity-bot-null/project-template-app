@@ -64,7 +64,8 @@ session (memory, secure storage, renewal, sign-out) is in
   204 too. When the database cannot be reached it answers 500 and nothing changes; a retry ends the
   session.
 - **Lifetimes:** each rotation slides the session to 30 days of inactivity; a family ends 90 days
-  after its sign-in whatever the activity (`REFRESH_FAMILY_MAX_AGE_SEC`). Expired rows are swept at
+  after its sign-in whatever the activity (`REFRESH_FAMILY_MAX_AGE_SEC`), a retried renewal within
+  the reuse window included. Expired rows are swept at
   boot and hourly; revoked ones stay until their own expiry, so a replay is recognized at any point
   of a token's life.
 - **Not included (REQUIERE CONFIGURACIÓN per product):** MFA, SSO, account lockout per user, a list
@@ -157,8 +158,16 @@ undo) carry one-time tokens. An account's own links live in `account_tokens`
   sent to and the account's `security_version`. It works once, until it expires, and only while the
   account is as it was when it was minted (the same `security_version` and address), except the
   undo link of a change of email ([Change of email](#change-of-email)). A new link of a kind
-  replaces the earlier unused ones, so at most one works; a credential change ends every
-  outstanding one.
+  replaces the earlier unused ones, so only the latest message's link works; a credential change
+  ends every outstanding one.
+- **Every copy of one message works:** email is delivered at least once, and a message sent again
+  (a retry, a takeover) is rendered again, with a token of its own. The earlier copies' tokens stay
+  valid (`account_tokens.mail_message_id`; `earlier_token_hashes` on a sign-up or an invitation,
+  which has one message), since both copies share one `Message-ID` and a mailbox may keep only the
+  first. Each lasts as long as the copy it came in says: an account link from its own render, a
+  sign-up's or an invitation's links until the newest copy's expiry (the row has one). Using one
+  ends the others with it (the flow that uses it drops the account's unused links of the kind, or
+  deletes the sign-up or the invitation).
 - **Spent once:** using an account token locks the account's row, then the token's
   (`FOR UPDATE`), checks it and marks it used, in the transaction that makes the change; a
   sign-up's or an invitation's row is locked and deleted in the transaction that creates the
@@ -357,6 +366,9 @@ be deleted from it ([store-compliance.md](store-compliance.md)).
   transaction on a message that belongs to no account (no `user_id`: the user is gone). The address
   stays on the outbox row until the message is sent, then is cleared like any other. It carries no
   link and no secret, says when, and tells a person who did not ask that someone knew the password.
+  It also goes to every previous address that could still undo a change of email (its notice still
+  queued, which the deletion takes with the account, or its undo link still working): whoever moved
+  the account to an address of their own and deleted it cannot keep its owner from hearing of it.
   Never held back by the per-address limits.
 - **Records:** the log names the account by id (`Account <id> deleted by its owner`); the metric
   `app.account.deletions` counts deletions, with no attributes.
@@ -702,7 +714,7 @@ which hands them to Apple (APNs) and Google (FCM).
 | Who can send to a phone | Expo accepts a request for a token from anyone who knows it, unless the Expo account turns on enhanced push security: then only requests carrying `EXPO_ACCESS_TOKEN` (`Authorization: Bearer`, over HTTPS) are delivered. REQUIERE CONFIGURACIÓN in production: the token and the setting at expo.dev/settings/access-tokens.                                                                                                |
 | Tokens                  | A push token identifies a device: it is stored (`devices`, unique) but never logged, put in a metric or returned; a device is named by its id. The app sends its token only to the API, with the session's access token.                                                                                                                                                                                                      |
 | Registrations           | `PUT` and `DELETE /api/devices/{installationId}` need a session; the installation id is a UUID the app made. A registration moves the installation to the caller's account and takes the token from any other installation: a phone holds one account's notifications at a time. Only the caller's own installation can be removed; another account's answers 404, like a missing one ([authorization.md](authorization.md)). |
-| Sign-out                | The app removes its installation before revoking the session, so the next person on a shared phone does not get the previous account's notices. Best effort: offline, the registration stays until another account registers on that phone, the token dies or 270 days pass; what it can receive is the templates' text, which names no one.                                                                                  |
+| Sign-out                | The app removes its installation before revoking the session, so the next person on a shared phone does not get the previous account's notices. Best effort: offline, the registration stays until another account registers on that phone (what is still queued for the previous account is then dropped unsent), the token dies or 270 days pass; what it can receive is the templates' text, which names no one.           |
 | Content                 | Title, body and an internal `data.url` from a template, rendered at send time: never personal data or a secret (lock screens, three intermediaries). The app opens `data.url` only through its link allowlist, and only once signed in.                                                                                                                                                                                       |
 | What the outbox stores  | Kind, account, device, ids, status and the category of the last failure (`DeviceNotRegistered`, `http_503`), never the service's text.                                                                                                                                                                                                                                                                                        |
 | Retention               | Finished notifications are deleted after 30 days; a device whose token died, 30 days after; one not registered for 270 days. An account's devices and notifications go with it (cascade). The sweep runs whether push is on or off.                                                                                                                                                                                           |
@@ -917,8 +929,9 @@ Accepted on purpose, each with its way out:
   not common passes. Way out: a k-anonymity range check (OPCIONAL; it sends a hash prefix to a
   third party).
 - **Email is delivered at least once**: a worker that dies after the SMTP server accepted a message
-  and before recording it sends it again when its lease ends (same `Message-ID`). Links stay
-  single-use, so a duplicate does no harm beyond the noise.
+  and before recording it sends it again when its lease ends (same `Message-ID`). Each copy's link
+  works and the first one used ends the others ([One-time tokens](#one-time-tokens)), so a duplicate
+  does no harm beyond the noise.
 - **A deleted account survives in backups** until they rotate out
   ([Account deletion](#account-deletion)).
 - **The minimum app version is not a security control**: any client can claim any version
