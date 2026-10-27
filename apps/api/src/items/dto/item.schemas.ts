@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { freeText } from '../../common/free-text.js';
 import { pageOf, PageQuerySchema } from '../../common/pagination.js';
 
 // The example resource (docs/authorization.md): named in the contract, the
@@ -20,10 +21,8 @@ export const ItemPageSchema = pageOf(ItemSchema).meta({ id: 'ItemPage' });
 // Trimmed; an empty description is no description.
 export const CreateItemSchema = z
   .object({
-    title: z.string().trim().min(1, 'Title is required').max(120, 'At most 120 characters'),
-    description: z
-      .string()
-      .trim()
+    title: freeText().min(1, 'Title is required').max(120, 'At most 120 characters'),
+    description: freeText()
       .max(2000, 'At most 2000 characters')
       .optional()
       .transform((value) => (value === '' ? undefined : value)),
@@ -33,7 +32,7 @@ export type CreateItemDto = z.infer<typeof CreateItemSchema>;
 
 export const ItemQuerySchema = PageQuerySchema.extend({
   /** Only the items whose title contains it, whatever the letter case. */
-  q: z.string().trim().max(100).optional(),
+  q: freeText().max(100).optional(),
 });
 export type ItemQuery = z.infer<typeof ItemQuerySchema>;
 

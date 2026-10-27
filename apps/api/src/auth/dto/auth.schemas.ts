@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { freeText } from '../../common/free-text.js';
 import { ROLES } from '../../common/types/request-user.js';
 import { PASSWORD_MAX_INPUT_LENGTH } from '../auth.constants.js';
 
@@ -106,7 +107,7 @@ export type ChangePasswordDto = z.infer<typeof ChangePasswordSchema>;
 // the schema bounds the sizes. Names are trimmed, as user:create stores them.
 export const SignUpSchema = z.object({
   email: z.string().trim().max(254).pipe(z.email()).meta({ format: 'email' }),
-  name: z.string().trim().min(1, 'Name is required').max(100),
+  name: freeText().min(1, 'Name is required').max(100),
   password: newPassword,
 });
 export type SignUpDto = z.infer<typeof SignUpSchema>;
@@ -144,7 +145,7 @@ export type EmailRevertDto = z.infer<typeof EmailRevertSchema>;
 // policy is checked by the service, which knows the address).
 export const InvitationAcceptSchema = z.object({
   token: ONE_TIME_TOKEN,
-  name: z.string().trim().min(1, 'Name is required').max(100),
+  name: freeText().min(1, 'Name is required').max(100),
   password: newPassword,
 });
 export type InvitationAcceptDto = z.infer<typeof InvitationAcceptSchema>;

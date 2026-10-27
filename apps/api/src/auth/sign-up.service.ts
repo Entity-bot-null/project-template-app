@@ -13,7 +13,7 @@ import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js
 import type { SignUpConfirmationPayload } from '../infrastructure/mail/templates/sign-up-confirmation.template.js';
 import { Prisma } from '../prisma/generated/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { hashAccountToken } from './account-tokens.js';
+import { hashAccountToken, matchesLinkToken } from './account-tokens.js';
 import { normalizeEmail, SIGN_UP_ENABLED, SIGN_UP_MAX_FAILED_ATTEMPTS } from './auth.constants.js';
 import { AuthService } from './auth.service.js';
 import type { AuthSession, AuthUser, SignUpDto } from './dto/auth.schemas.js';
@@ -95,8 +95,8 @@ export class SignUpService {
   async confirm(token: string, password: string, now = Date.now()): Promise<AuthSession> {
     if (!this.available) throw new ForbiddenException(SIGN_UP_CLOSED);
     const tokenHash = hashAccountToken(token);
-    const signUp = await this.prisma.signUp.findUnique({
-      where: { tokenHash },
+    const signUp = await this.prisma.signUp.findFirst({
+      where: matchesLinkToken(tokenHash),
       select: { id: true, email: true, name: true, passwordHash: true, expiresAt: true },
     });
     if (signUp?.expiresAt == null || signUp.expiresAt.getTime() <= now) {
@@ -108,7 +108,9 @@ export class SignUpService {
     if (attempts === undefined) throw new NotFoundException(INVALID_SIGN_UP_LINK);
     if (!(await checkPassword(signUp.passwordHash, password))) {
       if (attempts >= SIGN_UP_MAX_FAILED_ATTEMPTS) {
-        await this.prisma.signUp.deleteMany({ where: { id: signUp.id, tokenHash } });
+        await this.prisma.signUp.deleteMany({
+          where: { id: signUp.id, ...matchesLinkToken(tokenHash) },
+        });
         this.logger.warn(`Sign-up ${signUp.id} dropped after ${String(attempts)} wrong passwords`);
       }
       throw new UnauthorizedException(WRONG_SIGN_UP_PASSWORD);
@@ -121,7 +123,8 @@ export class SignUpService {
         // since the password was checked. Locked until the account exists.
         const rows = await tx.$queryRaw<{ id: string }[]>`
           SELECT "id" FROM "sign_ups"
-          WHERE "id" = ${signUp.id}::uuid AND "token_hash" = ${tokenHash}
+          WHERE "id" = ${signUp.id}::uuid
+            AND ("token_hash" = ${tokenHash} OR ${tokenHash} = ANY("earlier_token_hashes"))
           FOR UPDATE`;
         if (rows.length === 0) throw new NotFoundException(INVALID_SIGN_UP_LINK);
         await tx.signUp.delete({ where: { id: signUp.id } });
@@ -193,7 +196,8 @@ export class SignUpService {
   private async reserveAttempt(id: string, tokenHash: string): Promise<number | undefined> {
     const rows = await this.prisma.$queryRaw<{ failedAttempts: number }[]>`
       UPDATE "sign_ups" SET "failed_attempts" = "failed_attempts" + 1
-      WHERE "id" = ${id}::uuid AND "token_hash" = ${tokenHash}
+      WHERE "id" = ${id}::uuid
+        AND ("token_hash" = ${tokenHash} OR ${tokenHash} = ANY("earlier_token_hashes"))
         AND "failed_attempts" < ${SIGN_UP_MAX_FAILED_ATTEMPTS}
       RETURNING "failed_attempts" AS "failedAttempts"`;
     return rows[0]?.failedAttempts;

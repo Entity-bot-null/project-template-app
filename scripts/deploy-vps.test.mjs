@@ -521,6 +521,21 @@ describe('rollback.sh', { skip: SKIP }, () => {
     assert.equal(pointer('release.env'), A[3]);
   });
 
+  test('puts the release that was running back when the previous one does not start', () => {
+    run('deploy.sh', A);
+    run('deploy.sh', B);
+    list('failing-images', [A[0]]);
+    const result = run('rollback.sh');
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, new RegExp(`rollback: release ${A[3]} did not start`));
+    assert.match(result.stderr, /rollback: back to the release that was running/);
+    // Nothing of the attempt is left: B runs, and the pointers say so.
+    assert.equal(running(), B[0]);
+    assert.equal(pointer('release.env'), B[3]);
+    assert.equal(pointer('release.previous.env'), A[3]);
+    assert.equal(pointer('release.failed.env'), null);
+  });
+
   test('is refused while a deployment runs', async () => {
     run('deploy.sh', A);
     run('deploy.sh', B);

@@ -4,8 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp, resetDatabase, type TestApp } from '../../test/app.js';
 import { bearer, seedUser, signIn, TEST_PASSWORD } from '../../test/auth.js';
 import { envelopeOf } from '../../test/http.js';
+import { clientWithDefaultIsolation } from '../../test/isolation.js';
 import {
   deleteMessagesTo,
+  deliverTwice,
+  linkTokensTo,
   mailTestOptions,
   messagesTo,
   readMessage,
@@ -16,6 +19,7 @@ import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js
 import { MailWorker } from '../infrastructure/mail/mail-worker.service.js';
 import { MAIL_OPTIONS } from '../infrastructure/mail/mail.constants.js';
 import type { MailOptions } from '../infrastructure/mail/mail.types.js';
+import { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import { PasswordResetService } from './password-reset.service.js';
 
 // "Forgot your password?" end to end against PostgreSQL and Mailpit: the link
@@ -188,6 +192,51 @@ describe.skipIf(skipWithoutMailpit)('password reset (PostgreSQL + Mailpit)', () 
       .expect(204);
     await t.resets.settled();
     expect(await t.prisma.mailMessage.count({ where: { kind: 'password_reset' } })).toBe(1);
+  });
+
+  it('holds back the second of two requests at once whatever isolation the database defaults to', async () => {
+    // The advisory lock orders the two transactions; the count after it
+    // needs READ COMMITTED to see the first one's message.
+    const strict = await clientWithDefaultIsolation('repeatable read');
+    try {
+      const resets = new PasswordResetService(
+        strict,
+        t.app.get(MailOutboxService),
+        t.app.get(PushOutboxService),
+      );
+      const counts: number[] = [];
+      for (let round = 0; round < 3; round += 1) {
+        const { email } = await user();
+        resets.request(email);
+        resets.request(email);
+        await resets.settled();
+        counts.push(
+          await t.prisma.mailMessage.count({ where: { kind: 'password_reset', recipient: email } }),
+        );
+      }
+      expect(counts).toEqual([1, 1, 1]);
+    } finally {
+      await strict.$disconnect();
+    }
+  });
+
+  it('keeps the link of every copy of a message sent twice; using one ends the others', async () => {
+    const ada = await user();
+    await request(t.server)
+      .post('/api/auth/password-resets')
+      .send({ email: ada.email })
+      .expect(204);
+    await t.resets.settled();
+    await deliverTwice(t, t.worker);
+    // One Message-ID for both: a mailbox may keep only the first copy.
+    const copies = await messagesTo(ada.email);
+    expect(new Set(copies.map((copy) => copy.MessageID)).size).toBe(1);
+    const tokens = await linkTokensTo(ada.email, /\/reset-password#token=([A-Za-z0-9_-]{43})/);
+    expect(tokens).toHaveLength(2);
+    const [first = '', second = ''] = tokens;
+    expect(second).not.toBe(first);
+    await confirm(first).expect(204);
+    await confirm(second, 'another harbour lantern 8').expect(404);
   });
 
   it('changes nothing when the transaction fails part way: the link and the sessions survive', async () => {

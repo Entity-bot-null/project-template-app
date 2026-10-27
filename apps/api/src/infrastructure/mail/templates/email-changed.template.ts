@@ -90,6 +90,7 @@ export const emailChangedTemplate: MailTemplate = {
       targetEmail: message.recipient,
       ttlMs: EMAIL_REVERT_TTL_MS,
       replaceEarlier: false,
+      messageId: message.id,
     });
     return renderMail(
       {

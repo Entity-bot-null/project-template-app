@@ -2,6 +2,7 @@ import type { InfiniteData } from '@tanstack/react-query';
 import { fireEvent, screen, userEvent, waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
+import { NUL_REFUSED } from '@/lib/forms';
 import { item, page } from '@/test/fixtures';
 import { bodyOf, deferred, failure, ok, stubFetch, type StubbedFetch } from '@/test/http';
 import { renderWithProviders, testQueryClient } from '@/test/render';
@@ -77,6 +78,17 @@ describe('ItemsScreen', () => {
       { limit: '20', offset: '0' },
       { limit: '20', offset: '0', q: 'zzz' },
     ]);
+  });
+
+  it('searches for what a pasted NUL leaves, which the API accepts', async () => {
+    fetchStub.on('GET /api/items', (request) =>
+      new URL(request.url).searchParams.has('q') ? ok(page(0, 0, 0)) : ok(page(0, 3, 3)),
+    );
+    await renderWithProviders(<ItemsScreen />);
+    await screen.findByText('Item 0');
+    await fireEvent.changeText(screen.getByLabelText('Search'), 'zz\u0000z');
+    expect(await screen.findByText('No results')).toBeOnTheScreen();
+    expect(listRequests().at(-1)).toEqual({ limit: '20', offset: '0', q: 'zzz' });
   });
 
   // A search changes the screen without navigating: a screen reader user
@@ -212,6 +224,29 @@ describe('ItemsScreen', () => {
     expect(screen.queryByText('Could not refresh the items')).toBeNull();
   });
 
+  it('lists every item once when one was created elsewhere between two pages', async () => {
+    // Newest first, by offset: [1..5] became [0..5] before the next page, so
+    // offset 3 starts at item 3, already on screen.
+    fetchStub.on('GET /api/items', (request) => {
+      const offset = Number(new URL(request.url).searchParams.get('offset'));
+      if (offset === 0) return ok(page(1, 3, 5));
+      return offset === 3
+        ? ok({ items: [item(3), item(4), item(5)], total: 7 })
+        : ok({ items: [item(6)], total: 7 });
+    });
+    await renderWithProviders(<ItemsScreen />);
+    await screen.findByText('Item 1');
+
+    await fireEvent(screen.getByTestId('items-list'), 'onEndReached');
+    expect(await screen.findByText('Item 5')).toBeOnTheScreen();
+    expect(screen.getAllByText('Item 3')).toHaveLength(1);
+
+    // The page after counts the server's rows (6), not the ones shown (5).
+    await fireEvent(screen.getByTestId('items-list'), 'onEndReached');
+    expect(await screen.findByText('Item 6')).toBeOnTheScreen();
+    expect(listRequests().map(({ offset }) => offset)).toEqual(['0', '3', '6']);
+  });
+
   it('shows an optimistic item as saving, not openable', async () => {
     const queryClient = testQueryClient();
     queryClient.setQueryData<InfiniteData<ItemPage>>(itemKeys.list(''), {
@@ -311,6 +346,14 @@ describe('NewItemScreen', () => {
     await renderWithProviders(<NewItemScreen onCreated={jest.fn()} />);
     await submit('');
     expect(await screen.findByText('Enter a title')).toBeOnTheScreen();
+    expect(posts()).toHaveLength(0);
+  });
+
+  it('refuses a pasted NUL under its field, as the API would', async () => {
+    await renderWithProviders(<NewItemScreen onCreated={jest.fn()} />);
+    await fireEvent.changeText(screen.getByLabelText('Title'), 'Grocer\u0000ies');
+    await userEvent.press(screen.getByRole('button', { name: 'Create' }));
+    expect(await screen.findByText(NUL_REFUSED)).toBeOnTheScreen();
     expect(posts()).toHaveLength(0);
   });
 

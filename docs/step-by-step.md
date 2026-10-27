@@ -912,7 +912,9 @@ cd /srv/app
 **Check:** it prints `rollback: running <commit of 7.8>`; https://staging.acme.com/release.json
 names that commit; the site and the app still work. After a deployment that only redeployed the
 release already running, `rollback.sh` refuses (exit 2) and names the release before it:
-`./rollback.sh --previous` starts that one.
+`./rollback.sh --previous` starts that one. If the release it puts back does not start, it prints
+`rollback: release <commit> did not start`, puts the release that was running back up and exits
+1: nothing is left half changed.
 
 Then bring staging back through the workflow, as for any deployment:
 

@@ -1,9 +1,11 @@
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectRecordAccess } from '../../test/access.js';
 import { createTestApp, resetDatabase, type TestApp } from '../../test/app.js';
 import { asUser, seedUser } from '../../test/auth.js';
 import { envelopeOf } from '../../test/http.js';
+import { NUL_REFUSED } from '../common/free-text.js';
+import { disabledErrorTracker, setErrorTracker } from '../observability/error-tracker.js';
 import type { ItemResponse } from './dto/item.schemas.js';
 
 interface ItemPage {
@@ -60,6 +62,31 @@ describe('Items (integration)', () => {
         { path: 'description', message: 'At most 2000 characters' },
       ],
     });
+  });
+
+  it('refuses a NUL in free text with a 400 naming the field, never a database failure', async () => {
+    // PostgreSQL text cannot hold U+0000: past the schema it was a 500,
+    // reported to the error tracker as a database failure.
+    const capture = vi.fn();
+    setErrorTracker({ ...disabledErrorTracker, capture });
+    try {
+      const created = await create({ title: 'a\u0000b', description: 'c\u0000' }).expect(400);
+      expect(created.body).toMatchObject({
+        errors: [
+          { path: 'title', message: NUL_REFUSED },
+          { path: 'description', message: NUL_REFUSED },
+        ],
+      });
+      const searched = await request(t.server)
+        .get(`/api/items?q=${encodeURIComponent('a\u0000')}`)
+        .set(asAda())
+        .expect(400);
+      expect(searched.body).toMatchObject({ errors: [{ path: 'q', message: NUL_REFUSED }] });
+      expect(capture).not.toHaveBeenCalled();
+      await expect(t.prisma.item.count()).resolves.toBe(0);
+    } finally {
+      setErrorTracker(disabledErrorTracker);
+    }
   });
 
   it("lists only the caller's items, newest first, by pages that never overlap", async () => {

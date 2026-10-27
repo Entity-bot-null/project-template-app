@@ -4,18 +4,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp, resetDatabase, type TestApp } from '../../test/app.js';
 import { bearer, seedUser, signIn, TEST_PASSWORD } from '../../test/auth.js';
 import { envelopeOf } from '../../test/http.js';
+import { clientWithDefaultIsolation } from '../../test/isolation.js';
 import {
   deleteMessagesTo,
+  deliverTwice,
+  linkTokensTo,
   mailTestOptions,
   messagesTo,
   readMessage,
   skipWithoutMailpit,
   testAddress,
 } from '../../test/mailpit.js';
+import { MailOutboxService } from '../infrastructure/mail/mail-outbox.service.js';
 import { MailWorker } from '../infrastructure/mail/mail-worker.service.js';
 import { MailStore } from '../infrastructure/mail/mail.store.js';
 import { MAIL_OPTIONS } from '../infrastructure/mail/mail.constants.js';
 import type { MailOptions } from '../infrastructure/mail/mail.types.js';
+import { PushOutboxService } from '../infrastructure/push/push-outbox.service.js';
 import { EmailChangeService } from './email-change.service.js';
 
 // Changing the address of an account against PostgreSQL and Mailpit: links
@@ -376,6 +381,54 @@ describe.skipIf(skipWithoutMailpit)('change of email (PostgreSQL + Mailpit)', ()
     expect(restored.email).toBe(grace.email);
   });
 
+  describe('a deletion right after a change of email (whoever moved the account deletes it)', () => {
+    /** Moves Grace's account to `target` with its link; returns Grace's previous address. */
+    async function moveTo(target: string): Promise<string> {
+      const grace = await account();
+      const session = await signIn(t.server, grace.email);
+      await ask(session.accessToken, target).expect(202);
+      await confirm(
+        await linkIn(target, 'Confirm your new Integration address', CONFIRM_LINK),
+      ).expect(204);
+      return grace.email;
+    }
+
+    async function deleteAs(email: string) {
+      const session = await signIn(t.server, email);
+      await request(t.server)
+        .post('/api/account/deletion')
+        .set(bearer(session.accessToken))
+        .send({ password: TEST_PASSWORD })
+        .expect(204);
+    }
+
+    const subjectsTo = async (email: string) =>
+      (await messagesTo(email)).map((message) => message.Subject).sort();
+
+    it('tells the previous address of the deletion when its notice of the change was not sent yet', async () => {
+      const target = address();
+      const previous = await moveTo(target);
+      // The notice waits (a busy worker, SMTP failing) while the account is deleted:
+      // the cascade takes it with the account.
+      await deleteAs(target);
+      await t.worker.runOnce();
+      expect(await subjectsTo(previous)).toEqual(['Your Integration account was deleted']);
+      expect(await subjectsTo(target)).toContain('Your Integration account was deleted');
+    });
+
+    it('tells it too when it holds an undo link that no longer has an account to bring back', async () => {
+      const target = address();
+      const previous = await moveTo(target);
+      await t.worker.runOnce();
+      await deleteAs(target);
+      await t.worker.runOnce();
+      expect(await subjectsTo(previous)).toEqual([
+        'Your Integration account was deleted',
+        'Your Integration address was changed',
+      ]);
+    });
+  });
+
   it('asks for the current password, refuses the same address, and queues nothing then', async () => {
     const grace = await account();
     const session = await signIn(t.server, grace.email);
@@ -383,6 +436,48 @@ describe.skipIf(skipWithoutMailpit)('change of email (PostgreSQL + Mailpit)', ()
     await ask(session.accessToken, ` ${grace.email.toUpperCase()} `).expect(400);
     await t.changes.settled();
     expect(await t.prisma.mailMessage.count()).toBe(0);
+  });
+
+  it('holds back the second of two requests at once whatever isolation the database defaults to', async () => {
+    // The advisory lock orders the two transactions; the count after it
+    // needs READ COMMITTED to see the first one's message.
+    const strict = await clientWithDefaultIsolation('repeatable read');
+    try {
+      const changes = new EmailChangeService(
+        strict,
+        t.app.get(MailOutboxService),
+        t.app.get(PushOutboxService),
+      );
+      const grace = await account();
+      const counts: number[] = [];
+      for (let round = 0; round < 3; round += 1) {
+        const target = address();
+        await Promise.all([
+          changes.request(grace.id, TEST_PASSWORD, target),
+          changes.request(grace.id, TEST_PASSWORD, target),
+        ]);
+        await changes.settled();
+        counts.push(await t.prisma.mailMessage.count({ where: { recipient: target } }));
+      }
+      expect(counts).toEqual([1, 1, 1]);
+    } finally {
+      await strict.$disconnect();
+    }
+  });
+
+  it('keeps the confirmation link of every copy of a message sent twice; using one ends the others', async () => {
+    const grace = await account();
+    const session = await signIn(t.server, grace.email);
+    const target = address();
+    await ask(session.accessToken, target).expect(202);
+    await t.changes.settled();
+    await deliverTwice(t, t.worker);
+    const tokens = await linkTokensTo(target, CONFIRM_LINK);
+    expect(tokens).toHaveLength(2);
+    const [first = '', second = ''] = tokens;
+    expect(second).not.toBe(first);
+    await confirm(first).expect(204);
+    await confirm(second).expect(404);
   });
 
   it('voids a confirmation link once the account changed (a new password)', async () => {

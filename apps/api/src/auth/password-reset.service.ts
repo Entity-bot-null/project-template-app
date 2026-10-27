@@ -131,7 +131,7 @@ export class PasswordResetService {
         userId: user.id,
       });
       return result === 'queued';
-    });
+    }, ACCOUNT_TRANSACTION);
     if (queued) this.mail.notifyQueued();
   }
 }

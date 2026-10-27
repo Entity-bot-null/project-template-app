@@ -36,6 +36,7 @@ import type { PushTemplates } from './push.templates.js';
 import type {
   ClaimedPush,
   ClaimedReceipt,
+  ClaimedSend,
   ExpoPushMessage,
   ExpoReceipt,
   ExpoTicket,
@@ -224,7 +225,7 @@ export class PushWorker implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  private async deliver(batch: (ClaimedPush & { deviceDisabled: boolean })[]): Promise<void> {
+  private async deliver(batch: ClaimedSend[]): Promise<void> {
     const sendable: { claim: ClaimedPush; message: ExpoPushMessage }[] = [];
     for (const claim of batch) {
       if (claim.attempts > this.options.maxAttempts) {
@@ -234,6 +235,10 @@ export class PushWorker implements OnApplicationBootstrap, OnModuleDestroy {
         await this.expire(claim, 'expired');
       } else if (claim.deviceDisabled) {
         await this.expire(claim, 'device_disabled');
+      } else if (claim.deviceMoved) {
+        // Another account signed in on that phone since: whatever this says,
+        // it is not for them (docs/authorization.md, devices).
+        await this.expire(claim, 'device_moved');
       } else {
         const rendered = this.templates[claim.kind].render(claim);
         if (rendered === null) {

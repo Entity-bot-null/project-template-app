@@ -199,7 +199,9 @@ enum AccountTokenPurpose {
 // once (usedAt), until expiresAt, and only while the account is as it was
 // when it was minted: the same securityVersion and, for an address-bound
 // purpose, the same email. Minting one deletes the previous unused ones of
-// the same purpose, so at most one link works.
+// the same purpose, so only the latest message's link works; the copies of
+// that one message (a retry, a takeover: email is at least once) each carry
+// a token of their own, and all of them work until one is used.
 model AccountToken {
   id              String              @id @default(uuid(7)) @db.Uuid
   userId          String              @map("user_id") @db.Uuid
@@ -210,6 +212,10 @@ model AccountToken {
   email           String
   // email_change: the new address; email_revert: the address to put back.
   targetEmail     String?             @map("target_email")
+  // The outbox message (mail_messages) whose copy carries it: a re-render of
+  // that message keeps it working. No foreign key: the message's row may go
+  // first (retention), the token keeps its own lifetime.
+  mailMessageId   String?             @map("mail_message_id") @db.Uuid
   expiresAt       DateTime            @map("expires_at") @db.Timestamptz(3)
   usedAt          DateTime?           @map("used_at") @db.Timestamptz(3)
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -230,19 +236,25 @@ model AccountToken {
 // did not ask for cannot finish someone else's sign-up
 // (docs/security.md#sign-up).
 model SignUp {
-  id             String    @id @default(uuid(7)) @db.Uuid
+  id                 String    @id @default(uuid(7)) @db.Uuid
   // normalizeEmail()'d, like users.email.
-  email          String    @unique
-  name           String
-  passwordHash   String    @map("password_hash")
+  email              String    @unique
+  name               String
+  passwordHash       String    @map("password_hash")
   // Null until the message is sent.
-  tokenHash      String?   @unique @map("token_hash")
-  expiresAt      DateTime? @map("expires_at") @db.Timestamptz(3)
+  tokenHash          String?   @unique @map("token_hash")
+  // The tokens of the message's earlier copies (a retry, a takeover: email
+  // is at least once): each one works as tokenHash does. A sign-up has one
+  // message, so every copy is of it; a new sign-up is a new row.
+  earlierTokenHashes String[]  @default([]) @map("earlier_token_hashes")
+  expiresAt          DateTime? @map("expires_at") @db.Timestamptz(3)
   // Wrong passwords given with the link: the sign-up is dropped at the limit.
-  failedAttempts Int       @default(0) @map("failed_attempts")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  failedAttempts     Int       @default(0) @map("failed_attempts")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   @@index([createdAt])
+  // A link's lookup by an earlier copy's token.
+  @@index([earlierTokenHashes], type: Gin)
   @@map("sign_ups")
 }
 
@@ -253,21 +265,27 @@ model SignUp {
 // minted when the message is sent, only its SHA-256 stored
 // (docs/security.md#invitations).
 model Invitation {
-  id          String    @id @default(uuid(7)) @db.Uuid
+  id                 String    @id @default(uuid(7)) @db.Uuid
   // normalizeEmail()'d, like users.email.
-  email       String    @unique
+  email              String    @unique
   // Fixed by the administrator: accepting cannot change it.
-  role        Role
+  role               Role
   // Who invited; kept when that account is deleted, as unknown.
-  invitedById String?   @map("invited_by_id") @db.Uuid
+  invitedById        String?   @map("invited_by_id") @db.Uuid
   // Null until the message is sent.
-  tokenHash   String?   @unique @map("token_hash")
-  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(3)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tokenHash          String?   @unique @map("token_hash")
+  // The tokens of the message's earlier copies (a retry, a takeover: email
+  // is at least once): each one works as tokenHash does. An invitation has
+  // one message, so every copy is of it; inviting again is a new row.
+  earlierTokenHashes String[]  @default([]) @map("earlier_token_hashes")
+  expiresAt          DateTime? @map("expires_at") @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   invitedBy User? @relation(fields: [invitedById], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
+  // A link's lookup by an earlier copy's token.
+  @@index([earlierTokenHashes], type: Gin)
   // Deleting a user sets its invitations' invitedById to null.
   @@index([invitedById])
   @@map("invitations")

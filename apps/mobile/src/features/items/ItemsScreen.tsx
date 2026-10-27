@@ -49,7 +49,9 @@ const useStyles = createStyles((theme) => ({
 export function ItemsScreen() {
   const styles = useStyles();
   const [search, setSearch] = useState('');
-  const term = useDebouncedValue(search.trim());
+  // A NUL (pasted: no keyboard types it) is no character of any title, and
+  // the API refuses it: searching for the rest finds the same items.
+  const term = useDebouncedValue(search.replaceAll('\u0000', '').trim());
   const query = useItems(term);
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
   // The results of `term`, not the previous ones kept on screen while it loads.

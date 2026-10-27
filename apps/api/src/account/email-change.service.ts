@@ -276,7 +276,7 @@ export class EmailChangeService {
               userId: owner.id,
             });
       return result === 'queued';
-    });
+    }, ACCOUNT_TRANSACTION);
     if (queued) this.mail.notifyQueued();
   }
 }

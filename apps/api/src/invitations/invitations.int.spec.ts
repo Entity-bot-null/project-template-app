@@ -6,12 +6,15 @@ import { bearer, seedUser, signIn } from '../../test/auth.js';
 import { envelopeOf } from '../../test/http.js';
 import {
   deleteMessagesTo,
+  deliverTwice,
+  linkTokensTo,
   mailTestOptions,
   messagesTo,
   readMessage,
   skipWithoutMailpit,
   testAddress,
 } from '../../test/mailpit.js';
+import { NUL_REFUSED } from '../common/free-text.js';
 import { MailWorker } from '../infrastructure/mail/mail-worker.service.js';
 import { MAIL_OPTIONS } from '../infrastructure/mail/mail.constants.js';
 import type { MailOptions } from '../infrastructure/mail/mail.types.js';
@@ -165,6 +168,9 @@ describe.skipIf(skipWithoutMailpit)('invitations (PostgreSQL + Mailpit)', () => 
     for (const weak of ['too short', 'correcthorsebatterystaple', 'katherine and her numbers']) {
       await accept(token, 'Katherine Johnson', weak).expect(400);
     }
+    // A NUL in the name is refused before the database sees it, like a weak password.
+    const nul = await accept(token, 'Katherine\u0000Johnson').expect(400);
+    expect(nul.body).toMatchObject({ errors: [{ path: 'name', message: NUL_REFUSED }] });
     const results = await Promise.all([accept(token), accept(token)]);
     expect(results.map((res) => res.status).sort()).toEqual([200, 404]);
     expect(await t.prisma.user.count({ where: { email } })).toBe(1);
@@ -174,6 +180,18 @@ describe.skipIf(skipWithoutMailpit)('invitations (PostgreSQL + Mailpit)', () => 
     const lateToken = await linkFor(late);
     await t.prisma.invitation.updateMany({ data: { expiresAt: new Date(Date.now() - 1) } });
     await accept(lateToken).expect(404);
+  });
+
+  it('keeps the link of every copy of the invitation sent twice; accepting ends it', async () => {
+    const email = address();
+    await invite(email).expect(201);
+    await deliverTwice(t, t.worker);
+    const tokens = await linkTokensTo(email, ACCEPT_LINK);
+    expect(tokens).toHaveLength(2);
+    const [first = '', second = ''] = tokens;
+    expect(second).not.toBe(first);
+    await accept(first).expect(200);
+    await accept(second).expect(404);
   });
 
   it('stops working once whoever invited is no longer an administrator', async () => {

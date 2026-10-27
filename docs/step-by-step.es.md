@@ -948,7 +948,9 @@ cd /srv/app
 **Comprobación:** imprime `rollback: running <commit del 7.8>`; https://staging.acme.com/release.json
 nombra ese commit; el sitio y la app siguen funcionando. Tras un despliegue que solo volvió a
 desplegar la release que ya corría, `rollback.sh` se niega (salida 2) y nombra la release anterior:
-`./rollback.sh --previous` arranca esa.
+`./rollback.sh --previous` arranca esa. Si la release que vuelve a poner no arranca, imprime
+`rollback: release <commit> did not start`, vuelve a levantar la release que corría y sale con 1:
+nada queda a medias.
 
 Después devuelve staging con el workflow, como cualquier despliegue:
 

@@ -82,6 +82,11 @@ in `ERROR_DESCRIPTIONS` (`apps/api/src/common/openapi/api.decorators.ts`: 400, 4
 - Unknown keys are stripped, defaults applied; the handler receives the parsed value.
 - Bound everything: string `max`, array `max`, numeric ranges. The request body limit is 100 kB
   (Express default) unless a route needs more.
+- Text people type (a title, a description, a name, a search) is `freeText()`
+  (`apps/api/src/common/free-text.ts`) with its bounds: trimmed, and a NUL (U+0000), which
+  PostgreSQL text cannot hold, is a field error instead of a database failure (a 500). The app's
+  forms use their own `freeText()` (`apps/mobile/src/lib/forms.ts`), and the mock API refuses it
+  too.
 - Bodies are JSON only (`Content-Type: application/json`); anything else answers 415. A route that
   must take another type (a file upload) is exempted explicitly in
   `apps/api/src/common/http/json-only.middleware.ts`, in review.
@@ -146,8 +151,10 @@ out of range is a 400. Order by a unique key last so pages never overlap
 transaction. A route's own filters extend the schema: `GET /api/items` adds `q` (titles that contain
 it, whatever the letter case, at most 100 characters; `%` and `_` are characters to find, not
 patterns). The app asks for the next page with `offset` set to the items it has loaded, until it
-reaches `total` (`useItems` in `apps/mobile/src/features/items/api.ts`). For very large or
-fast-moving collections, switch that route to cursor pagination (OPCIONAL).
+reaches `total` (`useItems` in `apps/mobile/src/features/items/api.ts`). Pages never overlap while
+the collection stays as it is; a row created meanwhile (on another device) moves every row down
+one, so the next page starts with one already listed, and `useItems` shows each item once. For very
+large or fast-moving collections, switch that route to cursor pagination (OPCIONAL).
 
 ## Idempotency
 

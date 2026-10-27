@@ -26,6 +26,18 @@ export function newAccountToken(): string {
   return randomBytes(32).toString('base64url');
 }
 
+/**
+ * A sign-up's or an invitation's link, by its token: the one minted last, or
+ * one of the same message's earlier copies (a retry, a takeover), which the
+ * templates keep in earlierTokenHashes. A row has one message (asking again
+ * makes a new row), so every hash it holds is a link of it.
+ */
+export function matchesLinkToken(tokenHash: string): {
+  OR: [{ tokenHash: string }, { earlierTokenHashes: { has: string } }];
+} {
+  return { OR: [{ tokenHash }, { earlierTokenHashes: { has: tokenHash } }] };
+}
+
 export interface MintInput {
   userId: string;
   purpose: AccountTokenPurpose;
@@ -41,16 +53,25 @@ export interface MintInput {
   targetEmail?: string;
   ttlMs: number;
   /**
-   * Delete the account's earlier unused tokens of the purpose (default): at
-   * most one link of a kind works, the latest. False for email_revert: a
+   * Delete the account's earlier unused tokens of the purpose (default): only
+   * the latest message's link of a kind works. False for email_revert: a
    * later change of email must not void the link that undoes an earlier one.
    */
   replaceEarlier?: boolean;
+  /**
+   * The outbox message whose copy carries the token. Its earlier copies (a
+   * retry, a takeover: email is at least once, and they share one Message-ID,
+   * so a mailbox may keep only the first) keep their tokens: replaceEarlier
+   * deletes those of other messages only. Every copy's link works until one
+   * of them is used; the flow that uses it ends the others.
+   */
+  messageId?: string;
 }
 
 /**
  * Mints a token, and deletes the account's unused tokens of the same purpose
- * first: at most one link of a kind works at a time, the latest. Takes the
+ * first, but those of the same message's earlier copies: only the latest
+ * message's link of a kind works, from any of its copies. Takes the
  * account's lock first, like every flow that uses a token (the account's
  * row, then its tokens): otherwise this transaction, holding a token row,
  * could wait on the account row (the foreign key's check) while a flow
@@ -65,7 +86,16 @@ export async function mintAccountToken(
   await lockUser(tx, input.userId);
   if (input.replaceEarlier !== false) {
     await tx.accountToken.deleteMany({
-      where: { userId: input.userId, purpose: input.purpose, usedAt: null },
+      where: {
+        userId: input.userId,
+        purpose: input.purpose,
+        usedAt: null,
+        // Spelled out: a NULL never equals the message, so `not` alone would
+        // keep the tokens no message is recorded for.
+        ...(input.messageId !== undefined && {
+          OR: [{ mailMessageId: null }, { mailMessageId: { not: input.messageId } }],
+        }),
+      },
     });
   }
   const token = newAccountToken();
@@ -77,6 +107,7 @@ export async function mintAccountToken(
       securityVersion: input.securityVersion,
       email: input.email,
       targetEmail: input.targetEmail ?? null,
+      mailMessageId: input.messageId ?? null,
       expiresAt: new Date(now + input.ttlMs),
       createdAt: new Date(now),
     },

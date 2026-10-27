@@ -5,15 +5,14 @@ import { z } from 'zod';
 
 import { analytics } from '@/lib/analytics';
 import { toAppError, userMessage } from '@/lib/errors';
+import { freeText } from '@/lib/forms';
 import { AlertText, Button, Screen, TextField } from '@/ui';
 
 import { useCreateItem } from './api';
 
 export const NewItemSchema = z.object({
-  title: z.string().trim().min(1, 'Enter a title').max(120, 'At most 120 characters'),
-  description: z
-    .string()
-    .trim()
+  title: freeText().min(1, 'Enter a title').max(120, 'At most 120 characters'),
+  description: freeText()
     .max(2000, 'At most 2000 characters')
     .transform((value) => (value === '' ? undefined : value)),
 });

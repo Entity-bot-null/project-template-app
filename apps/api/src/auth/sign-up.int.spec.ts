@@ -6,12 +6,15 @@ import { bearer, seedUser, sessionOf, signIn } from '../../test/auth.js';
 import { envelopeOf } from '../../test/http.js';
 import {
   deleteMessagesTo,
+  deliverTwice,
+  linkTokensTo,
   mailTestOptions,
   messagesTo,
   readMessage,
   skipWithoutMailpit,
   testAddress,
 } from '../../test/mailpit.js';
+import { NUL_REFUSED } from '../common/free-text.js';
 import { MailWorker } from '../infrastructure/mail/mail-worker.service.js';
 import { MAIL_OPTIONS } from '../infrastructure/mail/mail.constants.js';
 import { SIGN_UP_ENABLED } from './auth.constants.js';
@@ -212,6 +215,27 @@ describe.skipIf(skipWithoutMailpit)('sign-up (PostgreSQL + Mailpit)', () => {
     await t.signUps.settled();
     expect(await t.prisma.signUp.count({ where: { email: weak } })).toBe(0);
     await confirm('not-a-token').expect(400);
+  });
+
+  it('keeps the link of every copy of the confirmation sent twice; confirming ends the sign-up', async () => {
+    const email = address();
+    await ask(email).expect(202);
+    await t.signUps.settled();
+    await deliverTwice(t, t.worker);
+    const tokens = await linkTokensTo(email, /\/confirm-sign-up#token=([A-Za-z0-9_-]{43})/);
+    expect(tokens).toHaveLength(2);
+    const [first = '', second = ''] = tokens;
+    expect(second).not.toBe(first);
+    await confirm(first).expect(200);
+    await confirm(second).expect(404);
+  });
+
+  it('refuses a NUL in the name at once: past the answer, the sign-up could not be recorded', async () => {
+    const email = address();
+    const res = await ask(email, PASSWORD, 'Ada\u0000Lovelace').expect(400);
+    expect(res.body).toMatchObject({ errors: [{ path: 'name', message: NUL_REFUSED }] });
+    await t.signUps.settled();
+    expect(await t.prisma.signUp.count()).toBe(0);
   });
 
   it('starts a session of its own, like a sign-in: any other one is left alone', async () => {

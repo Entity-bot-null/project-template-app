@@ -240,10 +240,13 @@ export function createMockApi({
     const email = typeof value === 'string' ? value.trim().toLowerCase() : '';
     return EMAIL.test(email) && email.length <= 254 ? email : undefined;
   };
+  // The API refuses a NUL in typed text (apps/api/src/common/free-text.ts).
+  const NUL = '\u0000';
+  const NUL_REFUSED = 'Contains a character that is not allowed';
   /** @param {unknown} value */
   const nameOf = (value) => {
     const name = typeof value === 'string' ? value.trim() : '';
-    return name.length >= 1 && name.length <= 100 ? name : undefined;
+    return name.length >= 1 && name.length <= 100 && !name.includes(NUL) ? name : undefined;
   };
   const userByEmail = (/** @type {string} */ email) =>
     users.find((candidate) => candidate.email === email);
@@ -430,6 +433,7 @@ export function createMockApi({
         errors.push({ path: 'offset', message: 'At least 0' });
       }
       if (query.length > 100) errors.push({ path: 'q', message: 'At most 100 characters' });
+      if (query.includes(NUL)) errors.push({ path: 'q', message: NUL_REFUSED });
       if (errors.length > 0) return invalid(response, errors);
       const matching = items
         .filter((item) => item.ownerId === user.id)
@@ -456,9 +460,11 @@ export function createMockApi({
       const errors = [];
       if (title.length === 0) errors.push({ path: 'title', message: 'Title is required' });
       if (title.length > 120) errors.push({ path: 'title', message: 'At most 120 characters' });
+      if (title.includes(NUL)) errors.push({ path: 'title', message: NUL_REFUSED });
       if (description !== undefined && description.length > 2000) {
         errors.push({ path: 'description', message: 'At most 2000 characters' });
       }
+      if (description?.includes(NUL)) errors.push({ path: 'description', message: NUL_REFUSED });
       if (key !== undefined && (typeof key !== 'string' || !IDEMPOTENCY_KEY.test(key))) {
         errors.push({
           path: 'Idempotency-Key',

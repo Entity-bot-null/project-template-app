@@ -70,12 +70,43 @@ describe('mintAccountToken', () => {
       securityVersion: 2,
       email: 'ada@example.test',
       targetEmail: null,
+      mailMessageId: null,
       expiresAt: new Date(NOW + 30 * 60_000),
       createdAt: new Date(NOW),
     });
     expect(JSON.stringify(data)).not.toContain(token);
     // Never the same twice.
     expect(await mintAccountToken(client, { ...data, ttlMs: 1 } as never, NOW)).not.toBe(token);
+  });
+
+  it("keeps the tokens of its own message's earlier copies, and records the message", async () => {
+    const { tx, client } = txWith();
+    await mintAccountToken(
+      client,
+      {
+        userId: 'u1',
+        purpose: 'password_reset',
+        securityVersion: 2,
+        email: 'ada@example.test',
+        ttlMs: 30 * 60_000,
+        messageId: 'm1',
+      },
+      NOW,
+    );
+    // Those of other messages go, and those minted with no message recorded
+    // (a NULL never equals the message: spelled out).
+    expect(tx.accountToken.deleteMany).toHaveBeenCalledWith({
+      where: {
+        userId: 'u1',
+        purpose: 'password_reset',
+        usedAt: null,
+        OR: [{ mailMessageId: null }, { mailMessageId: { not: 'm1' } }],
+      },
+    });
+    const [[{ data }]] = tx.accountToken.create.mock.calls as unknown as [
+      [{ data: Record<string, unknown> }],
+    ];
+    expect(data).toMatchObject({ mailMessageId: 'm1' });
   });
 });
 
