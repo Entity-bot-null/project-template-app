@@ -110,16 +110,23 @@ function passedOn(headers) {
 }
 
 /**
- * Sends a request to the API and reads its whole answer.
- * @param {URL} url
+ * Sends a request to the API and reads its whole answer. The host and port
+ * are always the API's: a request's target only ever gives the path.
+ * @param {URL} api
+ * @param {string} path
  * @param {{ method: string; headers: Headers; body: Buffer }} init
  * @returns {Promise<Answer>}
  */
-function forward(url, { method, headers, body }) {
+function forward(api, path, { method, headers, body }) {
   return new Promise((resolve, reject) => {
     const outgoing = httpRequest(
-      url,
-      { method, headers: { ...headers, host: url.host, 'content-length': body.length } },
+      {
+        hostname: api.hostname,
+        port: api.port,
+        path,
+        method,
+        headers: { ...headers, host: api.host, 'content-length': body.length },
+      },
       (incoming) => {
         readAll(incoming).then(
           (answer) =>
@@ -189,7 +196,7 @@ export function createE2eProxy({
   /** Ends on the API every session the proxy has seen. */
   async function revokeSessions() {
     for (const refreshToken of refreshTokens) {
-      const answer = await forward(new URL('/api/auth/logout', api), {
+      const answer = await forward(api, '/api/auth/logout', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: Buffer.from(JSON.stringify({ refreshToken })),
@@ -250,8 +257,8 @@ export function createE2eProxy({
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
     const route = `${request.method ?? 'GET'} ${url.pathname}`;
     if (url.pathname.startsWith('/__e2e/')) return control(route, request, response);
-    // The API's routes only, always on the API's origin: a request's target
-    // never picks the host (an absolute form, a path that starts with //).
+    // The API's routes only, always on the API's host (forward): a request's
+    // target never picks it (an absolute form, a path that starts with //).
     if (!url.pathname.startsWith('/api/')) {
       return send(response, 404, null, `The e2e proxy passes /api/ routes only, not ${route}`);
     }
@@ -276,7 +283,7 @@ export function createE2eProxy({
     /** @type {Answer} */
     let answer;
     try {
-      answer = await forward(new URL(`${api.origin}/api/${url.pathname.slice(5)}${url.search}`), {
+      answer = await forward(api, url.pathname + url.search, {
         method: request.method ?? 'GET',
         headers,
         body,
