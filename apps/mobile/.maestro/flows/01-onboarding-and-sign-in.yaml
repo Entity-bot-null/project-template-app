@@ -1,15 +1,16 @@
 # First launch on a clean install: onboarding, then sign-in with validation,
-# a wrong password, the API refusing more attempts (429) and a connection that
-# drops before the answer, then the right password.
+# a wrong password (the API's answer), the API refusing more attempts (429)
+# and a connection that drops before the answer (both from the e2e proxy),
+# then the right password.
 appId: ${APP_ID}
 name: Onboarding and sign-in
 env:
   # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
   APP_ID: com.example.templateapp.e2e
-# Pass or fail, the mock API answers normally for the next flow.
+# Pass or fail, the proxy passes every request to the API for the next flow.
 onFlowComplete:
   - runScript:
-      file: ../scripts/mock-api.js
+      file: ../scripts/e2e-proxy.js
       env:
         CONTROL: faults/clear
 ---
@@ -57,7 +58,7 @@ onFlowComplete:
 
 # The API refuses more attempts for now (429): the user is told to wait.
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: faults
       ROUTE: POST /api/auth/sign-in
@@ -69,7 +70,7 @@ onFlowComplete:
 # The connection drops before any answer (a failure of the device's network
 # stack, which Jest can only imitate): the user is told to check it.
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: faults
       ROUTE: POST /api/auth/sign-in
@@ -79,7 +80,7 @@ onFlowComplete:
 - assertVisible: You seem to be offline. Check your connection and try again.
 
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: faults/clear
 - tapOn:

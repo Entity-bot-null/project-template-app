@@ -59,7 +59,7 @@ const APP: AppIdentity = {
 const VARIANTS = {
   development: { nameSuffix: ' (Dev)', idSuffix: '.dev', schemeSuffix: '-dev' },
   preview: { nameSuffix: ' (Preview)', idSuffix: '.preview', schemeSuffix: '-preview' },
-  // A release build against the local mock API (Maestro, .maestro/README.md).
+  // A release build against the local API through the e2e proxy (Maestro, .maestro/README.md).
   e2e: { nameSuffix: ' (E2E)', idSuffix: '.e2e', schemeSuffix: '-e2e' },
   production: { nameSuffix: '', idSuffix: '', schemeSuffix: '' },
 } as const;
@@ -227,7 +227,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
             // R8: smaller release builds, and harder to read once decompiled.
             enableMinifyInReleaseBuilds: true,
             enableShrinkResourcesInReleaseBuilds: true,
-            // Plain HTTP to the local mock API, for the E2E build only.
+            // Plain HTTP to the local e2e proxy, for the E2E build only.
             usesCleartextTraffic: variant === 'e2e',
           },
         },

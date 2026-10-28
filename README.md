@@ -73,33 +73,28 @@ load.
 
 ## Quick start
 
-```sh
-pnpm install                                   # dependencies and Git hooks
-cp apps/mobile/.env.example apps/mobile/.env   # local configuration: the mock API on localhost:4010
-pnpm mock:api                                  # terminal 1: an in-memory implementation of the API contract
-pnpm android                                   # terminal 2: compile and run a development build on the emulator
-#   or: pnpm ios                               # on macOS, in the simulator
-```
-
-On an Android emulator or a USB device, forward the mock API's port once per session:
-`adb reverse tcp:4010 tcp:4010`. Sign in with `member@example.com` / `member-password`.
-
-After the first native build, `pnpm start` is enough: JavaScript changes reload instantly. After a
-native change (a dependency with native code, a config plugin, `apps/mobile/app.config.ts` native
-fields, the icons or the splash), run `pnpm prebuild`, then `pnpm android` / `pnpm ios`: those two
-generate `apps/mobile/android/` and `apps/mobile/ios/` only when the folders are missing, so on
-their own they rebuild the old native project.
-
-The real API, instead of the mock (Docker running):
+The app runs against its own API, on this machine (Docker running):
 
 ```sh
+pnpm install                                                     # dependencies and Git hooks
 cp .env.example .env && cp apps/api/.env.example apps/api/.env   # then set JWT_ACCESS_SECRET (openssl rand -hex 32)
+cp apps/mobile/.env.example apps/mobile/.env                     # the app's configuration: the API on localhost:3010
 pnpm services:up && pnpm db:migrate && pnpm db:seed              # PostgreSQL, Redis, Mailpit; schema; example data
-pnpm dev                                                         # the API on 127.0.0.1:3010, in watch mode
+pnpm dev                                                         # terminal 1: the API on 127.0.0.1:3010 and the landing on localhost:4331
+pnpm android                                                     # terminal 2: compile and run a development build on the emulator
+#   or: pnpm ios                                                 # on macOS, in the simulator
 ```
 
-Then `EXPO_PUBLIC_API_URL=http://localhost:3010` in `apps/mobile/.env` and
-`adb reverse tcp:3010 tcp:3010` ([docs/manual.md](docs/manual.md#5-running-the-api)).
+On an Android emulator or a USB device, forward the API's port once per session:
+`adb reverse tcp:3010 tcp:3010`. Sign in with `member@example.com` / `member-password`; the email
+the API sends lands in Mailpit, `http://localhost:8045`
+([docs/manual.md](docs/manual.md#5-running-the-api)).
+
+After the first native build, `pnpm dev` and `pnpm start` are enough: JavaScript changes reload
+instantly. After a native change (a dependency with native code, a config plugin,
+`apps/mobile/app.config.ts` native fields, the icons or the splash), run `pnpm prebuild`, then
+`pnpm android` / `pnpm ios`: those two generate `apps/mobile/android/` and `apps/mobile/ios/` only
+when the folders are missing, so on their own they rebuild the old native project.
 
 ## Commands
 
@@ -108,7 +103,6 @@ Then `EXPO_PUBLIC_API_URL=http://localhost:3010` in `apps/mobile/.env` and
 | `pnpm start`                          | Metro dev server for an installed development build                                                                                                                                          |
 | `pnpm android` / `pnpm ios`           | compile, install and run a development build locally (generate `apps/mobile/android/` / `apps/mobile/ios/` only when missing)                                                                |
 | `pnpm prebuild`                       | regenerate `apps/mobile/android/` and `apps/mobile/ios/` from `apps/mobile/app.config.ts` (never edit them)                                                                                  |
-| `pnpm mock:api`                       | the mock API on `127.0.0.1:4010` (`MOCK_ACCESS_TTL_SEC`, `MOCK_LATENCY_MS` to test renewal and loading states)                                                                               |
 | `pnpm dev`                            | PostgreSQL, Redis and Mailpit up, then the API in watch mode on `127.0.0.1:3010` and the landing on `localhost:4331`, with a box of their addresses                                          |
 | `pnpm services:up` / `pnpm db:down`   | the API's services in Docker / stop them (the data stays)                                                                                                                                    |
 | `pnpm db:migrate` / `pnpm db:seed`    | create and apply migrations, regenerate the Prisma client / the example accounts and items                                                                                                   |
@@ -118,9 +112,9 @@ Then `EXPO_PUBLIC_API_URL=http://localhost:3010` in `apps/mobile/.env` and
 | `pnpm --filter mobile types:generate` | Expo's generated types (`apps/mobile/expo-env.d.ts`, typed routes in `apps/mobile/.expo/types`); run by install, lint and typecheck                                                          |
 | `pnpm test` / `pnpm test:coverage`    | Jest (app) and Vitest (API unit, landing); coverage with thresholds (`pnpm --filter <package> test:watch` to watch)                                                                          |
 | `pnpm test:integration`               | the API against PostgreSQL, Redis and Mailpit                                                                                                                                                |
-| `pnpm test:scripts`                   | the tests of the repository's scripts (`node --test`), the mock API against the contract                                                                                                     |
+| `pnpm test:scripts`                   | the tests of the repository's scripts (`node --test`), the app's e2e proxy included                                                                                                          |
 | `pnpm test:e2e`                       | Playwright: the built landing, and the web image's app links (Docker) ([docs/testing.md](docs/testing.md#browser-end-to-end))                                                                |
-| `pnpm test:e2e:mobile`                | Maestro flows on a running emulator/simulator ([docs/testing.md](docs/testing.md#end-to-end))                                                                                                |
+| `pnpm test:e2e:mobile`                | Maestro flows on a running emulator/simulator, against the API through the e2e proxy ([docs/testing.md](docs/testing.md#end-to-end))                                                         |
 | `pnpm expo:doctor`                    | expo-doctor: dependency versions against the installed SDK, config, native module issues                                                                                                     |
 | `pnpm security`                       | `pnpm audit`, dependency and license policy, secret scan                                                                                                                                     |
 | `pnpm sast`                           | Semgrep (Docker)                                                                                                                                                                             |
@@ -159,7 +153,7 @@ apps/
       test/           test setup and helpers
     assets/images/    app icon, adaptive icon, splash, notification icon (neutral placeholders)
     .maestro/         end-to-end flows
-    scripts/          the app's tools: contract types, mock API, bundle budget, expo-doctor, EAS check
+    scripts/          the app's tools: contract types, e2e proxy, bundle budget, expo-doctor, EAS check
     app.config.ts     app identity, variants, native configuration, plugins
     eas.json          build profiles, submission (EAS runs from apps/mobile)
     package.json      the app's dependencies and scripts
@@ -231,7 +225,7 @@ where it lives):
 13. **The example feature**: build the product's features alongside `items`, using it as the
     reference, then delete `apps/mobile/src/features/items`, its routes (the home tab included), its
     links in `apps/mobile/src/lib/links.ts`, the `newItemForm` flag, the `item_created` event, its
-    Maestro flow and its mock API routes, and the API's `items` module, seed and table (a new
+    Maestro flows, and the API's `items` module, seed and table (a new
     migration); flows 01 and 02 wait for the items list after sign-in
     ([docs/step-by-step.md](docs/step-by-step.md#63-your-features)).
 
@@ -299,7 +293,7 @@ the product's own:
 | [docs/accessibility.md](docs/accessibility.md)                                     | the accessibility gate: built-in guarantees, automated checks, the per-feature checklist                              |
 | [docs/localization.md](docs/localization.md)                                       | translating the app, when the product needs it (optional)                                                             |
 | [docs/adr/](docs/adr/)                                                             | architecture decisions                                                                                                |
-| [openapi/README.md](openapi/README.md)                                             | the API contract, how it is generated, and the mock API                                                               |
+| [openapi/README.md](openapi/README.md)                                             | the API contract and how it is generated                                                                              |
 | [apps/mobile/.maestro/README.md](apps/mobile/.maestro/README.md)                   | the end-to-end flows                                                                                                  |
 
 ## Troubleshooting
@@ -309,7 +303,7 @@ The most common problems; every message and its fix is in
 
 | Problem                                                                                 | Fix                                                                                                                                                                |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| The app cannot reach the mock API on Android ("You seem to be offline")                 | `adb reverse tcp:4010 tcp:4010` (again after restarting the emulator or reconnecting a device)                                                                     |
+| The app cannot reach the API on Android ("You seem to be offline")                      | `adb reverse tcp:3010 tcp:3010` (again after restarting the emulator or reconnecting a device)                                                                     |
 | `Invalid app configuration: EXPO_PUBLIC_API_URL…` when building                         | set the variable (`apps/mobile/.env` locally, EAS environment for builds); HTTPS outside localhost                                                                 |
 | Android build: `CMAKE_OBJECT_PATH_MAX` warnings, then "CXX compiler … broken" (Windows) | move the project to a short path (`C:\dev\<app>`), enable Windows long paths, `pnpm install` again                                                                 |
 | Android build on Windows: "manifest 'build.ninja' still dirty after 100 tries"          | set the user environment variable `pnpm_config_node_linker=hoisted`, `pnpm install` again ([docs/testing.md](docs/testing.md#end-to-end))                          |

@@ -2,12 +2,14 @@ name: E2E (Android)
 
 # The Maestro flows of apps/mobile/.maestro/ on an Android emulator, against a
 # release build of the E2E variant (APP_VARIANT=e2e: its own package, plain
-# HTTP to localhost:4010 only) (docs/testing.md#end-to-end), in two suites:
-#   - the mock suite (.maestro/flows) against apps/mobile/scripts/mock-api.mjs;
-#   - the stack suite (.maestro/stack) against the real API (apps/api) with
-#     PostgreSQL, Redis and Mailpit: the account journeys that need email.
-# The same build talks to both: localhost:4010 on the device is forwarded to
-# the mock (4010) for the first suite, then to the API (3010) for the second.
+# HTTP to localhost:4010 only) and the real API (apps/api) with PostgreSQL,
+# Redis and Mailpit (docs/testing.md#end-to-end), in two suites:
+#   - the app's journeys (.maestro/flows);
+#   - the account journeys that need email (.maestro/stack).
+# localhost:4010 on the device is forwarded to the e2e proxy
+# (apps/mobile/scripts/e2e-proxy.mjs, started by `pnpm test:e2e` and
+# `pnpm test:e2e:stack`), which passes every request to the API on 3010 and
+# fails on demand what a healthy API never fails.
 # Builds on the runner with Gradle: no EAS account, no secrets, nothing is
 # signed for a store. Runs when app code changes; a project can make it a
 # required check once its flows are stable, without the path filters below
@@ -22,7 +24,7 @@ on:
       - .nvmrc
       - .github/actions/setup/**
       - .github/workflows/e2e-android.yml
-      # The stack suite runs the API.
+      # The flows run the API.
       - apps/api/**
       - openapi/**
       - docker-compose.yml
@@ -196,16 +198,6 @@ jobs:
           unzip -q "$RUNNER_TEMP/maestro.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/maestro/bin" >> "$GITHUB_PATH"
 
-      - name: Start the mock API
-        timeout-minutes: 2
-        run: |
-          node apps/mobile/scripts/mock-api.mjs > "$RUNNER_TEMP/mock-api.log" 2>&1 &
-          for _ in $(seq 1 30); do
-            curl --silent --output /dev/null http://127.0.0.1:4010/ && exit 0
-            sleep 1
-          done
-          echo "::error::The mock API did not start." && cat "$RUNNER_TEMP/mock-api.log" && exit 1
-
       # The API as `pnpm dev` runs it (development mode, mail to Mailpit): the
       # stack profile of docker-compose.yml runs it in production mode, which
       # refuses an SMTP server without TLS and so sends no email. Its database
@@ -280,9 +272,8 @@ jobs:
             adb shell settings put global hide_error_dialogs 1
             adb shell 'am force-stop "$(cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -n 1 | cut -d/ -f1)"'
             adb install -r android/app/build/outputs/apk/release/app-release.apk
-            maestro test .maestro --format junit --output .maestro/results/report.xml --test-output-dir .maestro/results
-            adb reverse tcp:4010 tcp:3010
-            maestro test .maestro/stack --format junit --output .maestro/results/stack/report.xml --test-output-dir .maestro/results/stack
+            pnpm test:e2e --format junit --output .maestro/results/report.xml --test-output-dir .maestro/results
+            pnpm test:e2e:stack --format junit --output .maestro/results/stack/report.xml --test-output-dir .maestro/results/stack
 
       - name: Upload the Maestro results
         if: ${{ !cancelled() }}
@@ -291,12 +282,11 @@ jobs:
           name: maestro-results
           path: apps/mobile/.maestro/results/
           retention-days: 14
-      - name: Upload the mock API and API logs
+      # The e2e proxy's log is with the Maestro results.
+      - name: Upload the API log
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: api-logs
-          path: |
-            ${{ runner.temp }}/mock-api.log
-            ${{ runner.temp }}/api.log
+          path: ${{ runner.temp }}/api.log
           retention-days: 14

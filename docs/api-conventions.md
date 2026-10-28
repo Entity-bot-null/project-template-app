@@ -85,8 +85,7 @@ in `ERROR_DESCRIPTIONS` (`apps/api/src/common/openapi/api.decorators.ts`: 400, 4
 - Text people type (a title, a description, a name, a search) is `freeText()`
   (`apps/api/src/common/free-text.ts`) with its bounds: trimmed, and a NUL (U+0000), which
   PostgreSQL text cannot hold, is a field error instead of a database failure (a 500). The app's
-  forms use their own `freeText()` (`apps/mobile/src/lib/forms.ts`), and the mock API refuses it
-  too.
+  forms use their own `freeText()` (`apps/mobile/src/lib/forms.ts`).
 - Bodies are JSON only (`Content-Type: application/json`); anything else answers 415. A route that
   must take another type (a file upload) is exempted explicitly in
   `apps/api/src/common/http/json-only.middleware.ts`, in review.
@@ -135,11 +134,6 @@ against the file, in `pnpm typecheck`).
 - **The contract spec** also requires the bearer requirement on every route outside `/api/auth/`
   and `/api/health/`, a documented success on every route, and 429 and 426 everywhere but the
   probes.
-- **The mock API.** `apps/mobile/scripts/mock-api.mjs` implements the same contract in memory, for
-  working without a backend and for the faults the Maestro flows inject.
-  `apps/mobile/scripts/mock-api.test.mjs` (`pnpm test:scripts`) fails when it serves a route or a
-  method the contract does not have, answers a status the contract does not declare for the route,
-  or sends a body that breaks the contract's schema: a contract change updates the mock too.
 
 ## Pagination
 

@@ -1,9 +1,13 @@
 # The server ends the session while the app is in use:
-#   - the access token stops working early: the app renews it and sends the
-#     refused request again, body included, without the user noticing;
-#   - the whole session is revoked (signed out everywhere, password changed):
-#     the next request ends it on the device, and the sign-in screen says why;
+#   - the access token stops working early (the API refuses it): the app
+#     renews it with the API and sends the refused request again, body
+#     included, without the user noticing;
+#   - the whole session is revoked (signed out everywhere, password changed:
+#     the API ends it and refuses its renewal): the next request ends it on
+#     the device, and the sign-in screen says why;
 #   - revoked while the app was closed: the next launch says the same.
+# The e2e proxy (scripts/e2e-proxy.mjs) does the expiring and the revoking;
+# every 401 comes from the API.
 appId: ${APP_ID}
 name: Session ends while in use
 env:
@@ -21,7 +25,7 @@ env:
 - inputText: Saved after a renewal
 - hideKeyboard
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: sessions/expire
 - tapOn:
@@ -35,7 +39,7 @@ env:
 - assertNotVisible: Saving…
 
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: sessions/revoke
 # Any request now: a search.
@@ -67,7 +71,7 @@ env:
 - assertVisible: Saved after a renewal
 
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: sessions/revoke
 - stopApp

@@ -81,9 +81,9 @@ jobs:
       - run: pnpm typecheck
       # The repository tooling's own tests (scripts/*.test.mjs and
       # apps/*/scripts/*.test.mjs): the dependency policy,
-      # the tool images, the migrations' contract steps, the mock API against
-      # the contract, the web image's scripts and routes, the deployment
-      # scripts and the observability files.
+      # the tool images, the migrations' contract steps, the e2e proxy of the
+      # app's end-to-end flows, the web image's scripts and routes, the
+      # deployment scripts and the observability files.
       - run: pnpm test:scripts
       # actionlint, zizmor and shellcheck on the Git hooks: the pinned images
       # of scripts/tool-images/Dockerfile (docs/ci-cd.md#workflow-security).

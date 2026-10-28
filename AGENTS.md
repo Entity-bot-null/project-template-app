@@ -67,7 +67,6 @@ EXPO_OFFLINE=1 pnpm --filter mobile exec expo install --check   # versions that 
 pnpm start                         # dev server (needs a development build, not Expo Go)
 pnpm android | pnpm ios            # compile and run a development build locally
 pnpm prebuild                      # regenerate apps/mobile/android/ and apps/mobile/ios/: after a native change
-pnpm mock:api                      # local implementation of openapi/openapi.json on :4010
 pnpm dev                           # PostgreSQL, Redis, Mailpit up, then the API on :3010
 pnpm db:migrate                    # create (from schema.prisma) and apply migrations, regenerate the client
 pnpm db:seed                       # the example accounts and items
@@ -75,7 +74,7 @@ pnpm lint                          # ESLint, zero warnings
 pnpm typecheck                     # contract drift + typed routes + tsc (apps and tooling scripts)
 pnpm test                          # Jest (app) and Vitest (API unit, OpenAPI drift spec)
 pnpm test:integration              # the API against PostgreSQL, Redis and Mailpit (services up)
-pnpm test:scripts                  # tests of the repository's scripts (the mock API, the web image, deploy/vps)
+pnpm test:scripts                  # tests of the repository's scripts (the e2e proxy, the web image, deploy/vps)
 pnpm test:e2e                      # Playwright: the built landing and the web image (Docker)
 pnpm smoke --url <url> --api <url> # read-only checks of a deployment or the local stack
 pnpm iac:check                     # Terraform, TFLint, Trivy, cloud-init, the database roles (Docker)
@@ -110,9 +109,9 @@ Run `pnpm lint`, `pnpm typecheck` and `pnpm test` before declaring any task done
   (lint rule), never copy server data into Zustand or React state.
 - **The API generates the contract**: change the API's controllers and Zod schemas, run
   `pnpm contract`, commit `openapi/openapi.json` and `apps/mobile/src/api/schema.d.ts`; never edit
-  either by hand. Keep the mock API (`apps/mobile/scripts/mock-api.mjs`) in step:
-  `pnpm test:scripts` checks it against the contract. Contract changes are additive: installed apps
-  keep the old contract ([docs/api-conventions.md](docs/api-conventions.md)).
+  either by hand. The app runs against that API only, locally and in the Maestro flows (no mock
+  API: [docs/adr/0013-real-api-only.md](docs/adr/0013-real-api-only.md)). Contract changes are
+  additive: installed apps keep the old contract ([docs/api-conventions.md](docs/api-conventions.md)).
 - **API modules**: Zod schemas in `dto/` with bounds, `@ZodBody`/`@ZodQuery`/`@ApiData`/`@ApiErrors`
   on handlers, `@Auth(...)` on every non-public route, ownership checks in the service's query
   (another user's record answers 404), `fieldError()` for a 400 about one field, an explicit

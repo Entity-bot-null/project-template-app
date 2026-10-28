@@ -383,7 +383,7 @@ export default defineConfig([
         json: 'readonly',
         output: 'writable',
         maestro: 'readonly',
-        MOCK_API_URL: 'readonly',
+        E2E_PROXY_URL: 'readonly',
         CONTROL: 'readonly',
         ROUTE: 'readonly',
         STATUS: 'readonly',

@@ -15,7 +15,6 @@
     "android": "pnpm --filter mobile android",
     "ios": "pnpm --filter mobile ios",
     "prebuild": "pnpm --filter mobile prebuild",
-    "mock:api": "pnpm --filter mobile mock:api",
     "build": "pnpm --recursive build",
     "lint": "pnpm --filter api exec prisma generate && pnpm --filter mobile types:generate && eslint . --max-warnings=0",
     "lint:fix": "pnpm --filter api exec prisma generate && pnpm --filter mobile types:generate && eslint . --fix",

@@ -235,13 +235,12 @@ later.
 const item = await unwrapWith(api.GET('/api/items/{id}', { params: { path: { id } } }), ItemSchema);
 ```
 
-**Which server.** `EXPO_PUBLIC_API_URL` (`apps/mobile/.env`): in development, the real API
+**Which server.** `EXPO_PUBLIC_API_URL` (`apps/mobile/.env`): in development, the API
 (`http://localhost:3010`, `pnpm dev`; an Android device or emulator reaches it after
-`adb reverse tcp:3010 tcp:3010`), or the mock API without a backend (`http://localhost:4010`,
-`pnpm mock:api`). The mock implements every route of the contract with data in memory: the example
-accounts and items, and an outbox for the links it would email (printed, and readable at
-`GET /__mock/outbox`). `pnpm test:scripts` fails when it serves a route, a status or a body the
-contract does not declare.
+`adb reverse tcp:3010 tcp:3010`), with the seed's accounts and items (`pnpm db:seed`) and its email
+in Mailpit. The API is the only backend: there is no mode without it
+([adr/0013-real-api-only.md](adr/0013-real-api-only.md)). The e2e build talks to it through the e2e
+proxy (`http://localhost:4010`, [testing.md](testing.md#end-to-end)).
 
 ## Networking
 
@@ -698,7 +697,7 @@ this template.
 
 1. API and contract: add the route, its Zod schemas and tests to `apps/api`
    ([architecture.md](architecture.md), [api-conventions.md](api-conventions.md)), run
-   `pnpm contract`, and keep the mock API in step (`apps/mobile/scripts/mock-api.mjs`).
+   `pnpm contract`.
 2. `apps/mobile/src/features/<feature>/api.ts`: query keys, Zod schemas of the responses, query and
    mutation hooks.
 3. `apps/mobile/src/features/<feature>/<Name>Screen.tsx`: the screen, using `apps/mobile/src/ui`

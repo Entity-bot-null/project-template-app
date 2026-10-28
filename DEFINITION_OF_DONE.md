@@ -65,9 +65,9 @@ checked" is not. The pull request template repeats the essentials as a checklist
 
 ## Contract, configuration and release
 
-- [ ] API changes: the contract regenerated (`pnpm contract`, both files committed), the mock API
-      in step (`pnpm test:scripts`), and the change backwards compatible with app versions already
-      installed, or shipped with a raised minimum version
+- [ ] API changes: the contract regenerated (`pnpm contract`, both files committed), and the
+      change backwards compatible with app versions already installed, or shipped with a raised
+      minimum version
       ([docs/adr/0010-minimum-supported-app-version.md](docs/adr/0010-minimum-supported-app-version.md)).
 - [ ] Database changes: a committed migration, safe while the previous version still runs
       ([docs/database.md](docs/database.md#expand-and-contract)).
