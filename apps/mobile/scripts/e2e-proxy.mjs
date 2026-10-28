@@ -1,6 +1,6 @@
 // The end-to-end flows (.maestro/) run against the real API (apps/api,
-// `pnpm dev`) through this proxy: it passes every request to the API as it
-// came and hands back the API's answer, so the data, the rules and the errors
+// `pnpm dev`) through this proxy: it passes every request for /api/ to the API
+// as it came and hands back the API's answer, so the data, the rules and the errors
 // the app meets are the API's own. It fails on demand only what a healthy API
 // never fails when a flow asks it to: a status for a route, a connection that
 // drops, an access token that stops working early, a session ended on the
@@ -250,6 +250,11 @@ export function createE2eProxy({
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
     const route = `${request.method ?? 'GET'} ${url.pathname}`;
     if (url.pathname.startsWith('/__e2e/')) return control(route, request, response);
+    // The API's routes only, always on the API's origin: a request's target
+    // never picks the host (an absolute form, a path that starts with //).
+    if (!url.pathname.startsWith('/api/')) {
+      return send(response, 404, null, `The e2e proxy passes /api/ routes only, not ${route}`);
+    }
 
     const fault = faults.get(route);
     if (fault === 0) {
@@ -271,7 +276,7 @@ export function createE2eProxy({
     /** @type {Answer} */
     let answer;
     try {
-      answer = await forward(new URL(url.pathname + url.search, api), {
+      answer = await forward(new URL(`${api.origin}/api/${url.pathname.slice(5)}${url.search}`), {
         method: request.method ?? 'GET',
         headers,
         body,

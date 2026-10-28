@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { createServer } from 'node:http';
+import { createServer, request } from 'node:http';
 import { after, before, beforeEach, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { createE2eProxy, parseArgs } from './e2e-proxy.mjs';
@@ -77,10 +77,11 @@ describe('e2e proxy', () => {
   /** @type {import('node:http').Server} */
   let proxy;
   let base = '';
+  let apiBase = '';
 
   before(async () => {
-    const apiUrl = await listening(api);
-    proxy = createE2eProxy({ apiUrl, log: (line) => logged.push(line) });
+    apiBase = await listening(api);
+    proxy = createE2eProxy({ apiUrl: apiBase, log: (line) => logged.push(line) });
     base = await listening(proxy);
   });
   after(() => {
@@ -225,6 +226,35 @@ describe('e2e proxy', () => {
     logoutStatus = 500;
     const answer = await control('sessions/revoke');
     assert.equal(answer.status, 502);
+  });
+
+  test('passes /api/ routes only, always to the API’s host', async () => {
+    /** A request with this exact target (fetch would normalize it). @param {string} target */
+    const statusOf = (target) =>
+      new Promise((resolve, reject) => {
+        const { hostname, port } = new URL(base);
+        request({ hostname, port, path: target }, (answer) => {
+          answer.resume();
+          resolve(answer.statusCode);
+        })
+          .on('error', reject)
+          .end();
+      });
+    assert.equal(await statusOf('/health'), 404);
+    assert.equal(await statusOf('http://example.invalid//example.invalid/api/items'), 404);
+    assert.equal(seen.length, 0);
+
+    // Whatever host a target names, what goes through goes to the API.
+    for (const [target, path] of [
+      ['//example.invalid/api/items', '/api/items'],
+      ['http://example.invalid/api/items', '/api/items'],
+      ['/api//example.invalid/items?x=1', '/api//example.invalid/items?x=1'],
+    ]) {
+      seen.length = 0;
+      assert.equal(await statusOf(String(target)), 201, target);
+      assert.equal(seen[0]?.url, path);
+      assert.equal(seen[0]?.headers.host, new URL(apiBase).host);
+    }
   });
 
   test('says so when the API does not answer', async () => {

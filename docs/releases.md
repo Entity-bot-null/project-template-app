@@ -265,6 +265,11 @@ store binary 1.5.0 (build 57) ──fingerprint──▶ runtime version B ◀�
   another runtime version is never offered to it: an incompatible update cannot reach a device, so
   there is nothing to crash.
 - A binary with no update for its runtime version runs its embedded bundle.
+- `apps/mobile/fingerprint.config.js` keeps Expo's default fingerprint with one change: of
+  `apps/mobile/package.json`'s scripts, only the ones that run while dependencies install or a build
+  compiles count (npm's install lifecycle, EAS Build's `eas-build-*` hooks, `android`/`ios` when
+  they do more than `expo run:<platform>`). Changing a development or test script no longer gives
+  the app a new runtime version; adding or changing one of those still does.
 - When a user installs a new store version, the app starts from that binary's embedded bundle and
   then follows the updates of its runtime version; updates downloaded for the old binary are
   discarded.
