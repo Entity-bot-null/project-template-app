@@ -13,7 +13,7 @@ page is its checklist, and the list of the template's placeholders in each part.
       ([phase 1](../step-by-step.md#phase-1-your-computer))
 - [ ] Repository created from the template, the identity changed (below)
       ([phase 2](../step-by-step.md#phase-2-create-the-project))
-- [ ] The app running on an emulator, against the mock API and the real one
+- [ ] The app running on an emulator, against the local API (`pnpm dev`)
       ([phase 3](../step-by-step.md#phase-3-run-it-on-an-emulator))
 - [ ] Every gate green locally: `pnpm verify`, `pnpm test:integration`, `pnpm test:e2e`,
       `pnpm sast`, `pnpm lint:workflows`, `pnpm iac:check`, `pnpm observability:check`, the stack and

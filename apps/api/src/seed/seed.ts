@@ -18,7 +18,7 @@ export const SEED_USERS: readonly SeedUser[] = [
   { email: 'member@example.com', name: 'Member', role: 'member', password: 'member-password' },
 ];
 
-/** The member's example items: the same 45 the mock API serves (apps/mobile/scripts/mock-api.mjs). */
+/** The member's example items: the fixtures of the app's end-to-end flows (apps/mobile/.maestro). */
 export const SEED_ITEM_COUNT = 45;
 const SEED_ITEMS_OWNER = 'member@example.com';
 
@@ -29,8 +29,9 @@ export function seedItemId(index: number): string {
 
 /**
  * Idempotent: users keyed on the email, a re-run resets name, role and
- * password; items keyed on their fixed ids, a re-run resets them (items the
- * member created stay).
+ * password; items keyed on their fixed ids, a re-run resets them and removes
+ * the ones the member created since, so the app's end-to-end flows start from
+ * the same list every time. Other accounts and their data stay.
  */
 export async function seed(prisma: PrismaClient): Promise<void> {
   const ids = new Map<string, string>();
@@ -48,7 +49,7 @@ export async function seed(prisma: PrismaClient): Promise<void> {
   const ownerId = ids.get(SEED_ITEMS_OWNER);
   if (ownerId === undefined) throw new Error(`The seed has no ${SEED_ITEMS_OWNER}`);
   for (let index = 0; index < SEED_ITEM_COUNT; index += 1) {
-    // Hourly from 2026-01-01, as the mock: Item 45 is the newest.
+    // Hourly from 2026-01-01: Item 45 is the newest.
     const item = {
       ownerId,
       title: `Item ${String(index + 1)}`,
@@ -61,4 +62,6 @@ export async function seed(prisma: PrismaClient): Promise<void> {
       update: item,
     });
   }
+  const seedIds = Array.from({ length: SEED_ITEM_COUNT }, (_, index) => seedItemId(index));
+  await prisma.item.deleteMany({ where: { ownerId, id: { notIn: seedIds } } });
 }

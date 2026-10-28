@@ -2,7 +2,7 @@
 # so and keeps showing the data it has; a search typed meanwhile runs once the
 # connection is back.
 #
-# The mock API stays reachable in airplane mode: `adb reverse` goes over the
+# The API stays reachable in airplane mode: `adb reverse` goes over the
 # debugging connection, not the device's network. This flow proves that the
 # app follows the device's connection state; a request that gets no answer is
 # in 01-onboarding-and-sign-in.

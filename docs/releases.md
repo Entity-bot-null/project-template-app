@@ -58,7 +58,7 @@ install side by side.
 - `development` builds include the dev launcher and load JavaScript from `pnpm start`.
 - `preview` is a release build for QA and stakeholders, installed from an EAS link, pointing at
   staging.
-- `e2e` is a release build against the local mock API, for Maestro
+- `e2e` is a release build against the local API through the e2e proxy, for Maestro
   ([testing.md](testing.md#end-to-end)).
 - `production` goes to the stores; its build number increments automatically.
 

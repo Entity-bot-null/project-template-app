@@ -99,7 +99,7 @@ pnpm start, pnpm android or pnpm ios: the app, in another terminal (Metro is int
 | PostgreSQL 18 | `localhost:5452`, database `app`                                        | `DB_PORT` in the root `.env`           |
 | Redis 8       | `localhost:6399`, password `app`                                        | `REDIS_PORT`, `REDIS_PASSWORD`         |
 | Mailpit       | SMTP `localhost:1045`, every message at `http://localhost:8045`         | `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT` |
-| Mock API      | `http://localhost:4010` (`pnpm mock:api`, no database)                  | `MOCK_API_PORT`                        |
+| E2E proxy     | `http://localhost:4010`, in front of the API, for the end-to-end flows  | `E2E_PROXY_PORT`                       |
 
 The ports are the web template's plus 10, so both templates run on one machine at once; the
 Compose project name (`template-app`) keeps their containers and volumes apart. Every port is
@@ -146,7 +146,6 @@ with `EXPO_PUBLIC_API_URL`: the API's origin, without `/api` and without a trail
 | The app talks to                                              | `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` | On Android                      |
 | ------------------------------------------------------------- | ------------------------------------------- | ------------------------------- |
 | the API's dev server (`pnpm dev`, `apps/mobile/.env.example`) | `http://localhost:3010`                     | `adb reverse tcp:3010 tcp:3010` |
-| the mock API (`pnpm mock:api`)                                | `http://localhost:4010`                     | `adb reverse tcp:4010 tcp:4010` |
 | the production-like stack (its web server, `/api` forwarded)  | `http://localhost:8090`                     | `adb reverse tcp:8090 tcp:8090` |
 | a deployment (builds): the site's origin, `/api` forwarded    | `https://<your-domain>`, set in EAS         |                                 |
 
@@ -156,12 +155,12 @@ require HTTPS (`apps/mobile/src/config/env.schema.ts`). Values are inlined into 
 `pnpm start` after changing them. Deployed values come from the EAS environments
 ([releases.md](releases.md#environment-variables)).
 
-The mock API (`apps/mobile/scripts/mock-api.mjs`) is the way to work without the API: it implements
-every route of the contract in memory, with the seed's accounts and 45 items and an outbox for the
-links it would email, and fails on demand for the Maestro flows. It is simpler than the API where
-the app cannot tell (a refresh token works once, no reuse window, no rate limits), and `apps/mobile/scripts/mock-api.test.mjs` fails
-when it serves a route, a status or a body the contract does not declare
-([openapi/README.md](../openapi/README.md#the-mock-api)).
+The API is the app's only backend: there is no mode without it
+([adr/0013-real-api-only.md](adr/0013-real-api-only.md)). The e2e build talks to the e2e proxy on
+`http://localhost:4010` (`apps/mobile/scripts/e2e-proxy.mjs`), which passes every request to the
+API unchanged and fails on demand only what a healthy API never fails, for the Maestro flows
+([openapi/README.md](../openapi/README.md#one-implementation-the-api),
+[testing.md](testing.md#end-to-end)).
 
 The app's side of the conversation (the session store, renewal, request ids, timeouts, error kinds,
 response validation): [mobile-architecture.md](mobile-architecture.md#api),

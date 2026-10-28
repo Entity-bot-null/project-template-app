@@ -234,14 +234,15 @@ there instead of on a developer's machine. In CI, the integration job runs Postg
 ## Seeds
 
 `apps/api/src/seed/seed.ts`, run by `pnpm db:seed`, is idempotent (users upserted by email, items by
-their fixed ids; a re-run resets them, and items created since stay):
+their fixed ids; a re-run resets them and removes the items the member created since, so the app's
+end-to-end flows start from the same list; other accounts and their data stay):
 
 - `admin@example.com` / `admin-password` (admin) and `member@example.com` / `member-password`
   (member);
 - 45 items for the member, `Item 1` to `Item 45` ("Example item number N."), created hourly from
   2026-01-01T00:00Z (`Item 45` is the newest), with fixed ids
-  `00000000-0000-7000-8000-0000000000NN`: the same items the mock API serves
-  (`apps/mobile/scripts/mock-api.mjs`), so the app shows the same list against either.
+  `00000000-0000-7000-8000-0000000000NN`: the fixtures of the app's Maestro flows
+  (`apps/mobile/.maestro`).
 
 Its accounts have public passwords, so `pnpm db:seed` refuses `NODE_ENV=production` and any database
 whose host is not this machine (`localhost`, `127.0.0.1`, `::1`), the URL's `host` and `hostaddr`

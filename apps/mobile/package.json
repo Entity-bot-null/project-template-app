@@ -18,13 +18,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e": "maestro test .maestro",
-    "test:e2e:stack": "maestro test .maestro/stack",
+    "test:e2e": "node scripts/e2e-proxy.mjs --log .maestro/results/e2e-proxy.log -- maestro test .maestro",
+    "test:e2e:stack": "node scripts/e2e-proxy.mjs --log .maestro/results/stack/e2e-proxy.log -- maestro test .maestro/stack",
     "expo:doctor": "node scripts/expo-doctor.mjs",
     "api:types": "node scripts/api-types.mjs",
     "build": "expo export --platform android --platform ios --output-dir dist",
-    "bundle:check": "node scripts/check-bundle-size.mjs",
-    "mock:api": "node scripts/mock-api.mjs"
+    "bundle:check": "node scripts/check-bundle-size.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~58.0.14",

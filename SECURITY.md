@@ -173,7 +173,7 @@ feature that adds data adds its row.
 
 - HTTPS only: `apps/mobile/src/config/env.schema.ts` rejects `http://` URLs except localhost and the
   Android emulator host, and requires HTTPS in production; Android release builds disallow cleartext
-  (`usesCleartextTraffic` is only enabled for the `e2e` variant against the local mock API); iOS App
+  (`usesCleartextTraffic` is only enabled for the `e2e` variant against the local e2e proxy); iOS App
   Transport Security stays at its default.
 - Every request has a timeout and a request id; tokens are sent only to the configured API.
 - API responses are validated with Zod before use.
