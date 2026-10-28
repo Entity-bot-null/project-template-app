@@ -80,7 +80,7 @@ jobs:
       # openapi/openapi.json (the API's side is its drift spec, in the unit job).
       - run: pnpm typecheck
       # The repository tooling's own tests (scripts/*.test.mjs and
-      # apps/*/scripts/*.test.mjs): Doberman's engine, the dependency policy,
+      # apps/*/scripts/*.test.mjs): the dependency policy,
       # the tool images, the migrations' contract steps, the mock API against
       # the contract, the web image's scripts and routes, the deployment
       # scripts and the observability files.
