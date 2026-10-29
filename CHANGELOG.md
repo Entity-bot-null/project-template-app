@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/Entity-bot-null/project-template-app/compare/v1.0.0...v1.1.0) (2026-10-29)
+
+
+### Features
+
+* **mobile:** upgrade to Expo SDK 58 (React Native 0.88, React 19.3) ([#71](https://github.com/Entity-bot-null/project-template-app/issues/71)) ([22eb35d](https://github.com/Entity-bot-null/project-template-app/commit/22eb35d0e6848e3bd3c7f4ebb4eba060cee72ef1))
+
+
+### Bug fixes
+
+* **doberman:** teach it the API, the landing, the server and push ([#74](https://github.com/Entity-bot-null/project-template-app/issues/74)) ([5055905](https://github.com/Entity-bot-null/project-template-app/commit/50559059de9b4a61c2d87f130991e35d3c480cb5))
+* harden account links, deletion notices, push hand-over and deployment checks ([#75](https://github.com/Entity-bot-null/project-template-app/issues/75)) ([f4c251e](https://github.com/Entity-bot-null/project-template-app/commit/f4c251ec2dfc2c8c71e7249478749493d535c79f))
+
 ## [1.0.0](https://github.com/Entity-bot-null/project-template-app/compare/v0.2.0...v1.0.0) (2026-10-24)
 
 
