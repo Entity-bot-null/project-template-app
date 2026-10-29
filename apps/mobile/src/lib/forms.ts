@@ -1,10 +1,26 @@
 import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
+import { z } from 'zod';
 
 import type { AppError } from './errors';
 
 // Server errors in a form (docs/mobile-architecture.md#forms): a 400 that
 // names its fields puts each message under its field; anything else is said
 // once for the whole form, in the user's words (userMessage()).
+
+export const NUL_REFUSED = 'Contains a character that cannot be saved';
+
+/**
+ * Typed text the API keeps (a title, a name), trimmed. A NUL (U+0000) is
+ * refused, as the API refuses it (PostgreSQL text cannot hold one): no
+ * keyboard types it, but a paste can bring it, and it is said under the
+ * field before anything is sent. The caller adds the bounds.
+ */
+export function freeText() {
+  return z
+    .string()
+    .trim()
+    .refine((value) => !value.includes('\u0000'), NUL_REFUSED);
+}
 
 /**
  * Shows the server's field errors under the form's own fields. True when at

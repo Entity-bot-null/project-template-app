@@ -23,22 +23,23 @@ up a new repository. What a release of the app is (profiles, versions, updates, 
 
 ## Workflows
 
-| Workflow                    | Trigger                                                   | Secrets                           | Does                                                                                                                                                         |
-| --------------------------- | --------------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `ci.yml`                    | pull request, push to `main`, manual                      | none                              | dependency review (opt-in), the quality gates, "CI passed"                                                                                                   |
-| `conventions.yml`           | pull request, again when its title is edited              | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required                                                                       |
-| `quality-gates.yml`         | called by CI, EAS build, EAS update and Deploy            | none                              | the gates below, on a given commit                                                                                                                           |
-| `docker-images.yml`         | called by the quality gates                               | none                              | builds the images (`api`, `api-migrate`, `web`) and scans them with Trivy; never pushes                                                                      |
-| `e2e-android.yml`           | pull request and push touching the app or the API, manual | none                              | release APK of the `e2e` variant, emulator, Maestro flows against the mock API, then against the API with Mailpit                                            |
-| `codeql.yml`                | pull request, push, weekly (opt-in)                       | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                                                                                   |
-| `release.yml`               | push to `main`                                            | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                                                                                    |
-| `main-guard.yml`            | push to `main`                                            | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue                                                                  |
-| `dependabot-auto-merge.yml` | approval of a Dependabot pull request                     | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)                                                                        |
-| `eas-build.yml`             | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                                                                                       |
-| `eas-update.yml`            | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                                                                                        |
-| `eas-rollback.yml`          | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                                                                                              |
-| `deploy.yml`                | manual, from `main` only                                  | `DEPLOY_*` (environment)          | gates, then the server side to `staging` or `production`: images published and scanned, migration, rollout, smoke test, rollback ([Deployment](#deployment)) |
-| `dast.yml`                  | weekly, manual                                            | none                              | OWASP ZAP on the production images started on the runner, or a passive scan of staging; ADVISORY ([security.md](security.md#dynamic-analysis))               |
+| Workflow                    | Trigger                                                   | Secrets                           | Does                                                                                                                                                                               |
+| --------------------------- | --------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                    | pull request, push to `main`, manual                      | none                              | dependency review (opt-in), the quality gates, "CI passed"                                                                                                                         |
+| `conventions.yml`           | pull request, again when its title is edited              | none                              | branch name and PR title (Conventional Commits); its check **Conventions** is required                                                                                             |
+| `quality-gates.yml`         | called by CI, EAS build, EAS update and Deploy            | none                              | the gates below, on a given commit                                                                                                                                                 |
+| `docker-images.yml`         | called by the quality gates                               | none                              | builds the images (`api`, `api-migrate`, `web`) and scans them with Trivy; never pushes                                                                                            |
+| `e2e-android.yml`           | pull request and push touching the app or the API, manual | none                              | release APK of the `e2e` variant, emulator, Maestro flows against the API (through the e2e proxy) with Mailpit                                                                     |
+| `codeql.yml`                | pull request, push, weekly (opt-in)                       | none                              | CodeQL security analysis (needs a public repo or GitHub Advanced Security)                                                                                                         |
+| `cerberus.yml`              | pull request                                              | `CERBERUS_SSH_KEY`                | Cerberus security sweep of the change (stack rules, routes without authentication, learned rules); the engine is checked out from the private `Entity-bot-null/cerberus`; advisory |
+| `release.yml`               | push to `main`                                            | `RELEASE_PLEASE_TOKEN` (optional) | release pull request and CI on it; on merge, tag, GitHub release and SBOM                                                                                                          |
+| `main-guard.yml`            | push to `main`                                            | none                              | checks that each pushed commit is a merged pull request; otherwise fails and opens an issue                                                                                        |
+| `dependabot-auto-merge.yml` | approval of a Dependabot pull request                     | none                              | merges a patch or minor update once **CI passed** (checks the approval and CI itself)                                                                                              |
+| `eas-build.yml`             | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an EAS build (and optional submission to internal testing)                                                                                                             |
+| `eas-update.yml`            | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | gates, then an OTA update to a channel, staged; source maps to Sentry                                                                                                              |
+| `eas-rollback.yml`          | manual, from `main` only                                  | `EXPO_TOKEN` (environment)        | republish an earlier update or roll back to the embedded bundle                                                                                                                    |
+| `deploy.yml`                | manual, from `main` only                                  | `DEPLOY_*` (environment)          | gates, then the server side to `staging` or `production`: images published and scanned, migration, rollout, smoke test, rollback ([Deployment](#deployment))                       |
+| `dast.yml`                  | weekly, manual                                            | none                              | OWASP ZAP on the production images started on the runner, or a passive scan of staging; ADVISORY ([security.md](security.md#dynamic-analysis))                                     |
 
 The quality gates: the checks `pnpm verify` runs locally, plus the Docker-based ones, the
 repository scripts' tests (`pnpm test:scripts`), the API's integration suite and images, the
@@ -47,7 +48,7 @@ infrastructure and observability code, and the native projects (`expo prebuild`)
 | Job                                   | Runs                                                                                                                                                                                                                                                                        |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Tool images                           | resolves the pinned PostgreSQL, Redis and Mailpit images of `scripts/tool-images/Dockerfile` (through the mirror when it has them) for the integration job's service containers                                                                                             |
-| Format, lint, types, workflows        | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` (contract drift included), `pnpm test:scripts` (the migrations' contract steps and the mock API against the contract included), `node scripts/lint-workflows.mjs`                                                        |
+| Format, lint, types, workflows        | `pnpm format:check`, `pnpm lint`, `pnpm typecheck` (contract drift included), `pnpm test:scripts` (the migrations' contract steps and the e2e proxy included), `node scripts/lint-workflows.mjs`                                                                            |
 | Expo doctor                           | `pnpm expo:doctor`: SDK compatibility of dependencies (against the installed SDK's manifest, so the result depends on the lockfile, not on the day Expo publishes a patch), config, duplicate native modules, React Native Directory                                        |
 | Infrastructure as code (Terraform)    | `node scripts/check-iac.mjs` ([Infrastructure as code](#infrastructure-as-code))                                                                                                                                                                                            |
 | Static analysis (Semgrep)             | `node scripts/sast.mjs`                                                                                                                                                                                                                                                     |
@@ -87,7 +88,11 @@ why) is merged by hand, after reading its release notes. On an update to the wor
 stops before running any action: the workflow comes from the pull request, with its new pins. Expo
 SDK packages move together through SDK upgrades; only their patch releases within the SDK's ranges
 come through these pull requests, and `expo-doctor` in CI refuses anything the SDK does not
-support.
+support. Prisma's CLI, client and driver adapter come in one pull request of their own (the
+`prisma` group), and `pnpm deps:check` fails one that moves them apart
+([release sets](../SECURITY.md#dependency-policy)): when the trust policy refuses one of the new
+versions, Dependabot still opens the pull request with the others, and it stays red until the
+refused version passes (30 days after its release, `trustPolicyIgnoreAfter`) or a newer one does.
 
 ## Required check
 
@@ -211,6 +216,7 @@ public repositories, and without them the protections below do not hold.
 | `EXPO_TOKEN`                   | secret                      | `preview`, `production` environments | EAS CLI: an Expo **robot user** token with the least role that can build and publish                  |
 | `SENTRY_AUTH_TOKEN`            | secret                      | environments                         | source map upload of OTA updates; skipped, with a notice, where it or the variables below are missing |
 | `RELEASE_PLEASE_TOKEN`         | secret (optional)           | repository                           | release pull requests that run every pull request workflow ([above](#release-pull-requests))          |
+| `CERBERUS_SSH_KEY`             | secret                      | repository and Dependabot            | read-only deploy key of the private Cerberus engine repository (`cerberus.yml`)                       |
 | `SENTRY_ORG`, `SENTRY_PROJECT` | variable (optional)         | repository                           | with `SENTRY_AUTH_TOKEN`, enable the source map upload step                                           |
 | `ENABLE_CODEQL`                | variable (optional, `true`) | repository                           | turn on CodeQL                                                                                        |
 | `ENABLE_DEPENDENCY_REVIEW`     | variable (optional, `true`) | repository                           | turn on dependency review                                                                             |
@@ -472,20 +478,20 @@ Dependabot's pull requests are the weekly routine ([Dependency updates](#depende
 it never proposes is moved by a person, on its own branch, with the full CI and E2E (Android) on
 its pull request:
 
-| Part                                       | Dependabot proposes                                                   | Moved by hand                                                                            |
-| ------------------------------------------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| npm packages outside the SDK               | minors and patches (grouped), majors (one per pull request)           | merging a major after its release notes; ESLint 10 waits for `eslint-config-expo`        |
-| Expo SDK, React Native, the SDK's packages | patches within the SDK's ranges (`expo-sdk` group)                    | the SDK upgrade, about three times a year ([releases.md](releases.md#expo-sdk-upgrades)) |
-| Jest, `@types/jest`                        | patches                                                               | the major `jest-expo` depends on, in an SDK upgrade                                      |
-| TypeScript                                 | patches                                                               | [minors and majors](#typescript)                                                         |
-| Node.js, `@types/node`                     | `@types/node` minors and patches                                      | [Node.js](#nodejs)                                                                       |
-| pnpm                                       | nothing (it never edits `packageManager`)                             | [pnpm](#pnpm)                                                                            |
-| GitHub Actions                             | new SHA and version comment, in the workflows and `.github/actions/*` | merging: the auto-merge never merges a change to a workflow or an action                 |
-| Tool images                                | tag and digest together                                               | PostgreSQL and Redis majors ([PostgreSQL and Redis](#postgresql-and-redis))              |
-| The API's images and `docker-compose.yml`  | tag and digest together, Node.js minors                               | the Node.js major ([Node.js](#nodejs)); PostgreSQL and Redis majors                      |
-| EAS CLI, Maestro, JDK, emulator            | nothing                                                               | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
-| Terraform providers, Terraform             | the providers' version and checksums together (`terraform`)           | Terraform's own minor: `required_version` in `versions.tf`, with the tool image          |
-| Ubuntu (the runners)                       | nothing                                                               | [Ubuntu](#ubuntu)                                                                        |
+| Part                                       | Dependabot proposes                                                                  | Moved by hand                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| npm packages outside the SDK               | minors and patches (grouped), majors (one per pull request; Prisma's three together) | merging a major after its release notes; ESLint 10 waits for `eslint-config-expo`        |
+| Expo SDK, React Native, the SDK's packages | patches within the SDK's ranges (`expo-sdk` group)                                   | the SDK upgrade, about three times a year ([releases.md](releases.md#expo-sdk-upgrades)) |
+| Jest, `@types/jest`                        | patches                                                                              | the major `jest-expo` depends on, in an SDK upgrade                                      |
+| TypeScript                                 | patches                                                                              | [minors and majors](#typescript)                                                         |
+| Node.js, `@types/node`                     | `@types/node` minors and patches                                                     | [Node.js](#nodejs)                                                                       |
+| pnpm                                       | nothing (it never edits `packageManager`)                                            | [pnpm](#pnpm)                                                                            |
+| GitHub Actions                             | new SHA and version comment, in the workflows and `.github/actions/*`                | merging: the auto-merge never merges a change to a workflow or an action                 |
+| Tool images                                | tag and digest together                                                              | PostgreSQL and Redis majors ([PostgreSQL and Redis](#postgresql-and-redis))              |
+| The API's images and `docker-compose.yml`  | tag and digest together, Node.js minors                                              | the Node.js major ([Node.js](#nodejs)); PostgreSQL and Redis majors                      |
+| EAS CLI, Maestro, JDK, emulator            | nothing                                                                              | the versions in the workflows ([Pinning](#pinning)), every quarter                       |
+| Terraform providers, Terraform             | the providers' version and checksums together (`terraform`)                          | Terraform's own minor: `required_version` in `versions.tf`, with the tool image          |
+| Ubuntu (the runners)                       | nothing                                                                              | [Ubuntu](#ubuntu)                                                                        |
 
 ### Ubuntu
 
@@ -505,8 +511,12 @@ it.
 
 The development services (`docker-compose.yml`), CI's integration job (the tool images) and the
 server (`deploy/vps/compose.yaml`) run the same images, pinned by tag and digest; Dependabot
-proposes their new digests and minors, never a major. A major moves by hand, the three files
-together, in one pull request with the full CI:
+proposes their new digests and minors, never a major. Its two ecosystems (`docker` for the tool
+images, `docker-compose` for the other two files) open separate pull requests, and
+`scripts/tool-image.test.mjs` (`pnpm test:scripts`) fails while the three files disagree on
+PostgreSQL, Redis or Mailpit: the pull request that moves one gets the same tag and digest in the
+other files before it merges. A major moves by hand, the three files together, in one pull request
+with the full CI:
 
 1. Read the release notes (removed settings, changed defaults).
 2. `docker-compose.yml`, `deploy/vps/compose.yaml` (`db`, `backup`, `redis`) and
@@ -532,7 +542,10 @@ together, in one pull request with the full CI:
 
 `.nvmrc` holds one exact version for CI and the Git hooks; `apps/mobile/eas.json`
 (`build.base.node`) holds the same one for the build servers. A patch or minor release (security
-releases are announced on nodejs.org) changes both files and nothing else.
+releases are announced on nodejs.org) changes both files and nothing else. `eas.json` is part of
+the app's fingerprint, so the change gives a new runtime version: updates published after it reach
+only builds made after it ([releases.md](releases.md#what-can-ship-as-an-ota-update)); merge it
+before a store build, not between a build and its updates.
 
 A major moves once it is an LTS release (an even major, from its October):
 
@@ -561,7 +574,8 @@ A major moves once it is an LTS release (an even major, from its October):
 `packageManager` in `package.json` pins pnpm for developers (pnpm switches to it by itself) and CI
 (`pnpm/action-setup` reads it); `pnpm-lock.yaml` records it with its checksum
 (`packageManagerDependencies`); `apps/mobile/eas.json` (`build.base.pnpm`) pins it for the build
-servers. Dependabot only rewrites dependency declarations, never `packageManager`.
+servers, which gives a new runtime version, as for Node.js. Dependabot only rewrites dependency
+declarations, never `packageManager`.
 
 1. Read the release notes: the settings of `pnpm-workspace.yaml` (the supply-chain policies) change
    between majors; `pnpm deps:check` (in `pnpm security`) checks they still hold.

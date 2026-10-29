@@ -106,7 +106,9 @@ export class AccountService {
    * someone else's). In one transaction under the account's lock: the user
    * row goes, and with it, by the database's cascades, everything it owns
    * (items, sessions, one-time links, its queued messages); a notice is
-   * queued to the address, on a message that belongs to no account. Every
+   * queued to the address, on a message that belongs to no account, and to
+   * every previous address that could still undo a change of email
+   * (addressesThatCanUndo). Every
    * access token stops working at once (the guard finds no account), every
    * refresh token too (its session is gone). The last administrator is
    * refused: nobody could manage the others.
@@ -145,11 +147,40 @@ export class AccountService {
         const admins = await tx.user.count({ where: { role: 'admin' } });
         if (admins <= 1) throw new ConflictException(LAST_ADMIN);
       }
+      const undoable = await addressesThatCanUndo(tx, user.id);
       await tx.user.delete({ where: { id: user.id } });
-      await this.mail.enqueue(tx, { kind: 'account_deleted', to: current.email, payload });
+      for (const to of new Set([current.email, ...undoable])) {
+        await this.mail.enqueue(tx, { kind: 'account_deleted', to, payload });
+      }
     }, ACCOUNT_TRANSACTION);
     this.mail.notifyQueued();
     recordAccountDeletion();
     this.logger.log(`Account ${user.id} deleted by its owner`);
   }
+}
+
+/**
+ * The previous addresses an undo of a change of email could still bring back
+ * (docs/security.md#change-of-email): those whose notice is still queued (it
+ * goes with the account, by the cascade) and those holding an undo link that
+ * still works. Whoever moved the account to an address of their own and then
+ * deleted it would otherwise leave its owner with no word of either; each one
+ * is told of the deletion as the account's address is.
+ */
+async function addressesThatCanUndo(
+  tx: Prisma.TransactionClient,
+  userId: string,
+): Promise<string[]> {
+  const notices = await tx.mailMessage.findMany({
+    where: { userId, kind: 'email_changed', status: { in: ['pending', 'sending'] } },
+    select: { recipient: true },
+  });
+  const links = await tx.accountToken.findMany({
+    where: { userId, purpose: 'email_revert', usedAt: null, expiresAt: { gt: new Date() } },
+    select: { targetEmail: true },
+  });
+  return [
+    ...notices.map((notice) => notice.recipient),
+    ...links.map((link) => link.targetEmail),
+  ].filter((address) => address !== null);
 }

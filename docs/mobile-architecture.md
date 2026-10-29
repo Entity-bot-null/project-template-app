@@ -35,7 +35,7 @@ tests in [testing.md](testing.md).
 
 | Concern            | Choice                                                                                       | Where                                                                 |
 | ------------------ | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Runtime            | React Native with the New Architecture (the only one), Hermes                                | Expo SDK 57                                                           |
+| Runtime            | React Native with the New Architecture (the only one), Hermes                                | Expo SDK 58                                                           |
 | Native projects    | Generated from `apps/mobile/app.config.ts` and config plugins (Continuous Native Generation) | `apps/mobile/android/` and `apps/mobile/ios/` are never committed     |
 | Navigation         | Expo Router (file-based, typed routes)                                                       | `apps/mobile/src/app/`                                                |
 | Server state       | TanStack Query                                                                               | `apps/mobile/src/lib/query/`, `apps/mobile/src/features/*/api.ts`     |
@@ -124,12 +124,16 @@ apps/mobile/src/app/
 | any of the three above (never after a 426) | `(links)`, last   |
 | signed in with the `admin` role            | `(app)/admin`     |
 
-`(links)` is declared last, so it is never the screen a guard falls back to. The admin guard reads
+Every guard that does not hold redirects to the first screen of the flow the state allows
+(`allowedScreen()` in the root layout, given to each group as Expo Router's `redirectTo`): a link to
+`/items/…` while signed out opens sign-in, and `(links)` is never where a guard sends anyone. Expo
+Router renders a guarded screen as a redirect, and without a target picks its own fallback, which
+can be the not-found screen. The admin guard reads
 the role of the session (`useSessionUser()`, from the latest sign-in or renewal): a role changed on
 the server shows at the next renewal, and the API authorizes every request anyway.
 
-When the state changes (sign-in, sign-out, session expired), the router moves to the first available
-screen by itself. Screens never navigate to "sign-in" or "home" after an auth event, and no screen
+When the state changes (sign-in, sign-out, session expired), the router moves to that screen by
+itself. Screens never navigate to "sign-in" or "home" after an auth event, and no screen
 decides who is signed in: they read `useSessionStatus()` and the preferences store, nothing else.
 
 While the session is restoring, the root layout renders nothing and the splash screen stays up: the
@@ -231,13 +235,12 @@ later.
 const item = await unwrapWith(api.GET('/api/items/{id}', { params: { path: { id } } }), ItemSchema);
 ```
 
-**Which server.** `EXPO_PUBLIC_API_URL` (`apps/mobile/.env`): in development, the real API
+**Which server.** `EXPO_PUBLIC_API_URL` (`apps/mobile/.env`): in development, the API
 (`http://localhost:3010`, `pnpm dev`; an Android device or emulator reaches it after
-`adb reverse tcp:3010 tcp:3010`), or the mock API without a backend (`http://localhost:4010`,
-`pnpm mock:api`). The mock implements every route of the contract with data in memory: the example
-accounts and items, and an outbox for the links it would email (printed, and readable at
-`GET /__mock/outbox`). `pnpm test:scripts` fails when it serves a route, a status or a body the
-contract does not declare.
+`adb reverse tcp:3010 tcp:3010`), with the seed's accounts and items (`pnpm db:seed`) and its email
+in Mailpit. The API is the only backend: there is no mode without it
+([adr/0013-real-api-only.md](adr/0013-real-api-only.md)). The e2e build talks to it through the e2e
+proxy (`http://localhost:4010`, [testing.md](testing.md#end-to-end)).
 
 ## Networking
 
@@ -474,6 +477,8 @@ are the references:
 - validate on submit, then as the user corrects (React Hook Form's defaults: `mode: 'onSubmit'`,
   `reValidateMode: 'onChange'`);
 - normalize input in the schema (`trim()`, lowercase emails), so what is sent is what was validated;
+  text the API keeps (a title, a name) is `freeText()` (`apps/mobile/src/lib/forms.ts`), which also
+  refuses a pasted NUL as the API does;
 - server field errors (`validation` errors with `details.fieldErrors`) go under their fields with
   `showFieldErrors()` (`apps/mobile/src/lib/forms.ts`); errors that name no field of the form, and
   other errors, show in an alert-role message above the submit button (`userMessage()`);
@@ -692,7 +697,7 @@ this template.
 
 1. API and contract: add the route, its Zod schemas and tests to `apps/api`
    ([architecture.md](architecture.md), [api-conventions.md](api-conventions.md)), run
-   `pnpm contract`, and keep the mock API in step (`apps/mobile/scripts/mock-api.mjs`).
+   `pnpm contract`.
 2. `apps/mobile/src/features/<feature>/api.ts`: query keys, Zod schemas of the responses, query and
    mutation hooks.
 3. `apps/mobile/src/features/<feature>/<Name>Screen.tsx`: the screen, using `apps/mobile/src/ui`

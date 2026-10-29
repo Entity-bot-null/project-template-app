@@ -1,10 +1,13 @@
 # End-to-end flows (Maestro)
 
 The critical journeys of the app, run by [Maestro](https://maestro.mobile.dev) against a release
-build of the `e2e` variant (application id `com.example.templateapp.e2e`), in two suites: against
-the local mock API (`pnpm mock:api`, `pnpm test:e2e:mobile`), and against the real API with Mailpit
-(`pnpm dev`, `pnpm test:e2e:mobile:stack`) for the journeys that need email. How to build and run
-them, locally and in CI: [docs/testing.md](../../../docs/testing.md#end-to-end).
+build of the `e2e` variant (application id `com.example.templateapp.e2e`) and the real API
+(`pnpm dev`, seeded with `pnpm db:seed`), in two suites: the app's journeys
+(`pnpm test:e2e:mobile`) and the account journeys that need email, read from Mailpit
+(`pnpm test:e2e:mobile:stack`). Both reach the API through the e2e proxy
+(`apps/mobile/scripts/e2e-proxy.mjs`, started by those commands), which fails on demand what a
+healthy API never fails. How to build and run them, locally and in CI:
+[docs/testing.md](../../../docs/testing.md#end-to-end).
 
 ```
 .maestro/
@@ -28,7 +31,7 @@ them, locally and in CI: [docs/testing.md](../../../docs/testing.md#end-to-end).
     helpers/open-emailed-link.yaml   waits for a link in Mailpit, then opens it (runFlow)
     helpers/wait-for-mail-window.yaml  waits out the API's one message a minute per address
   scripts/
-    mock-api.js      makes the mock API fail on demand (runScript)
+    e2e-proxy.js     makes the e2e proxy fail on demand (runScript)
     mailpit-link.js  the newest link the API emailed to an address (runScript)
   results/           reports, screenshots and logs of the last run (git-ignored)
 ```
@@ -46,10 +49,12 @@ unordered set that ignores `continueOnFailure`.
   `-e APP_ID=… -e SCHEME=…` to `maestro test`).
 - Elements are found by `testID` (`id:`) or visible text. Wait with `extendedWaitUntil`, never with
   fixed sleeps.
-- The data comes from the mock API: its accounts and items are the fixtures. The stack suite signs
-  up a new address on every run (`e2e-<time>@example.test`): the API's database keeps the earlier
-  ones.
-- Failures come from the mock API too: `scripts/mock-api.js` sets a status (429, 5xx, or no answer
-  at all) for a route, or expires or revokes every session. A flow that sets a fault clears it in
-  `onFlowComplete`, so the next flow starts against a working API even when this one fails.
+- The data comes from the API's database: the seed's accounts and items are the fixtures
+  (`pnpm db:seed` before a run puts the member's 45 items back and removes the ones earlier runs
+  created). The stack suite signs up a new address on every run (`e2e-<time>@example.test`): the
+  API's database keeps the earlier ones.
+- Failures come from the e2e proxy: `scripts/e2e-proxy.js` sets a status (429, 5xx, or no answer
+  at all) for a route, or expires or revokes every session (the API then refuses the tokens
+  itself). A flow that sets a fault clears it in `onFlowComplete`, so the next flow starts against
+  a working API even when this one fails.
 - `maestro studio` shows the screen's elements and records commands.

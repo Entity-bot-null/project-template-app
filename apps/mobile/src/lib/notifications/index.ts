@@ -1,6 +1,10 @@
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+// By name: eslint-plugin-import's module test misses expo-notifications 58's
+// compiled enum module (a comment opens its export line), so the namespace
+// member would read as missing. TypeScript checks it either way.
+import { AndroidImportance } from 'expo-notifications';
 import { type Href, router } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
@@ -41,7 +45,7 @@ export function configureNotifications(): void {
     // per kind of notification so users can mute them separately.
     void Notifications.setNotificationChannelAsync('default', {
       name: 'General',
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: AndroidImportance.DEFAULT,
     });
   }
 }

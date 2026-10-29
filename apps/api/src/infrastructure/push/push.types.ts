@@ -26,6 +26,17 @@ export interface ClaimedPush {
   requestId: string | null;
 }
 
+/** A claimed notification, with its device as it is now (PushStore.claim). */
+export interface ClaimedSend extends ClaimedPush {
+  /** The push service reported the device's token dead: nothing goes to it. */
+  deviceDisabled: boolean;
+  /**
+   * The installation moved to another account since this was queued (a
+   * sign-in on a shared phone): the account it is for gets no notices there.
+   */
+  deviceMoved: boolean;
+}
+
 /** A sent notification whose receipt the worker claimed. */
 export interface ClaimedReceipt {
   id: string;

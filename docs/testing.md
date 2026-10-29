@@ -16,24 +16,24 @@ how to run every level, end-to-end on a device included.
 
 ## Levels
 
-| Level           | Tool                                     | What it proves                                                                                                                                             | Where                                                                                                                        |
-| --------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Unit            | Jest (jest-expo)                         | logic: errors, links, redaction, env schema, session, flags, storage                                                                                       | `apps/mobile/src/**/<name>.spec.ts` next to the code                                                                         |
-| Component       | React Native Testing Library (RNTL 14)   | a component renders, is accessible, reacts to the user                                                                                                     | `apps/mobile/src/ui/components/components.spec.tsx`                                                                          |
-| Integration     | RNTL + stubbed `fetch`                   | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                                                      | `apps/mobile/src/features/**/*.int.spec.tsx`                                                                                 |
-| Navigation      | RNTL + the real routes (`renderApp`)     | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                                                                    | `apps/mobile/src/navigation.int.spec.tsx`, `apps/mobile/src/routes.spec.tsx`                                                 |
-| End-to-end      | Maestro on an emulator / simulator       | the release build works for a user: the critical journeys, and their failures on a device (offline, 429, 5xx, a session the server ended)                  | `apps/mobile/.maestro/flows/`                                                                                                |
-| API unit        | Vitest                                   | one service, guard, pipe, filter or utility, its dependencies faked                                                                                        | `apps/api/src/**/<name>.spec.ts` next to the code                                                                            |
-| API integration | Vitest + supertest                       | the real API over HTTP on a real PostgreSQL; the Redis adapters on a real Redis; the email outbox through a real Mailpit; push through a fake push service | `apps/api/src/**/*.int.spec.ts`                                                                                              |
-| Contract        | Vitest spec, typecheck script, node:test | the API's controllers, `openapi/openapi.json`, the app's types and the mock API agree                                                                      | `apps/api/src/openapi/openapi.spec.ts`, `apps/mobile/scripts/api-types.mjs --check`, `apps/mobile/scripts/mock-api.test.mjs` |
-| Landing         | Vitest + Astro's container API           | every page in both languages: its texts, its links for search engines, its accessibility basics; the dictionaries and helpers                              | `apps/landing/src/**/*.spec.ts`                                                                                              |
-| Web image       | node:test, the real shell scripts        | the image's settings checks, its link files, its routes against the apps they serve                                                                        | `scripts/validate-runtime-config.test.mjs`, `scripts/app-links.test.mjs`, `scripts/web-server-routes.test.mjs`               |
-| Browser         | Playwright (Chromium)                    | the built landing as visitors and search engines see it; the web image's app links and their files                                                         | `e2e/` ([below](#browser-end-to-end))                                                                                        |
-| Smoke           | `pnpm smoke` (read-only)                 | a deployment, or the stack, answers as it should: pages, links, files, the API through the web server, the probes                                          | `scripts/smoke-test.mjs` ([below](#smoke-test))                                                                              |
-| Deployment      | node:test, the real shell scripts        | `deploy.sh` and `rollback.sh` against a stand-in for Docker; the server's files against the apps they configure                                            | `scripts/deploy-vps.test.mjs` ([deploy-vps.md](deploy-vps.md#how-it-works))                                                  |
-| Infrastructure  | `pnpm iac:check` (Docker)                | Terraform's own tests (provider mocked), TFLint, Trivy, cloud-init, the database roles on a real PostgreSQL                                                | `infra/terraform/digitalocean/tests/`, `scripts/check-iac.mjs` ([ci-cd.md](ci-cd.md#infrastructure-as-code))                 |
-| Alert rules     | promtool (`pnpm observability:check`)    | every alert fires on the series it is for, and not on the ones it must ignore; dashboards read only real metrics                                           | `observability/prometheus/tests/` ([observability.md](observability.md#dashboards-and-alerts-as-code))                       |
-| DAST            | OWASP ZAP (advisory, weekly)             | the production images, started on the runner, answer no attack the rules fail on                                                                           | `.github/workflows/dast.yml`, `.zap/rules.tsv` ([security.md](security.md#dynamic-analysis))                                 |
+| Level           | Tool                                   | What it proves                                                                                                                                             | Where                                                                                                          |
+| --------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Unit            | Jest (jest-expo)                       | logic: errors, links, redaction, env schema, session, flags, storage                                                                                       | `apps/mobile/src/**/<name>.spec.ts` next to the code                                                           |
+| Component       | React Native Testing Library (RNTL 14) | a component renders, is accessible, reacts to the user                                                                                                     | `apps/mobile/src/ui/components/components.spec.tsx`                                                            |
+| Integration     | RNTL + stubbed `fetch`                 | screen → hook → TanStack Query → API client → (stubbed) API, and back                                                                                      | `apps/mobile/src/features/**/*.int.spec.tsx`                                                                   |
+| Navigation      | RNTL + the real routes (`renderApp`)   | guards, redirects, deep links, not-found, error boundary, flows interrupted mid-request                                                                    | `apps/mobile/src/navigation.int.spec.tsx`, `apps/mobile/src/routes.spec.tsx`                                   |
+| End-to-end      | Maestro on an emulator / simulator     | the release build works for a user: the critical journeys, and their failures on a device (offline, 429, 5xx, a session the server ended)                  | `apps/mobile/.maestro/flows/`                                                                                  |
+| API unit        | Vitest                                 | one service, guard, pipe, filter or utility, its dependencies faked                                                                                        | `apps/api/src/**/<name>.spec.ts` next to the code                                                              |
+| API integration | Vitest + supertest                     | the real API over HTTP on a real PostgreSQL; the Redis adapters on a real Redis; the email outbox through a real Mailpit; push through a fake push service | `apps/api/src/**/*.int.spec.ts`                                                                                |
+| Contract        | Vitest spec, typecheck script          | the API's controllers, `openapi/openapi.json` and the app's types agree                                                                                    | `apps/api/src/openapi/openapi.spec.ts`, `apps/mobile/scripts/api-types.mjs --check`                            |
+| Landing         | Vitest + Astro's container API         | every page in both languages: its texts, its links for search engines, its accessibility basics; the dictionaries and helpers                              | `apps/landing/src/**/*.spec.ts`                                                                                |
+| Web image       | node:test, the real shell scripts      | the image's settings checks, its link files, its routes against the apps they serve                                                                        | `scripts/validate-runtime-config.test.mjs`, `scripts/app-links.test.mjs`, `scripts/web-server-routes.test.mjs` |
+| Browser         | Playwright (Chromium)                  | the built landing as visitors and search engines see it; the web image's app links and their files                                                         | `e2e/` ([below](#browser-end-to-end))                                                                          |
+| Smoke           | `pnpm smoke` (read-only)               | a deployment, or the stack, answers as it should: pages, links, files, the API through the web server, the probes                                          | `scripts/smoke-test.mjs` ([below](#smoke-test))                                                                |
+| Deployment      | node:test, the real shell scripts      | `deploy.sh` and `rollback.sh` against a stand-in for Docker; the server's files against the apps they configure                                            | `scripts/deploy-vps.test.mjs` ([deploy-vps.md](deploy-vps.md#how-it-works))                                    |
+| Infrastructure  | `pnpm iac:check` (Docker)              | Terraform's own tests (provider mocked), TFLint, Trivy, cloud-init, the database roles on a real PostgreSQL                                                | `infra/terraform/digitalocean/tests/`, `scripts/check-iac.mjs` ([ci-cd.md](ci-cd.md#infrastructure-as-code))   |
+| Alert rules     | promtool (`pnpm observability:check`)  | every alert fires on the series it is for, and not on the ones it must ignore; dashboards read only real metrics                                           | `observability/prometheus/tests/` ([observability.md](observability.md#dashboards-and-alerts-as-code))         |
+| DAST            | OWASP ZAP (advisory, weekly)           | the production images, started on the runner, answer no attack the rules fail on                                                                           | `.github/workflows/dast.yml`, `.zap/rules.tsv` ([security.md](security.md#dynamic-analysis))                   |
 
 The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
 End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
@@ -49,7 +49,7 @@ pnpm --filter mobile test features/items            # the tests under a folder (
 pnpm --filter mobile test -t "rolls the optimistic" # tests whose name matches
 pnpm test:e2e:mobile                                # Maestro flows, on a running emulator/simulator (see End-to-end)
 pnpm test:e2e:mobile:stack                          # Maestro flows against the real API and Mailpit (see End-to-end)
-pnpm test:scripts                                   # the repository scripts' own tests (node --test), the mock API against the contract
+pnpm test:scripts                                   # the repository scripts' own tests (node --test), the e2e proxy's included
 pnpm test:e2e                                       # Playwright: the built landing, and the web image (Docker) (see Browser end-to-end)
 pnpm smoke --url http://localhost:8090              # the smoke test, here against the local stack (see Smoke test)
 pnpm iac:check                                      # Terraform, TFLint, Trivy, cloud-init, the database roles (Docker)
@@ -229,16 +229,21 @@ A budget is raised in a reviewed pull request that says why, never to make a bui
 [Maestro](https://maestro.mobile.dev) drives a **release build of the `e2e` variant**: the same
 optimized JavaScript and native code as production, with its own application id
 (`com.example.templateapp.e2e`), plain HTTP allowed to `localhost:4010` only, and OTA updates off.
-Two suites run on that build:
+It runs against the real API with PostgreSQL, Redis and Mailpit, seeded (`pnpm db:seed`), through
+the **e2e proxy** on `localhost:4010` (`apps/mobile/scripts/e2e-proxy.mjs`): the proxy passes every
+request and every answer through unchanged, and fails on demand what a healthy API never fails
+(failures on demand, below). The API is the app's only backend
+([adr/0013-real-api-only.md](adr/0013-real-api-only.md)). `pnpm test:e2e:mobile` and
+`pnpm test:e2e:mobile:stack` start the proxy, check that the API answers, run Maestro and stop the
+proxy with it; its log is `apps/mobile/.maestro/results/e2e-proxy.log` (`results/stack/` for the
+stack suite). Two suites run on that build:
 
-- **the mock suite** (`apps/mobile/.maestro/flows/`, `pnpm test:e2e:mobile`) against
-  `apps/mobile/scripts/mock-api.mjs`, an in-memory implementation of the contract: deterministic,
-  with failures on demand, no backend or credentials;
-- **the stack suite** (`apps/mobile/.maestro/stack/`, `pnpm test:e2e:mobile:stack`) against the
-  real API with PostgreSQL, Redis and Mailpit: the account journeys that need email, with the links
-  read from Mailpit.
+- **the main suite** (`apps/mobile/.maestro/flows/`, `pnpm test:e2e:mobile`): the app's critical
+  journeys, with failures on demand;
+- **the stack suite** (`apps/mobile/.maestro/stack/`, `pnpm test:e2e:mobile:stack`): the account
+  journeys that need email, with the links read from Mailpit.
 
-The mock suite's flows (run in order by `apps/mobile/.maestro/config.yaml`, each continuing the
+The main suite's flows (run in order by `apps/mobile/.maestro/config.yaml`, each continuing the
 previous one's state like a user's first session):
 
 | Flow                          | Covers                                                                                                                                                                                              |
@@ -252,7 +257,7 @@ previous one's state like a user's first session):
 | `07-deep-links`               | an accepted link opens its screen; an unknown route or a refused id lands on home; a link that starts the app opens its screen with the list below it                                               |
 | `08-sign-out`                 | sign-out with confirmation, still signed out after a restart, and a link into the app lands on sign-in                                                                                              |
 
-The stack suite is one flow, `apps/mobile/.maestro/stack/account-journeys.yaml`, run after the mock
+The stack suite is one flow, `apps/mobile/.maestro/stack/account-journeys.yaml`, run after the main
 suite: it starts from a clean install, signs up a new address on every run, and runs the journeys
 of `stack/journeys/` in order on that account as subflows (Maestro keeps the values a flow sets,
 such as the address and the password, only within one flow and the flows it runs):
@@ -273,16 +278,28 @@ holds back the rest: before asking for another message to an address that just g
 `stack/helpers/wait-for-mail-window.yaml` waits out that minute (a wait for the server's limit,
 which nothing on the device shows).
 
-**Failures on demand.** The mock API fails when a flow asks it to, through control endpoints outside
-the contract (listed at the top of `apps/mobile/scripts/mock-api.mjs`), which
-`apps/mobile/.maestro/scripts/mock-api.js` calls from a flow: a status for one route (429, a 5xx, or
-no answer at all) until cleared, and expiring or revoking every session. The same endpoints show an
-error state by hand while developing:
+**Failures on demand.** The e2e proxy fails when a flow asks it to, through control endpoints outside the contract (listed
+at the top of `apps/mobile/scripts/e2e-proxy.mjs`), which `apps/mobile/.maestro/scripts/e2e-proxy.js`
+calls from a flow:
+
+- a status for one route (429, a 5xx, or no answer at all), answered by the proxy instead of the
+  API until the faults are cleared;
+- expiring every session: the access tokens issued so far reach the API replaced with one it never
+  issued, so the API refuses them (401) and the app renews its session with the API;
+- revoking every session: the proxy ends every session it has seen on the API (a logout of each
+  refresh token) and expires their access tokens, so the API refuses the app's next request and
+  then its renewal.
+
+Every 401 and every refused renewal comes from the API. The same endpoints show an error state by
+hand while developing: run the proxy on its own (`node apps/mobile/scripts/e2e-proxy.mjs`, until
+Ctrl+C; `E2E_PROXY_PORT` and `E2E_API_URL` move it), point the development build at it
+(`EXPO_PUBLIC_API_URL=http://localhost:4010` in `apps/mobile/.env`, `adb reverse tcp:4010 tcp:4010`,
+`pnpm start` again), then:
 
 ```sh
-curl -X POST localhost:4010/__mock/faults -d '{"route":"GET /api/items","status":503}'
-curl -X POST localhost:4010/__mock/faults/clear
-curl -X POST localhost:4010/__mock/sessions/revoke   # the app's session ends at its next request
+curl -X POST localhost:4010/__e2e/faults -d '{"route":"GET /api/items","status":503}'
+curl -X POST localhost:4010/__e2e/faults/clear
+curl -X POST localhost:4010/__e2e/sessions/revoke   # the app's session ends at its next request
 ```
 
 A failure goes into a flow when only a device can prove it: the device's network stack, its
@@ -290,22 +307,23 @@ connection state, the release build's request replay. Where the stubbed `fetch` 
 proves it as well, the Jest test is the better place (milliseconds, and exact about what was
 sent):
 
-| Failure                                            | Proven by                                                                                                                                                                                                            |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Wrong password, too many attempts (429), no answer | `01-onboarding-and-sign-in`; `SignInScreen.int.spec.tsx` (wrong password, field errors, offline)                                                                                                                     |
-| Offline, back online                               | `05-offline`; `query.spec.ts` (online and focus wiring), `components.spec.tsx` (offline banner), `session.spec.ts` (offline restore)                                                                                 |
-| Session expired or revoked while in use            | `06-session-ends`; `http.spec.ts` (one replay after a 401), `session.spec.ts` (shared renewal, refused renewal), `navigation.int.spec.tsx` (a create refused because the session ended)                              |
-| Server errors (5xx)                                | `04-server-errors`; `items.int.spec.tsx` (error with a retry that recovers, missing item told apart from a failure)                                                                                                  |
-| Validation errors on create                        | `03-items` (on-device validation); `items.int.spec.tsx` (the server's field errors under their field, the optimistic item rolled back): the client's own limits keep the mock API's validation out of a user's reach |
-| Unknown or hostile link                            | `07-deep-links`, `08-sign-out`; `links.spec.ts` (the allowlist), `routes.spec.tsx`, `navigation.int.spec.tsx`                                                                                                        |
-| App killed and restored                            | `02-session-survives-restart`, `06-session-ends`, `07-deep-links`, `08-sign-out`; `session.spec.ts`                                                                                                                  |
-| A response that breaks the contract                | `items.int.spec.tsx`, `session.spec.ts`: the mock API implements the contract and cannot break it                                                                                                                    |
+| Failure                                            | Proven by                                                                                                                                                                                                         |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Wrong password, too many attempts (429), no answer | `01-onboarding-and-sign-in`; `SignInScreen.int.spec.tsx` (wrong password, field errors, offline)                                                                                                                  |
+| Offline, back online                               | `05-offline`; `query.spec.ts` (online and focus wiring), `components.spec.tsx` (offline banner), `session.spec.ts` (offline restore)                                                                              |
+| Session expired or revoked while in use            | `06-session-ends`; `http.spec.ts` (one replay after a 401), `session.spec.ts` (shared renewal, refused renewal), `navigation.int.spec.tsx` (a create refused because the session ended)                           |
+| Server errors (5xx)                                | `04-server-errors`; `items.int.spec.tsx` (error with a retry that recovers, missing item told apart from a failure)                                                                                               |
+| Validation errors on create                        | `03-items` (on-device validation); `items.int.spec.tsx` (the server's field errors under their field, the optimistic item rolled back): the client's own limits keep the API's field errors out of a user's reach |
+| Unknown or hostile link                            | `07-deep-links`, `08-sign-out`; `links.spec.ts` (the allowlist), `routes.spec.tsx`, `navigation.int.spec.tsx`                                                                                                     |
+| App killed and restored                            | `02-session-survives-restart`, `06-session-ends`, `07-deep-links`, `08-sign-out`; `session.spec.ts`                                                                                                               |
+| A response that breaks the contract                | `items.int.spec.tsx`, `session.spec.ts`: the API answers by the contract it generates, so only a stubbed `fetch` breaks it on purpose                                                                             |
 
-**In CI**: `.github/workflows/e2e-android.yml` builds the APK with Gradle, starts the mock API, the
-API with its services (`pnpm services:up`, the migrations, `pnpm db:seed`, the API in development
-mode on `:3010`) and an Android emulator, and runs the mock suite, then the stack suite (the
-device's `localhost:4010` forwarded to the API instead of the mock), on every pull request that
-touches the app or the API; screenshots, logs and JUnit reports are uploaded. The API runs in
+**In CI**: `.github/workflows/e2e-android.yml` builds the APK with Gradle, starts the API with its
+services (`pnpm services:up`, the migrations, `pnpm db:seed`, the API in development mode on
+`:3010`) and an Android emulator, and runs the main suite, then the stack suite, each through the
+e2e proxy (`pnpm test:e2e` and `pnpm test:e2e:stack` in `apps/mobile`, the device's
+`localhost:4010` forwarded to it), on every pull request that touches the app or the API;
+screenshots, logs, the proxy's log and JUnit reports are uploaded. The API runs in
 development mode, as `pnpm dev` does: the `stack` profile of `docker-compose.yml` runs it in
 production mode, which refuses an SMTP server without TLS and so sends no email to Mailpit. The NDK React Native builds with (`ndkVersion` in
 `apps/mobile/node_modules/react-native/gradle/libs.versions.toml`) is not on the runner image: the
@@ -344,17 +362,22 @@ The build is the slow part, and is kept short:
 **Locally, Android** (Android SDK with an emulator, JDK 17, Maestro):
 
 ```sh
-pnpm mock:api                                   # terminal 1: the mock API on :4010
+pnpm dev                                        # terminal 1: PostgreSQL, Redis, Mailpit, the API on :3010
 # terminal 2, with the emulator running:
+pnpm db:seed                                    # before every run: the example accounts, the member's 45 items
 export APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010
 pnpm --filter mobile exec expo prebuild --platform android --clean --no-install
 (cd apps/mobile/android && ./gradlew assembleRelease -PreactNativeArchitectures=x86_64)
-adb reverse tcp:4010 tcp:4010                   # the emulator's localhost:4010 → this machine
+adb reverse tcp:4010 tcp:4010                   # the emulator's localhost:4010 → the e2e proxy
 adb shell settings put secure stylus_handwriting_enabled 0   # see below
 adb shell settings put global hide_error_dialogs 1           # see below
+adb shell 'am force-stop "$(cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -n 1 | cut -d/ -f1)"'
 adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
-pnpm test:e2e:mobile
+pnpm test:e2e:mobile                            # the proxy in front of the API, then the flows
 ```
+
+`pnpm db:seed` puts the member's 45 items back and removes the ones earlier runs created, so every
+run starts from the same list.
 
 The variables are exported for both commands: `./gradlew` bundles the JavaScript, with the same
 configuration as the prebuild. In PowerShell use `$env:APP_VARIANT='e2e'` and so on. Afterwards
@@ -369,7 +392,9 @@ Local requirements that CI (Linux) already meets:
 - **Error dialogs off on the emulator** (the second `adb shell settings` line): a slow emulator can
   leave a system process unresponsive for a while, and its "isn't responding" dialog covers the app
   (the launcher, Quickstep, failed a flow in CI that way). Without dialogs, Android kills the
-  process that stopped responding instead: an app that stops responding still fails its flow.
+  process that stopped responding instead: an app that stops responding still fails its flow. The
+  setting does not close a dialog already on the screen, so the next line restarts the launcher
+  (the HOME app): ending its process closes its dialogs.
 - **On Windows**, more requirements, all found while building this template (the C++ parts of the
   native modules are compiled with CMake and ninja):
   - a short project path (for example `C:\dev\<app>`) with Windows long paths enabled: CMake
@@ -382,28 +407,19 @@ Local requirements that CI (Linux) already meets:
   - or avoid all of this: build in WSL 2, or with EAS (`eas build --profile e2e --platform android`
     in `apps/mobile`), and run only the emulator and Maestro on Windows.
 
-**The stack suite locally**, on the same build, after the mock suite (or instead of it):
-
-```sh
-pnpm dev                                        # terminal 1: PostgreSQL, Redis, Mailpit, the API on :3010
-pnpm db:seed                                    # once: the example accounts
-adb reverse tcp:4010 tcp:3010                   # the emulator's localhost:4010 → the API
-pnpm test:e2e:mobile:stack
-adb reverse tcp:4010 tcp:4010                   # back to the mock API for the mock suite
-```
-
-On the iOS simulator, which reaches the Mac's `localhost` directly, run the API on `:4010` instead
-(`PORT=4010` in `apps/api/.env`), with the mock API stopped.
+**The stack suite locally**, on the same build and with `pnpm dev` still running, after the main
+suite (or instead of it): `pnpm test:e2e:mobile:stack`. It signs up a new address on every run, so
+it needs no seed beyond the first.
 
 **Locally, iOS** (macOS, Xcode, a simulator): build the `e2e` variant for the simulator, with
 `APP_VARIANT=e2e` and the variables above,
 `pnpm --filter mobile exec expo run:ios --configuration Release`, or
 `eas build --profile e2e --platform ios` in `apps/mobile`, and install the result; the simulator reaches the Mac's
-`localhost` directly. Then `pnpm test:e2e:mobile`.
+`localhost` directly. Then, with `pnpm dev` running and `pnpm db:seed`, `pnpm test:e2e:mobile`.
 
 **Writing flows**: target `testID`s (`id:`) and visible text; wait with `extendedWaitUntil`, never
-fixed sleeps; keep the mock API's data and accounts (`member@example.com` / `member-password`) as
-the fixtures. `maestro studio` inspects the screen and records commands.
+fixed sleeps; keep the seed's accounts and items (`member@example.com` / `member-password`,
+`apps/api/src/seed/seed.ts`) as the fixtures. `maestro studio` inspects the screen and records commands.
 
 ## Browser end-to-end
 
@@ -429,7 +445,8 @@ Deploy workflow runs it), the landing and its links
 on the deployment's origin, the share picture, both languages, the not-found page, an app link
 answered with the open-in-app page without a redirect, the two link files (JSON claiming `/app/*`,
 or 404 while the app's identity is not set; `--require-app-links` makes that a failure), the API
-through the web server, the probes kept private, and with `--api` the API's own probes. Read-only:
+through the web server (an unknown path in its envelope, and a route that reaches its handler:
+`GET /api/auth/capabilities`), the probes kept private, and with `--api` the API's own probes. Read-only:
 it signs nobody in and writes nothing, so it is safe against production. Every check prints `ok` or
 `FAIL`, and any failure exits 1.
 

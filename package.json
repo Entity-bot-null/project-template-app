@@ -1,6 +1,6 @@
 {
   "name": "project-template-app",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Mobile app template with its own backend: an Expo app (apps/mobile) and its NestJS API (apps/api), with architecture, quality, security, testing and delivery wired in from day 0. A pnpm workspace.",
   "packageManager": "pnpm@12.5.1",
@@ -15,7 +15,6 @@
     "android": "pnpm --filter mobile android",
     "ios": "pnpm --filter mobile ios",
     "prebuild": "pnpm --filter mobile prebuild",
-    "mock:api": "pnpm --filter mobile mock:api",
     "build": "pnpm --recursive build",
     "lint": "pnpm --filter api exec prisma generate && pnpm --filter mobile types:generate && eslint . --max-warnings=0",
     "lint:fix": "pnpm --filter api exec prisma generate && pnpm --filter mobile types:generate && eslint . --fix",

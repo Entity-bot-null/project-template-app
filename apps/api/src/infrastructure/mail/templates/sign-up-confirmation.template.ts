@@ -9,9 +9,10 @@ export const SignUpConfirmationPayloadSchema = z.object({ signUpId: z.uuid() });
 export type SignUpConfirmationPayload = z.infer<typeof SignUpConfirmationPayloadSchema>;
 
 // "Create an account" (auth/sign-up.service.ts). The link's token is minted
-// here, when the message is sent, and only its hash is stored on the sign-up;
-// a sign-up replaced since (a newer one for the address) or an account that
-// appeared meanwhile sends nothing. Anyone can ask for this message, for any
+// here, when the message is sent, and only its hash is stored on the sign-up
+// (with those of the message's earlier copies, which keep working); a sign-up
+// replaced since (a newer one for the address) or an account that appeared
+// meanwhile sends nothing. Anyone can ask for this message, for any
 // address: limited per address.
 export const signUpConfirmationTemplate: MailTemplate = {
   limited: true,
@@ -21,7 +22,7 @@ export const signUpConfirmationTemplate: MailTemplate = {
     if (!payload.success) return null;
     const signUp = await tx.signUp.findUnique({
       where: { id: payload.data.signUpId },
-      select: { id: true, email: true },
+      select: { id: true, email: true, tokenHash: true },
     });
     if (signUp?.email !== message.recipient) return null;
     const account = await tx.user.findUnique({
@@ -34,6 +35,9 @@ export const signUpConfirmationTemplate: MailTemplate = {
       where: { id: signUp.id },
       data: {
         tokenHash: hashAccountToken(token),
+        // A sign-up has one message: a token minted before is an earlier
+        // copy's (a retry, a takeover), and its link keeps working.
+        ...(signUp.tokenHash !== null && { earlierTokenHashes: { push: signUp.tokenHash } }),
         expiresAt: new Date(Date.now() + SIGN_UP_TTL_MS),
       },
     });

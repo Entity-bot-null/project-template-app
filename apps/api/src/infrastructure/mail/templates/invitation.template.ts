@@ -9,7 +9,8 @@ export const InvitationPayloadSchema = z.object({ invitationId: z.uuid() });
 export type InvitationPayload = z.infer<typeof InvitationPayloadSchema>;
 
 // An administrator's invitation. The link's token is minted here, when the
-// message is sent, and only its hash is stored on the invitation; one
+// message is sent, and only its hash is stored on the invitation (with those
+// of the message's earlier copies, which keep working); one
 // replaced since (invited again) or revoked, or an address that got an
 // account meanwhile, sends nothing. Limited per address like every link.
 export const invitationTemplate: MailTemplate = {
@@ -20,7 +21,7 @@ export const invitationTemplate: MailTemplate = {
     if (!payload.success) return null;
     const invitation = await tx.invitation.findUnique({
       where: { id: payload.data.invitationId },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, tokenHash: true },
     });
     if (invitation?.email !== message.recipient) return null;
     const account = await tx.user.findUnique({
@@ -33,6 +34,11 @@ export const invitationTemplate: MailTemplate = {
       where: { id: invitation.id },
       data: {
         tokenHash: hashAccountToken(token),
+        // An invitation has one message: a token minted before is an earlier
+        // copy's (a retry, a takeover), and its link keeps working.
+        ...(invitation.tokenHash !== null && {
+          earlierTokenHashes: { push: invitation.tokenHash },
+        }),
         expiresAt: new Date(Date.now() + INVITATION_TTL_MS),
       },
     });

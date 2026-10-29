@@ -30,8 +30,8 @@ apps/mobile/src/features/*/api.ts  ← query and mutation hooks, responses valid
 3. **Fix what no longer compiles**: every call, fixture and schema of the app affected by the change
    shows up in `pnpm typecheck`.
 4. **Update the app's Zod schemas** of the responses it reads (`apps/mobile/src/features/*/api.ts`,
-   `apps/mobile/src/auth/schemas.ts`; each `satisfies` its generated type) and the mock API
-   (`apps/mobile/scripts/mock-api.mjs`) for new or changed endpoints.
+   `apps/mobile/src/auth/schemas.ts`; each `satisfies` its generated type) for new or changed
+   endpoints.
 5. **Commit both generated files.** Two checks fail on drift: the API's
    `apps/api/src/openapi/openapi.spec.ts` (the document the controllers produce against
    `openapi.json`, in `pnpm test`) and the app's `pnpm typecheck` (`schema.d.ts` against
@@ -67,24 +67,17 @@ API.
 The session design (tokens in the body, rotation, the reuse window, why):
 [docs/adr/0007-mobile-sessions-with-refresh-tokens-in-the-body.md](../docs/adr/0007-mobile-sessions-with-refresh-tokens-in-the-body.md).
 
-## The mock API
+## One implementation: the API
 
-`pnpm mock:api` (`apps/mobile/scripts/mock-api.mjs`) implements every route of the contract in
-memory, for working without the API and for the end-to-end flows: accounts
-`member@example.com` / `member-password` and `admin@example.com` / `admin-password`, the member's 45
-example items with the ids `pnpm db:seed` gives the API, single-use refresh tokens.
-`MOCK_ACCESS_TTL_SEC=20 pnpm mock:api` makes access tokens expire quickly, to watch the app renew
-its session; `MOCK_LATENCY_MS=1500` slows every answer, to see loading states; `MOCK_API_PORT` moves
-it from 4010 (then change `EXPO_PUBLIC_API_URL` and the `adb reverse` port to match). It is not a
-backend: no persistence, public passwords, local HTTP only. It sends no email: the links it would
-send are printed with the development build's scheme (`MOCK_APP_SCHEME`) and kept in an outbox,
-`GET /__mock/outbox`.
+The app has one backend, this API: nothing else implements the contract, so nothing else has to be
+kept in step with it ([docs/adr/0013-real-api-only.md](../docs/adr/0013-real-api-only.md)). In
+development the app talks to `pnpm dev` (`http://localhost:3010`), with the seed's accounts
+(`pnpm db:seed`: `member@example.com` / `member-password` and `admin@example.com` /
+`admin-password`, the member's 45 example items); the email it sends lands in Mailpit.
 
-`apps/mobile/scripts/mock-api.test.mjs` (`pnpm test:scripts`) keeps it true to `openapi.json`: it
-fails when the mock serves a route or a method the contract does not have, answers a status the
-contract does not declare for the route, or sends a body that breaks the contract's schema.
-
-It also fails on demand, through control endpoints under `/__mock/` that are not part of this
-contract: a status for one route (429, a 5xx, or no answer at all), and expiring or revoking every
-session. The end-to-end flows use them, and they show an error state by hand
+The end-to-end flows reach the API through the e2e proxy (`apps/mobile/scripts/e2e-proxy.mjs`): it
+passes every request and every answer through unchanged, and fails on demand, through control
+endpoints under `/__e2e/` that are not part of this contract, what a healthy API never fails: a
+status for one route (429, a 5xx, or no answer at all), and expiring or revoking every session (the
+API then refuses the tokens itself). The flows use them, and they show an error state by hand
 ([docs/testing.md](../docs/testing.md#end-to-end)).

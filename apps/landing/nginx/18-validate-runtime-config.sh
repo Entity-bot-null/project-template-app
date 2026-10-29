@@ -36,6 +36,12 @@ matches "${APP_ORIGIN:-}" '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$' ||
 # as /release.json.
 matches "${APP_RELEASE:-}" '^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$' ||
   fail APP_RELEASE 'letters, digits, ".", "_", "+", "-"'
+# Where /api goes (the image's default: http://api:3000), into the nginx
+# string of proxy_pass: an origin, nothing after it. nginx sends a request to
+# a proxy_pass variable that carries a path to that path, not to its own, so
+# with one every /api/* call would reach the same URL.
+matches "${API_UPSTREAM:-}" '^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$' ||
+  fail API_UPSTREAM 'where /api goes, such as http://api:3000: a scheme, a host and an optional port; no path, no trailing slash'
 
 # Optional, in pairs: the app's identity, for the files that let the phones
 # open /app/* links in it (19-app-links.sh). Half a pair is a mistake, not a

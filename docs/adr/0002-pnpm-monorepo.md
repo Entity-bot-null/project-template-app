@@ -69,6 +69,8 @@ Option 3, as in the web template:
   | OTLP / Grafana / Prometheus | 4318/3001/9090 | 4328/3011/9100 |
   | Mock API (`pnpm mock:api`)  | none           | 4010           |
 
+  The mock API was removed by [0013](0013-real-api-only.md); 4010 is now the e2e proxy's port.
+
 - **CI as in the web template:** runners pinned to `ubuntu-24.04` (a moved `ubuntu-latest` changes
   every job at once); the tool images in `scripts/tool-images/Dockerfile`, outside `.github/`, where
   Dependabot may change files for GitHub Actions only (dependabot/dependabot-core#15237); Dependabot

@@ -99,7 +99,7 @@ pnpm start, pnpm android or pnpm ios: the app, in another terminal (Metro is int
 | PostgreSQL 18 | `localhost:5452`, database `app`                                        | `DB_PORT` in the root `.env`           |
 | Redis 8       | `localhost:6399`, password `app`                                        | `REDIS_PORT`, `REDIS_PASSWORD`         |
 | Mailpit       | SMTP `localhost:1045`, every message at `http://localhost:8045`         | `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT` |
-| Mock API      | `http://localhost:4010` (`pnpm mock:api`, no database)                  | `MOCK_API_PORT`                        |
+| E2E proxy     | `http://localhost:4010`, in front of the API, for the end-to-end flows  | `E2E_PROXY_PORT`                       |
 
 The ports are the web template's plus 10, so both templates run on one machine at once; the
 Compose project name (`template-app`) keeps their containers and volumes apart. Every port is
@@ -146,7 +146,6 @@ with `EXPO_PUBLIC_API_URL`: the API's origin, without `/api` and without a trail
 | The app talks to                                              | `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` | On Android                      |
 | ------------------------------------------------------------- | ------------------------------------------- | ------------------------------- |
 | the API's dev server (`pnpm dev`, `apps/mobile/.env.example`) | `http://localhost:3010`                     | `adb reverse tcp:3010 tcp:3010` |
-| the mock API (`pnpm mock:api`)                                | `http://localhost:4010`                     | `adb reverse tcp:4010 tcp:4010` |
 | the production-like stack (its web server, `/api` forwarded)  | `http://localhost:8090`                     | `adb reverse tcp:8090 tcp:8090` |
 | a deployment (builds): the site's origin, `/api` forwarded    | `https://<your-domain>`, set in EAS         |                                 |
 
@@ -156,12 +155,12 @@ require HTTPS (`apps/mobile/src/config/env.schema.ts`). Values are inlined into 
 `pnpm start` after changing them. Deployed values come from the EAS environments
 ([releases.md](releases.md#environment-variables)).
 
-The mock API (`apps/mobile/scripts/mock-api.mjs`) is the way to work without the API: it implements
-every route of the contract in memory, with the seed's accounts and 45 items and an outbox for the
-links it would email, and fails on demand for the Maestro flows. It is simpler than the API where
-the app cannot tell (a refresh token works once, no reuse window, no rate limits), and `apps/mobile/scripts/mock-api.test.mjs` fails
-when it serves a route, a status or a body the contract does not declare
-([openapi/README.md](../openapi/README.md#the-mock-api)).
+The API is the app's only backend: there is no mode without it
+([adr/0013-real-api-only.md](adr/0013-real-api-only.md)). The e2e build talks to the e2e proxy on
+`http://localhost:4010` (`apps/mobile/scripts/e2e-proxy.mjs`), which passes every request to the
+API unchanged and fails on demand only what a healthy API never fails, for the Maestro flows
+([openapi/README.md](../openapi/README.md#one-implementation-the-api),
+[testing.md](testing.md#end-to-end)).
 
 The app's side of the conversation (the session store, renewal, request ids, timeouts, error kinds,
 response validation): [mobile-architecture.md](mobile-architecture.md#api),
@@ -453,7 +452,9 @@ MailWorker (every instance) ── claim one due row (lease 2 min, FOR UPDATE SK
   validity (`expiresAt`: 30 minutes for a password reset) is dropped unsent, never delivered late.
 - **Delivery is at least once:** if the process dies after the SMTP server accepted a message and
   before the outcome is recorded, the lease runs out and another worker sends it again, with the
-  same `Message-ID`. SMTP has no exactly-once; links stay single-use whatever the copies.
+  same `Message-ID`. SMTP has no exactly-once; links stay single-use whatever the copies: each
+  copy is rendered with a token of its own, the earlier copies' tokens keep working, and the first
+  one used ends the others ([security.md](security.md#one-time-tokens)).
 - **What is stored:** no body and no token, ever: the worker renders the message when it sends it
   and a link's token is minted then (its hash in the database, the token itself only in the
   message in flight). The address is kept while the message may need it (pending, sending,
@@ -507,7 +508,9 @@ PushWorker (every instance) ── claim up to 100 due rows (lease 1 min, FOR UP
   are allowed, when the user allows them, and when the token changes; at sign-out, before the
   session is revoked, `DELETE` ([mobile-architecture.md](mobile-architecture.md#notifications)).
   One row per installation and one per token: the same installation under another account moves to
-  it (a shared phone), a token registered by another installation (a reinstall) leaves its old row.
+  it (a shared phone), and what is still queued for the previous account is dropped unsent (the
+  worker compares the device's account with the notification's: `device_moved`); a token
+  registered by another installation (a reinstall) leaves its old row.
   Only the caller's own installation can be removed; another account's answers 404, like a missing
   one ([authorization.md](authorization.md)). Registration works with push off too, so turning it on
   later reaches every phone that registered.
@@ -653,13 +656,15 @@ the fragment, which neither nginx nor the API ever receives. The variables:
 
 ## Mobile app (`apps/mobile`)
 
-The client: Expo SDK 57 (React Native, New Architecture), Expo Router, TanStack Query for server
+The client: Expo SDK 58 (React Native, New Architecture), Expo Router, TanStack Query for server
 state, Zustand only for state the server does not own, native projects generated from
 `apps/mobile/app.config.ts` (never committed). It calls the API only through `apps/mobile/src/api/`
 (`api` with the session's token, `publicApi` without), typed by `apps/mobile/src/api/schema.d.ts`,
-and validates every response it reads with Zod. Its screens use sign-in, renewal and sign-out,
-`GET /api/users/me` and the items routes; the rest of the API (sign-up, password recovery, change
-of email, invitations, account deletion, capabilities) has no screen in the app.
+and validates every response it reads with Zod. Its screens cover the API: sign-in, renewal and
+sign-out, sign-up, password recovery and change, change of email, account deletion, the screens of
+the emailed links, the items, and for administrators the accounts and the invitations; it registers
+for push notifications and shows the update screen when the API answers 426
+([mobile-architecture.md](mobile-architecture.md#accounts)).
 
 Its layers, navigation, session, storage, errors, deep links and native code:
 [mobile-architecture.md](mobile-architecture.md); builds, OTA updates, store releases and its

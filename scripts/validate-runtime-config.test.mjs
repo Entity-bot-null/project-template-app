@@ -34,6 +34,7 @@ const FINGERPRINT = Array.from({ length: 32 }, (_, index) =>
 const VALID = {
   APP_ORIGIN: 'https://app.example.com',
   APP_RELEASE: 'unversioned',
+  API_UPSTREAM: 'http://api:3000',
   APPLE_TEAM_ID: '',
   IOS_BUNDLE_ID: '',
   ANDROID_PACKAGE: '',
@@ -110,6 +111,26 @@ describe('18-validate-runtime-config.sh', () => {
     }
   });
 
+  test('refuses an API upstream that is not an origin: proxy_pass would send every call to its path', () => {
+    // The image's default, the one of the browser tests, and an https one pass.
+    for (const upstream of ['http://api:3000', 'http://127.0.0.1:9', 'https://api.internal']) {
+      assert.equal(validate({ API_UPSTREAM: upstream }).status, 0, upstream);
+    }
+    for (const value of [
+      '',
+      'api:3000',
+      'ftp://api:3000',
+      'http://api:3000/',
+      'http://api:3000/api',
+      'http://api:3000?evil',
+      'http://user@api:3000',
+      'http://api:3000"; return 200 "evil',
+      'http://api:3000;evil',
+    ]) {
+      assertRefused('API_UPSTREAM', value);
+    }
+  });
+
   test('refuses a release that is not a plain build name: it is served inside JSON', () => {
     // The image's default, a commit SHA, and a version name pass.
     for (const release of ['unversioned', '97557ea1f0c2', 'v1.0.0+45']) {
@@ -123,6 +144,7 @@ describe('18-validate-runtime-config.sh', () => {
     // grep matches line by line: the first line would carry the rest in.
     assertRefused('APP_ORIGIN', 'https://app.example.com\nevil');
     assertRefused('APP_RELEASE', 'unversioned\nevil');
+    assertRefused('API_UPSTREAM', 'http://api:3000\nevil');
     assertRefused('APPLE_TEAM_ID', 'ABCDE12345\nevil', APP_IDENTITY);
     assertRefused('IOS_BUNDLE_ID', 'com.example.app\nevil', APP_IDENTITY);
     assertRefused('ANDROID_PACKAGE', 'com.example.app\revil', APP_IDENTITY);
@@ -133,6 +155,7 @@ describe('18-validate-runtime-config.sh', () => {
     for (const character of ['"', "'", '\\', '$']) {
       assertRefused('APP_ORIGIN', `https://app.example.com${character}evil`);
       assertRefused('APP_RELEASE', `unversioned${character}evil`);
+      assertRefused('API_UPSTREAM', `http://api:3000${character}evil`);
       assertRefused('IOS_BUNDLE_ID', `com.example.app${character}evil`, APP_IDENTITY);
       assertRefused('ANDROID_PACKAGE', `com.example.app${character}evil`, APP_IDENTITY);
     }

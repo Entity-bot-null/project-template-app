@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # The web image (named web, as in the web template, though it is built from
 # apps/landing): the site behind nginx, one origin for everything public. The
 # landing at / and /es/, the app's links at /app/* (the phone opens them in
@@ -10,12 +9,16 @@
 # http://api:3000) is where /api goes; the app's identity for its link files
 # is optional (docs/environment.md#web-variables).
 #
+# No `# syntax=` line: BuildKit's built-in Dockerfile frontend reads this file
+# (cache mounts, COPY --chmod), so no parser image is pulled by a moving tag;
+# CI's BuildKit is pinned by digest (scripts/tool-images/Dockerfile, buildkit).
+#
 # Base images by tag and digest, so a build is reproducible and a moved tag
 # changes nothing; Dependabot proposes tag and digest together. Node.js 24
 # (.nvmrc) from ECR Public's mirror of Docker's official images, nginx from
 # NGINX's own registry on GHCR: the same images as Docker Hub, without its
 # anonymous pull limit.
-FROM public.ecr.aws/docker/library/node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5 AS build
+FROM public.ecr.aws/docker/library/node:24-bookworm-slim@sha256:55fb5f5a527ea2c5c4a95f963e48ef90aa38c7b346054fdc8ee9957a2b55d205 AS build
 ENV PNPM_HOME=/pnpm \
     PATH=/pnpm:$PATH \
     CI=true \

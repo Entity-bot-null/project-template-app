@@ -9,7 +9,7 @@ import {
   PUSH_SEND_BATCH,
   PUSH_STALE_DEVICE_DAYS,
 } from './push.constants.js';
-import type { ClaimedPush, ClaimedReceipt } from './push.types.js';
+import type { ClaimedPush, ClaimedReceipt, ClaimedSend } from './push.types.js';
 
 const DAY_MS = 86_400_000;
 
@@ -37,15 +37,16 @@ export class PushStore {
 
   /**
    * Takes up to `limit` due notifications, and those whose worker's lease ran
-   * out, with their device's token, and leases them to this worker. SKIP
-   * LOCKED lets several workers claim side by side; the attempt is counted
-   * here, before the send.
+   * out, with their device's token and state now (disabled, or moved to
+   * another account since the notification was queued), and leases them to
+   * this worker. SKIP LOCKED lets several workers claim side by side; the
+   * attempt is counted here, before the send.
    */
   async claim(
     limit: number = PUSH_SEND_BATCH,
     leaseMs: number = PUSH_LEASE_MS,
-  ): Promise<(ClaimedPush & { deviceDisabled: boolean })[]> {
-    return this.prisma.$queryRaw<(ClaimedPush & { deviceDisabled: boolean })[]>`
+  ): Promise<ClaimedSend[]> {
+    return this.prisma.$queryRaw<ClaimedSend[]>`
       WITH claimed AS (
         UPDATE "push_messages"
         SET "status" = 'sending',
@@ -65,6 +66,7 @@ export class PushStore {
       )
       SELECT c."id", c."kind", c."user_id" AS "userId", c."device_id" AS "deviceId",
              d."push_token" AS "pushToken", (d."disabled_at" IS NOT NULL) AS "deviceDisabled",
+             (d."user_id" <> c."user_id") AS "deviceMoved",
              c."payload", c."attempts", c."expires_at" AS "expiresAt",
              c."created_at" AS "createdAt", c."request_id" AS "requestId"
       FROM claimed c

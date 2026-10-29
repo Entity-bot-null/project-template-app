@@ -8,7 +8,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { fieldError } from '../common/errors/validation-failed.exception.js';
-import { hashAccountToken } from '../auth/account-tokens.js';
+import { hashAccountToken, matchesLinkToken } from '../auth/account-tokens.js';
 import { normalizeEmail } from '../auth/auth.constants.js';
 import { AuthService } from '../auth/auth.service.js';
 import type { AuthSession, AuthUser } from '../auth/dto/auth.schemas.js';
@@ -135,8 +135,8 @@ export class InvitationsService {
     now = Date.now(),
   ): Promise<AuthSession> {
     const tokenHash = hashAccountToken(token);
-    const invitation = await this.prisma.invitation.findUnique({
-      where: { tokenHash },
+    const invitation = await this.prisma.invitation.findFirst({
+      where: matchesLinkToken(tokenHash),
       select: { id: true, email: true, expiresAt: true },
     });
     if (invitation?.expiresAt == null || invitation.expiresAt.getTime() <= now) {
@@ -162,7 +162,8 @@ export class InvitationsService {
         >`
           SELECT i."role", u."role" AS "inviterRole"
           FROM "invitations" i LEFT JOIN "users" u ON u."id" = i."invited_by_id"
-          WHERE i."id" = ${invitation.id}::uuid AND i."token_hash" = ${tokenHash}
+          WHERE i."id" = ${invitation.id}::uuid
+            AND (i."token_hash" = ${tokenHash} OR ${tokenHash} = ANY(i."earlier_token_hashes"))
           FOR UPDATE OF i`;
         const locked = rows[0];
         if (locked?.inviterRole !== 'admin') throw new NotFoundException(INVALID_INVITATION);

@@ -58,7 +58,7 @@ install side by side.
 - `development` builds include the dev launcher and load JavaScript from `pnpm start`.
 - `preview` is a release build for QA and stakeholders, installed from an EAS link, pointing at
   staging.
-- `e2e` is a release build against the local mock API, for Maestro
+- `e2e` is a release build against the local API through the e2e proxy, for Maestro
   ([testing.md](testing.md#end-to-end)).
 - `production` goes to the stores; its build number increments automatically.
 
@@ -265,6 +265,11 @@ store binary 1.5.0 (build 57) ──fingerprint──▶ runtime version B ◀�
   another runtime version is never offered to it: an incompatible update cannot reach a device, so
   there is nothing to crash.
 - A binary with no update for its runtime version runs its embedded bundle.
+- `apps/mobile/fingerprint.config.js` keeps Expo's default fingerprint with one change: of
+  `apps/mobile/package.json`'s scripts, only the ones that run while dependencies install or a build
+  compiles count (npm's install lifecycle, EAS Build's `eas-build-*` hooks, `android`/`ios` when
+  they do more than `expo run:<platform>`). Changing a development or test script no longer gives
+  the app a new runtime version; adding or changing one of those still does.
 - When a user installs a new store version, the app starts from that binary's embedded bundle and
   then follows the updates of its runtime version; updates downloaded for the old binary are
   discarded.
@@ -301,6 +306,7 @@ store binary 1.5.0 (build 57) ──fingerprint──▶ runtime version B ◀�
 | A config plugin or its options; permissions; `apps/mobile/app.config.ts` native fields (identifier, scheme, associated domains, intent filters, Info.plist, Android manifest) |            | yes         |
 | App icon, splash screen, app name                                                                                                                                             |            | yes         |
 | Expo SDK or React Native upgrade                                                                                                                                              |            | yes         |
+| `apps/mobile/eas.json`, any change (the build servers' Node.js or pnpm, a profile): it is part of the fingerprint                                                             |            | yes         |
 
 The fingerprint enforces the right column: such a change gives a new runtime version, and an
 update published after it reaches only builds made after it. The pull request template asks which
@@ -408,14 +414,20 @@ time, on its own branch, when its first patch releases are out (and past the sev
 supply-chain delay):
 
 1. Read the SDK's changelog and breaking changes (`https://expo.dev/changelog`).
-2. `pnpm --filter mobile exec expo install expo@^<next>.0.0 --fix`: the SDK and every SDK-managed
-   package.
+2. `EXPO_OFFLINE=1 pnpm --filter mobile exec expo install expo@^<next>.0.0 --fix`: the SDK and
+   every SDK-managed package. Offline, the versions come from the installed `expo` package (the newest
+   one older than the release delay); online, Expo's list names the SDK's newest patches, which pnpm
+   refuses for seven days (`ERR_PNPM_NO_MATURE_MATCHING_VERSION`). Then
+   `EXPO_OFFLINE=1 pnpm --filter mobile exec expo install --check`: development packages it lists
+   (`jest-expo`, `eslint-config-expo`) go in with `expo install <names> -- -D`.
 3. `pnpm expo:doctor`, `pnpm typecheck`, `pnpm lint`, `pnpm test`; fix what changed.
 4. `pnpm prebuild` and a local Android/iOS build; run the Maestro flows.
 5. Update `apps/mobile/eas.json` (`node`, `pnpm`) if the SDK requires newer ones. `--fix` leaves
    Jest and TypeScript alone: move Jest (and `@types/jest`) to the major the new `jest-expo` depends
    on (`pnpm view jest-expo@<next> dependencies`, `babel-jest`), and TypeScript as
-   [ci-cd.md](ci-cd.md#typescript) says.
+   [ci-cd.md](ci-cd.md#typescript) says. Also by hand: `@react-native/jest-preset` to the new React
+   Native version (a peer of `jest-expo`), `@types/react` to the new React minor, and the peer
+   warnings of `pnpm peers check` compared with `main`'s.
 6. Measure the bundle (`pnpm build && pnpm perf:check`) and raise the budget if the SDK itself grew.
    Raise `expo-doctor` too (`pnpm --filter mobile add -D expo-doctor@latest`): Dependabot proposes only its
    patches, since its name matches the `expo-*` rule that holds the SDK's packages back.

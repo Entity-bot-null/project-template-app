@@ -1,6 +1,6 @@
 {
   "name": "landing",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Public website of the app: Astro and Tailwind CSS, in English and Spanish, built to static files and served by the web image with the app's link files.",
   "type": "module",
@@ -21,9 +21,9 @@
     "@astrojs/sitemap": "^3.7.4",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^24.19.2",
-    "@vitest/coverage-v8": "^5.0.4",
-    "astro": "^7.3.8",
+    "@vitest/coverage-v8": "^5.0.5",
+    "astro": "^7.4.0",
     "typescript": "~6.0.3",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.5"
   }
 }

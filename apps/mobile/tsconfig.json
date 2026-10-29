@@ -1,6 +1,8 @@
 {
-  // Expo's base (bundler resolution, react-native conditions) made strict.
-  "extends": "expo/tsconfig.base",
+  // Expo's base (bundler resolution, react-native conditions) made strict. By
+  // its file name: expo 58 publishes an exports map, and before 58.0.15 it
+  // reaches the file only as `./*.json` (ESLint's import resolver follows it).
+  "extends": "expo/tsconfig.base.json",
   "compilerOptions": {
     "strict": true,
     "noUncheckedIndexedAccess": true,

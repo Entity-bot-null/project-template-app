@@ -1,13 +1,10 @@
 import { Logger } from '@nestjs/common';
-import { PrismaPg } from '@prisma/adapter-pg';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp, resetDatabase, type TestApp } from '../../test/app.js';
 import { bearer, seedUser, sessionOf, signIn, TEST_PASSWORD } from '../../test/auth.js';
 import { envelopeOf } from '../../test/http.js';
-import { env } from '../env/env.js';
-import { PrismaClient } from '../prisma/generated/client.js';
-import type { PrismaService } from '../prisma/prisma.service.js';
+import { clientWithDefaultIsolation } from '../../test/isolation.js';
 import { REFRESH_REUSE_LEEWAY_SEC, SIGN_IN_RATE_LIMIT } from './auth.constants.js';
 import { hashPassword } from './password.js';
 import { hashRefreshToken, SessionsService } from './sessions.service.js';
@@ -107,6 +104,24 @@ describe('Auth (integration)', () => {
         t.prisma.session.findUnique({ where: { tokenHash: hashRefreshToken(lost.refreshToken) } }),
       ).resolves.toMatchObject({ superseded: true, revokedAt: expect.any(Date) as Date });
       await refresh(retried.refreshToken).expect(200);
+    });
+
+    it('retried once the family reached its end: refused, like any renewal past it', async () => {
+      const first = await signIn(t.server, EMAIL);
+      await refresh(first.refreshToken).expect(200);
+      // The family ends seconds after that renewal (90 days whatever the activity).
+      const { familyId } = await t.prisma.session.findUniqueOrThrow({
+        where: { tokenHash: hashRefreshToken(first.refreshToken) },
+        select: { familyId: true },
+      });
+      await t.prisma.session.updateMany({
+        where: { familyId },
+        data: { familyExpiresAt: new Date(Date.now() - 1000) },
+      });
+
+      const retry = await refresh(first.refreshToken).expect(401);
+      expect(retry.body).toEqual({ data: null, message: 'Invalid or expired session' });
+      await expect(t.prisma.session.count({ where: { familyId } })).resolves.toBe(2);
     });
 
     it('the lost answer used later after all: two clients hold the family, which ends', async () => {
@@ -298,17 +313,9 @@ describe('Auth (integration)', () => {
     // A database or role configured with a stricter default isolation (a
     // managed service's parameter, a DBA's choice): every transaction of this
     // client starts SERIALIZABLE unless it says otherwise.
-    const url = new URL(env.DATABASE_URL);
-    url.searchParams.set('options', '-c default_transaction_isolation=serializable');
-    const strict = new PrismaClient({
-      adapter: new PrismaPg({ connectionString: url.toString() }),
-    });
+    const strict = await clientWithDefaultIsolation('serializable');
     try {
-      await expect(strict.$queryRaw`SHOW default_transaction_isolation`).resolves.toEqual([
-        { default_transaction_isolation: 'serializable' },
-      ]);
-      // The service only needs the client's queries and transactions.
-      const sessions = new SessionsService(strict as unknown as PrismaService);
+      const sessions = new SessionsService(strict);
       vi.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
       const { refreshToken } = await signIn(t.server, EMAIL);
       const outcomes = await Promise.allSettled(

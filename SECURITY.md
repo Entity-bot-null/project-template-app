@@ -158,7 +158,7 @@ feature that adds data adds its row.
 | --------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
 | Account: email, name, role, password          | personal; the password secret                                                         | PostgreSQL `users`                                                                                                            | the password as an argon2id hash only               | deletion                                                                                   | deleted                                               |
 | Sessions (refresh tokens)                     | secret                                                                                | PostgreSQL `sessions`                                                                                                         | SHA-256 of the token only                           | their expiry (swept), revoked ones too until then                                          | deleted (cascade)                                     |
-| One-time links (password reset, email change) | secret                                                                                | PostgreSQL `account_tokens`, the address they concern                                                                         | SHA-256 of the token only                           | used or expired                                                                            | deleted (cascade)                                     |
+| One-time links (password reset, email change) | secret                                                                                | PostgreSQL `account_tokens`, the address they concern                                                                         | SHA-256 of each copy's token only                   | used or expired                                                                            | deleted (cascade)                                     |
 | Pending sign-ups and invitations              | personal (email, name)                                                                | PostgreSQL `sign_ups`, `invitations`                                                                                          | link token hashed; the sign-up's password as a hash | confirmed, replaced, revoked or expired                                                    | not tied to an account                                |
 | Items (the example resource)                  | depends on the product                                                                | PostgreSQL `items`, with the create's `Idempotency-Key` and a body hash                                                       | none beyond the database's                          | deletion                                                                                   | deleted (cascade)                                     |
 | Email outbox                                  | personal (the address)                                                                | PostgreSQL `mail_messages`                                                                                                    | a keyed hash of the address for limits and lookups  | the address until the message is sent or dropped (a failed one's: 7 days); the row 30 days | queued messages deleted; the deletion notice is sent  |
@@ -173,7 +173,7 @@ feature that adds data adds its row.
 
 - HTTPS only: `apps/mobile/src/config/env.schema.ts` rejects `http://` URLs except localhost and the
   Android emulator host, and requires HTTPS in production; Android release builds disallow cleartext
-  (`usesCleartextTraffic` is only enabled for the `e2e` variant against the local mock API); iOS App
+  (`usesCleartextTraffic` is only enabled for the `e2e` variant against the local e2e proxy); iOS App
   Transport Security stays at its default.
 - Every request has a timeout and a request id; tokens are sent only to the configured API.
 - API responses are validated with Zod before use.
@@ -253,6 +253,8 @@ a `faceIDPermission` text in `apps/mobile/app.config.ts`); screenshot blocking w
   enough. From that date `pnpm deps:check` fails until both entries are deleted.
 - `pnpm audit --audit-level=high` in `pnpm security` and CI; Dependabot security updates.
 - Expo SDK packages move together through SDK upgrades; Dependabot proposes their patches only.
+  Prisma's packages move together in one pull request
+  ([release sets](#dependency-policy)).
 - Every release carries a CycloneDX SBOM of the production dependencies (`pnpm sbom:generate`):
   the npm packages they resolve to in the lockfile, peer dependencies included (so some tools
   appear, Jest through a peer of `expo-router`). It does not list the native libraries Gradle and
@@ -298,6 +300,11 @@ exemption also fails the check from its expiry date on.
   Source License). An SPDX expression passes when it can be met with allowed licenses alone, read
   as SPDX reads it (`(MIT OR Apache-2.0) AND GPL-3.0` needs GPL-3.0), each version on its own
   (`scripts/licenses.mjs`);
+- release sets: packages published together as one release resolve to one version wherever the
+  workspace uses them (`scripts/release-sets.mjs`). Prisma's CLI, client and driver adapter are
+  one: the CLI generates the code the client runs, so an update that moved the client alone (the
+  trust policy had refused the CLI's new version) would build and pass the tests with two releases
+  mixed. Each set has a Dependabot group of its own;
 - the supply-chain settings above cannot be weakened without failing the check
   (`scripts/install-settings.mjs`, which reads `pnpm-workspace.yaml` as YAML and fails on what it
   cannot read unambiguously, such as anchors or a key set twice):

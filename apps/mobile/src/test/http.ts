@@ -12,6 +12,39 @@ export interface StubbedFetch {
   restore(): void;
 }
 
+/**
+ * The handler's answer, settled as fetch settles it: once the request's
+ * signal aborts (a query cancelled because its screen unmounted, the app's
+ * own timeout), the request rejects with the abort reason, even while its
+ * answer is held (deferred). Otherwise a held answer never released would
+ * leave the request pending, and the app's timeout timer with it, after the
+ * test.
+ */
+function answer(request: Request, handler: Handler): Promise<Response> {
+  const { signal } = request;
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+  return new Promise<Response>((resolve, reject) => {
+    const onAbort = () => {
+      reject(abortReason(signal));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    Promise.resolve()
+      .then(() => handler(request))
+      .then(resolve, reject)
+      .finally(() => {
+        signal.removeEventListener('abort', onAbort);
+      });
+  });
+}
+
+/** What fetch rejects with on an abort: the signal's reason, an AbortError unless one was given. */
+function abortReason(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error
+    ? reason
+    : new DOMException('This operation was aborted', 'AbortError');
+}
+
 /** Routes are "METHOD /path" (no query string; `:param` matches one segment). */
 export function stubFetch(routes: Record<string, Handler>): StubbedFetch {
   const table = new Map(Object.entries(routes));
@@ -36,7 +69,7 @@ export function stubFetch(routes: Record<string, Handler>): StubbedFetch {
     if (handler === undefined) {
       throw new Error(`Unexpected request: ${request.method} ${request.url}`);
     }
-    return handler(request);
+    return answer(request, handler);
   }) as typeof fetch;
 
   return {

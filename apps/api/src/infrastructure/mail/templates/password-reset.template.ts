@@ -5,7 +5,8 @@ import type { MailTemplate } from './registry.js';
 
 // "Forgot your password?" (auth/password-reset.service.ts). The link's token
 // is minted here, when the message is sent, and only its hash is stored; it
-// replaces any earlier reset link of the account. The token travels after #:
+// replaces the reset links of the account's earlier messages (asking again),
+// not those of this message's earlier copies (a retry, a takeover). The token travels after #:
 // a browser never sends that part to a server, so it reaches no server log.
 // Anyone can ask for this message, for any address: limited per address.
 export const passwordResetTemplate: MailTemplate = {
@@ -25,6 +26,7 @@ export const passwordResetTemplate: MailTemplate = {
       securityVersion: user.securityVersion,
       email: user.email,
       ttlMs: PASSWORD_RESET_TTL_MS,
+      messageId: message.id,
     });
     return renderMail(
       {

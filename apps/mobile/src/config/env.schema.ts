@@ -9,7 +9,7 @@ import { z } from 'zod';
 export const APP_ENVIRONMENTS = ['development', 'staging', 'production'] as const;
 export type AppEnvironment = (typeof APP_ENVIRONMENTS)[number];
 
-// Hosts a development machine or an emulator reaches the local mock API on.
+// Hosts a development machine or an emulator reaches the local API on.
 // Plain HTTP is accepted for them only; everything else must be HTTPS.
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '10.0.2.2', '[::1]']);
 

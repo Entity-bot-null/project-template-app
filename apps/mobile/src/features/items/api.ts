@@ -48,6 +48,28 @@ export const itemKeys = {
   detail: (id: string) => [...itemKeys.all, 'detail', id] as const,
 };
 
+/**
+ * Each item once, the first time it is listed. Pages are asked for by offset
+ * (the items loaded so far): an item created meanwhile, on another device,
+ * moves every row down one, and the next page then starts with a row already
+ * shown. The offsets stay those of the server's rows (getNextPageParam reads
+ * the pages as they came).
+ */
+function listedOnce(data: InfiniteData<ItemPage>): InfiniteData<ItemPage> {
+  const seen = new Set<string>();
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.filter((item) => {
+        if (seen.has(item.id)) return false;
+        seen.add(item.id);
+        return true;
+      }),
+    })),
+  };
+}
+
 /** Pages of items, newest first; the next page loads as the list nears its end. */
 export function useItems(search: string) {
   return useInfiniteQuery({
@@ -63,6 +85,7 @@ export function useItems(search: string) {
     // While a new search loads, the previous results stay on screen instead
     // of a spinner: the list (and the search field above it) never unmounts.
     placeholderData: keepPreviousData,
+    select: listedOnce,
     initialPageParam: 0,
     getNextPageParam: (lastPage, pages) => {
       const loaded = pages.reduce((count, page) => count + page.items.length, 0);

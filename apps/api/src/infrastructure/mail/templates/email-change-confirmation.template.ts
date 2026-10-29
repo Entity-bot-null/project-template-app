@@ -50,6 +50,7 @@ export const emailChangeConfirmationTemplate: MailTemplate = {
       email: user.email,
       targetEmail: message.recipient,
       ttlMs: EMAIL_CHANGE_TTL_MS,
+      messageId: message.id,
     });
     return renderMail(
       {

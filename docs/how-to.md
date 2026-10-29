@@ -301,8 +301,6 @@ export class NotesModule {}
 **5. Contract:** `pnpm contract`, then review the diff of `openapi/openapi.json` and
 `apps/mobile/src/api/schema.d.ts`. Until you run it, `pnpm test` fails with `matches the committed
 openapi/openapi.json (run pnpm contract when this fails)`: that is the drift gate doing its job.
-Then the mock API (`apps/mobile/scripts/mock-api.mjs`) gets the new routes, so the app works
-without a backend too; `pnpm test:scripts` checks every answer it gives against the contract.
 
 **6. Unit tests** (`notes.service.spec.ts`): the service with Prisma faked, one test per rule.
 Cover **every** service method: unit coverage counts services, guards and utilities, and the
@@ -482,8 +480,7 @@ describe('Notes (integration)', () => {
 
 The contract changes whenever a controller or a schema in `dto/` changes. Always: `pnpm contract`,
 then commit `openapi/openapi.json` and `apps/mobile/src/api/schema.d.ts` in the same pull request
-as the code, keep the mock API in step (`apps/mobile/scripts/mock-api.mjs`, checked by
-`pnpm test:scripts`), and point reviewers to the contract diff.
+as the code, and point reviewers to the contract diff.
 
 - **Safe (additive):** a new route, a new optional input field, a new output field.
 - **Breaking:** removing or renaming a field or route, a new required input, a changed type or
@@ -507,8 +504,7 @@ as the code, keep the mock API in step (`apps/mobile/scripts/mock-api.mjs`, chec
    in the app, a `Stack.Protected` guard on its screens, from `useSessionUser()?.role` (as the
    administration of `apps/mobile/src/app/(app)/_layout.tsx` does). The guard only hides screens:
    the API authorizes every request.
-4. `pnpm contract` (the role appears in the contract; the app's `Role` type follows), and the mock
-   API's accounts if it needs one.
+4. `pnpm contract` (the role appears in the contract; the app's `Role` type follows).
 5. Integration tests for what the role may and may not do; optionally a development account in the
    seed.
 
@@ -815,8 +811,8 @@ feature as the model:
    screen's.
 5. **Tests:** the hooks and logic (unit); the screen through the stubbed API, queried by role and
    label (`<name>.int.spec.tsx`, as `features/items/items.int.spec.tsx`); the screen's states in
-   `apps/mobile/src/a11y.spec.tsx` (every new screen goes there); the mock API's routes; a Maestro
-   flow when it is a critical journey ([Add an end-to-end flow](#add-an-end-to-end-flow)).
+   `apps/mobile/src/a11y.spec.tsx` (every new screen goes there); a Maestro flow when it is a
+   critical journey ([Add an end-to-end flow](#add-an-end-to-end-flow)).
 6. **Check:** `pnpm verify`, then the screen on Android and iOS, light and dark, the largest font
    size, TalkBack and VoiceOver, offline ([accessibility.md](accessibility.md)).
 
@@ -878,13 +874,13 @@ and a link never performs an action by itself (it opens a screen; the user acts)
 End-to-end flows cover critical journeys only (sign-in, the main thing users come for);
 everything else is cheaper as component or integration tests ([testing.md](testing.md)).
 
-- **The app (Maestro):** a flow in `apps/mobile/.maestro/flows/` against the mock API (the
-  "mock" suite, every pull request that touches the app), or a journey of the stack suite in
-  `apps/mobile/.maestro/stack/` against the real API and Mailpit, for a flow that goes through an
-  email (`helpers/open-emailed-link.yaml`). Select by accessibility label or `testID`, never by
-  text a translation would change. Run it with `pnpm test:e2e:mobile` (or
-  `pnpm test:e2e:mobile:stack`) on a running emulator or simulator with the e2e build
-  ([testing.md](testing.md#end-to-end)).
+- **The app (Maestro):** a flow in `apps/mobile/.maestro/flows/` (the app's journeys), or a
+  journey of the stack suite in `apps/mobile/.maestro/stack/` for a flow that goes through an email
+  (`helpers/open-emailed-link.yaml`, Mailpit). Both run against the API, seeded, through the e2e
+  proxy, which fails on demand what the API never fails by itself (`scripts/e2e-proxy.js`). Select
+  by accessibility label or `testID`, never by text a translation would change. Run it with
+  `pnpm test:e2e:mobile` (or `pnpm test:e2e:mobile:stack`), `pnpm dev` running, on a running
+  emulator or simulator with the e2e build ([testing.md](testing.md#end-to-end)).
 - **The landing and the web image (Playwright):** a file in `e2e/` ending in `.e2e.ts`;
   `landing.e2e.ts` runs against the built landing, `app-links.e2e.ts` against the web image built
   from its Dockerfile. Run them with `pnpm build && pnpm test:e2e`
@@ -1003,7 +999,10 @@ readable by anyone who has it: never a secret.
 2. Justify it in the pull request: maintained, license, size (the bundle budgets will tell), no
    simpler alternative. `pnpm deps:check` fails on a license outside `scripts/dependency-policy.json`
    (production dependencies need a permissive one) and on a package from a git repository or a URL
-   instead of the registry ([SECURITY.md](../SECURITY.md#dependency-policy)).
+   instead of the registry ([SECURITY.md](../SECURITY.md#dependency-policy)). A package that works
+   only at the same version as another one, because both are published as one release (as
+   Prisma's CLI and client), goes into a release set of the policy and a Dependabot group of its
+   own; `pnpm deps:check` then fails when they drift apart.
 3. **Install scripts:** if the package runs one, pnpm reports it as ignored. Decide in
    `allowBuilds` of `pnpm-workspace.yaml`, with the reason; `true` also needs the reviewed exception
    in `scripts/dependency-policy.json`, or `pnpm deps:check` fails.

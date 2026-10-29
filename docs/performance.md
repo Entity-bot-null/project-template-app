@@ -33,7 +33,7 @@ performance):
 
 | Measure                                                        | Where                                                      |
 | -------------------------------------------------------------- | ---------------------------------------------------------- |
-| New Architecture (Fabric, TurboModules, bridgeless) and Hermes | Expo SDK 57 defaults; nothing to enable                    |
+| New Architecture (Fabric, TurboModules, bridgeless) and Hermes | Expo SDK 58 defaults; nothing to enable                    |
 | React Compiler: components and hooks memoized automatically    | `experiments.reactCompiler` in `apps/mobile/app.config.ts` |
 | Virtualized, paginated lists                                   | `ItemsScreen.tsx`                                          |
 | Cached, deduplicated server data; no refetch on every focus    | TanStack Query defaults (`queryClient.ts`)                 |
@@ -114,18 +114,25 @@ client) → session restore (secure storage read) → first render → splash sc
 when a bundle or the assets of a platform grow past it. Both run in `pnpm build && pnpm perf:check`,
 `pnpm verify` and CI.
 
-Measured when the template was built (Expo SDK 57):
+Measured with Expo SDK 58:
 
-| Platform | Bundle (Hermes bytecode) | gzip     | Assets   | Budget (bundle / assets) |
-| -------- | ------------------------ | -------- | -------- | ------------------------ |
-| Android  | 5 640 kB                 | 2 454 kB | 1 385 kB | 6 200 / 1 500 kB         |
-| iOS      | 5 312 kB                 | 2 303 kB | 419 kB   | 5 800 / 500 kB           |
+| Platform | Bundle (Hermes bytecode) | gzip     | Assets | Budget (bundle / assets) |
+| -------- | ------------------------ | -------- | ------ | ------------------------ |
+| Android  | 5 987 kB                 | 2 582 kB | 419 kB | 6 600 / 500 kB           |
+| iOS      | 6 001 kB                 | 2 589 kB | 419 kB | 6 600 / 500 kB           |
+
+From SDK 57 (5 778 and 5 448 kB), the bundles grew mostly with the Sentry SDK the Expo SDK pins
+(`@sentry/react-native` 7 to 8: about 515 kB, most of it `@sentry/conventions`) and React Native
+itself (about 90 kB). Android's assets lost 943 kB: Expo Router no longer depends on `expo-symbols`
+and its icon font, which the app never used.
 
 The bundle matters three times: it is inside every store binary, Hermes maps it at every start, and
 an OTA update downloads it (compressed) every time it changes. When the check fails:
 
 1. Find what grew with Expo Atlas: `EXPO_ATLAS=true pnpm build`, then
-   `pnpm dlx expo-atlas apps/mobile/.expo/atlas.jsonl` shows the bundle's modules by size.
+   `pnpm dlx expo-atlas apps/mobile/.expo/atlas.jsonl` shows the bundle's modules by size. Expo CLI
+   adds `expo-atlas` to the app's development dependencies for that build: leave it out of the
+   commit (`git checkout apps/mobile/package.json pnpm-lock.yaml`, then `pnpm install`).
 2. Drop or replace the heavy dependency, import only what is used (`lodash/debounce`, not `lodash`),
    compress images.
 3. If the growth is justified, raise the budget in the same pull request and say why. A reviewer of

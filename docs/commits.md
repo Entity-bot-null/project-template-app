@@ -32,7 +32,7 @@ while the version is 0.x), so write them for the people reading the release.
 feat(items): share an item from its detail screen
 fix(auth): keep the session when two requests get a 401 at once
 perf(items): virtualize the search results
-chore(deps): bump expo-image within SDK 57
+chore(deps): bump expo-image within SDK 58
 feat(api)!: require the new item schema
 
 BREAKING CHANGE: items without a title are rejected.

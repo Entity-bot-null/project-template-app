@@ -29,3 +29,4 @@ security trade-off, a release process change, a deviation from these docs.
 | [0010](0010-minimum-supported-app-version.md)                      | The API refuses app versions below a configured minimum with 426             |
 | [0011](0011-push-notifications-outbox.md)                          | Push notifications through an outbox in PostgreSQL, over Expo's push service |
 | [0012](0012-account-deletion.md)                                   | Accounts are deleted for good, at their owner's request, in one transaction  |
+| [0013](0013-real-api-only.md)                                      | The app runs against the real API only; a proxy injects end-to-end failures  |

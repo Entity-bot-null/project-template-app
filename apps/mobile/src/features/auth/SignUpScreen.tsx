@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { newPassword, PASSWORD_HINT, withRepeatedPassword } from '@/auth/passwords';
 import { analytics } from '@/lib/analytics';
 import { toAppError, userMessage } from '@/lib/errors';
-import { showFieldErrors } from '@/lib/forms';
+import { freeText, showFieldErrors } from '@/lib/forms';
 import { AlertText, Button, EmptyState, Screen, TextField } from '@/ui';
 
 import { useSignUp } from './api';
@@ -19,7 +19,7 @@ import { useSignUp } from './api';
 
 export const SignUpSchema = withRepeatedPassword(
   z.object({
-    name: z.string().trim().min(1, 'Enter your name').max(100, 'At most 100 characters'),
+    name: freeText().min(1, 'Enter your name').max(100, 'At most 100 characters'),
     email: z
       .string()
       .trim()

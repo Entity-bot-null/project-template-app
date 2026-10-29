@@ -24,7 +24,7 @@ How to use it:
 | [0. Information, decisions and accounts](#phase-0-information-decisions-and-accounts)         | the worksheet filled in; store accounts requested                                                                 | 2 h, plus **days** of approval |
 | [1. Your computer](#phase-1-your-computer)                                                    | Node, pnpm, Android Studio (and Xcode on a Mac), Maestro, EAS CLI                                                 | 1–2 h                          |
 | [2. Create the project](#phase-2-create-the-project)                                          | your copy with your app's identity                                                                                | 20 min                         |
-| [3. Run it on an emulator](#phase-3-run-it-on-an-emulator)                                    | the app running against the mock API                                                                              | 30–45 min                      |
+| [3. Run it on an emulator](#phase-3-run-it-on-an-emulator)                                    | the app running against the API on your machine                                                                   | 30–45 min                      |
 | [4. Prove every gate passes](#phase-4-prove-every-gate-passes)                                | the same checks as CI, green locally                                                                              | 30–60 min                      |
 | [5. Put it on GitHub](#phase-5-put-it-on-github)                                              | the repository protected, CI green on a pull request                                                              | 1 h                            |
 | [6. Make it yours](#phase-6-make-it-yours)                                                    | your backend, brand and features                                                                                  | days to weeks                  |
@@ -52,7 +52,7 @@ How to use it:
 - [ ] **The URL scheme** for deep links, e.g. `acmeportal` (`acmeportal://items/42`).
 - [ ] **The backend**: the included API (`apps/api`), which you extend with your features, or your
       own; and where it will run, with its staging and production HTTPS URLs. Until it runs
-      somewhere, the app works against the API on your machine or the included mock API.
+      somewhere, the app works against the API on your machine.
 - [ ] **Links from the web** (optional): a domain for universal links/App Links
       (`app.acme.com/items/42` opening the app).
 - [ ] **What data the app collects** (for the stores' privacy forms) and whether it uses analytics
@@ -221,28 +221,40 @@ pnpm install
 ### 3.2 Local configuration
 
 ```
+cp .env.example .env
+cp apps/api/.env.example apps/api/.env
+openssl rand -hex 32          # paste it as JWT_ACCESS_SECRET in apps/api/.env
 cp apps/mobile/.env.example apps/mobile/.env
 ```
 
-It points at this repository's API (`http://localhost:3010`, phase 3.5). Until then, without
-Docker, point it at the mock API: in `apps/mobile/.env`, `EXPO_PUBLIC_API_URL=http://localhost:4010`.
+The root `.env` holds the ports Docker Compose publishes, `apps/api/.env` the API's settings, and
+`apps/mobile/.env` points the app at this repository's API (`http://localhost:3010`, 3.3).
 
-**Check:** `git status` does not list `apps/mobile/.env` (ignored: never commit it).
+**Check:** `git status` lists none of the three `.env` files (ignored: never commit them).
 
-### 3.3 Start the mock API (terminal 1)
+### 3.3 Start the API (terminal 1, Docker running)
 
 ```
-pnpm mock:api
+pnpm services:up              # PostgreSQL, Redis and Mailpit
+pnpm db:migrate
+pnpm db:seed                  # the example accounts and the member's 45 items
+pnpm dev                      # the API and the landing: leave it running
 ```
 
-**Check:** it prints `Mock API on http://127.0.0.1:4010`. Leave it running.
+**Check:** `pnpm dev` prints a box with `API   http://127.0.0.1:3010/api`;
+`http://127.0.0.1:3010/api/health/ready` answers `"status":"ok"`; `http://localhost:4331` (the
+landing) and `http://localhost:8045` (Mailpit) open.
+
+**If it fails:** a port taken by another project (`port is already allocated`): another port in the
+root `.env` and the same in `apps/api/.env`; the API stops at boot naming a variable: set it in
+`apps/api/.env` ([environment.md](environment.md)). More in [manual.md](manual.md#5-running-the-api).
 
 ### 3.4 Build and run the app (terminal 2)
 
 Start the emulator from Android Studio's Device Manager (or `emulator -avd <name>`), then:
 
 ```
-adb reverse tcp:4010 tcp:4010
+adb reverse tcp:3010 tcp:3010
 pnpm android
 ```
 
@@ -254,7 +266,7 @@ The first build takes 10–20 minutes (it compiles the native code); later ones 
 | ----------------------------------------------------- | ---------------------------------------------- |
 | the app opens                                         | the **Welcome** screen                         |
 | tap **Get started**                                   | the **Sign in** screen                         |
-| sign in with `member@example.com` / `member-password` | the **Items** list (45 items)                  |
+| sign in with `member@example.com` / `member-password` | the **Items** list (45 items, from PostgreSQL) |
 | type `7` in Search                                    | the list filters to items with a 7             |
 | tap an item                                           | its detail screen                              |
 | back, then **New item**, a title, **Create**          | the item appears at the top of the list        |
@@ -262,49 +274,21 @@ The first build takes 10–20 minutes (it compiles the native code); later ones 
 | switch the theme to Dark                              | the whole app turns dark                       |
 | **Sign out** and confirm                              | the Sign in screen                             |
 
-**iOS (on a Mac):** `pnpm ios` instead of `pnpm android` (the simulator reaches the mock API
-directly; no `adb reverse`).
+**iOS (on a Mac):** `pnpm ios` instead of `pnpm android` (the simulator reaches the API directly;
+no `adb reverse`).
 
 **If it fails:**
 
 | Problem                                                     | Fix                                                                                                                                      |
 | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| "You seem to be offline" when signing in                    | run `adb reverse tcp:4010 tcp:4010` again (after every emulator restart)                                                                 |
+| "You seem to be offline" when signing in                    | `pnpm dev` running (3.3); run `adb reverse tcp:3010 tcp:3010` again (after every emulator restart)                                       |
 | `SDK location not found`                                    | `ANDROID_HOME` not set (1.2), open a new terminal                                                                                        |
 | "A restricted method in java.lang.System has been called"   | `JAVA_HOME` must be JDK 17                                                                                                               |
 | Windows: `CMAKE_OBJECT_PATH_MAX`, "build.ninja still dirty" | 1.2 step 6 (short path, long paths, hoisted), then `rm -rf node_modules apps/mobile/node_modules apps/mobile/android` and `pnpm install` |
 
-From now on: `pnpm mock:api` and `pnpm start`, then open the installed app. After a native change,
-`pnpm prebuild`, then `pnpm android`: `pnpm android` generates `apps/mobile/android/` only when it
-is missing.
-
-### 3.5 The real API (Docker running)
-
-The app ran against the mock API. Now the API of this repository, on your machine:
-
-```
-cp .env.example .env
-cp apps/api/.env.example apps/api/.env
-openssl rand -hex 32          # paste it as JWT_ACCESS_SECRET in apps/api/.env
-pnpm services:up              # PostgreSQL, Redis and Mailpit
-pnpm db:migrate
-pnpm db:seed
-pnpm dev                      # terminal 1, instead of pnpm mock:api
-```
-
-**Check:** `pnpm dev` prints a box with `API   http://127.0.0.1:3010/api`;
-`http://127.0.0.1:3010/api/health/ready` answers `"status":"ok"`; `http://localhost:8045` (Mailpit)
-opens.
-
-Point the app at it: `EXPO_PUBLIC_API_URL=http://localhost:3010` in `apps/mobile/.env` (the value
-`.env.example` ships), then
-`adb reverse tcp:3010 tcp:3010` and `pnpm start` (terminal 2). Sign in with
-`member@example.com` / `member-password`: the same 45 items, now from PostgreSQL. Back to the mock
-API: `http://localhost:4010` and `pnpm mock:api`.
-
-**If it fails:** a port taken by another project (`port is already allocated`): another port in the
-root `.env` and the same in `apps/api/.env`; the API stops at boot naming a variable: set it in
-`apps/api/.env` ([environment.md](environment.md)). More in [manual.md](manual.md#5-running-the-api).
+From now on: `pnpm dev` (terminal 1) and `pnpm start` (terminal 2), then open the installed app.
+After a native change, `pnpm prebuild`, then `pnpm android`: `pnpm android` generates
+`apps/mobile/android/` only when it is missing.
 
 ---
 
@@ -343,7 +327,10 @@ links and their files).
 
 ### 4.4 The end-to-end flows (optional now, recommended)
 
-With the emulator running and `pnpm mock:api` in terminal 1:
+With the emulator running and `pnpm dev` in terminal 1. The `e2e` build talks to the e2e proxy on
+`localhost:4010`, which `pnpm test:e2e:mobile` starts in front of the API and stops at the end; it
+passes every request to the API and fails on demand only what the flows need (a 429, a 500, a
+dropped connection, a session ended):
 
 ```
 APP_VARIANT=e2e EXPO_PUBLIC_APP_ENV=development EXPO_PUBLIC_API_URL=http://localhost:4010 pnpm --filter mobile exec expo prebuild --platform android --clean --no-install
@@ -353,18 +340,18 @@ cd ../../..
 adb reverse tcp:4010 tcp:4010
 adb shell settings put secure stylus_handwriting_enabled 0
 adb shell settings put global hide_error_dialogs 1
+adb shell 'am force-stop "$(cmd package resolve-activity --brief -c android.intent.category.HOME -a android.intent.action.MAIN | tail -n 1 | cut -d/ -f1)"'
 adb install -r apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+pnpm db:seed                  # the member's 45 items back, the ones earlier runs created removed
 pnpm test:e2e:mobile
 ```
 
-**Check:** `8/8 Flows Passed`. CI runs the same on every pull request.
+**Check:** `8/8 Flows Passed`. CI runs the same on every pull request. The proxy's log is in
+`apps/mobile/.maestro/results/e2e-proxy.log`.
 
-Then the flows against the real API and Mailpit, on the same build (`pnpm dev` in terminal 1
-instead of the mock API, and the example accounts once):
+Then the flows that need email, read from Mailpit, on the same build and setup:
 
 ```
-pnpm db:seed
-adb reverse tcp:4010 tcp:3010
 pnpm test:e2e:mobile:stack
 ```
 
@@ -468,7 +455,7 @@ The included API is the app's backend: your features add modules to it, and the 
    do). **REQUIERE CONFIGURACIÓN**.
 2. Point your local `apps/mobile/.env` at staging
    (`EXPO_PUBLIC_API_URL=https://staging.acme.com`: the web image forwards `/api` to the API) and
-   try the app against it; keep the mock API for the end-to-end flows.
+   try the app against it; the end-to-end flows keep running against the API on your machine.
 3. Create the first administrator there (7.10).
 
 **Another backend instead:** put its OpenAPI document in `openapi/openapi.json`, have `pnpm contract`
@@ -500,8 +487,8 @@ service, controller, migration, tests: [architecture.md](architecture.md)) → `
 hooks → screen → route → tests → a Maestro flow for a critical journey. When yours cover the app,
 delete the example: `apps/mobile/src/features/items`, its routes in `apps/mobile/src/app/(app)` (the
 home tab, `(tabs)/index.tsx`, included), the `/items` links of `apps/mobile/src/lib/links.ts` and
-their tests, the `newItemForm` flag, the `item_created` analytics event, its tests, the items routes
-of the mock API, and `apps/mobile/.maestro/flows/03-items.yaml`; in the API, `apps/api/src/items`
+their tests, the `newItemForm` flag, the `item_created` analytics event, its tests, and
+`apps/mobile/.maestro/flows/03-items.yaml`; in the API, `apps/api/src/items`
 (then `pnpm contract`), the seed's items, and the `items` table through a new migration
 ([database.md](database.md#expand-and-contract)). Flows `01` and `02` wait
 for `items-list` after sign-in, and `04` opens an item link: point them at your home screen and your
@@ -911,7 +898,9 @@ cd /srv/app
 **Check:** it prints `rollback: running <commit of 7.8>`; https://staging.acme.com/release.json
 names that commit; the site and the app still work. After a deployment that only redeployed the
 release already running, `rollback.sh` refuses (exit 2) and names the release before it:
-`./rollback.sh --previous` starts that one.
+`./rollback.sh --previous` starts that one. If the release it puts back does not start, it prints
+`rollback: release <commit> did not start`, puts the release that was running back up and exits
+1: nothing is left half changed.
 
 Then bring staging back through the workflow, as for any deployment:
 
@@ -1316,7 +1305,7 @@ a few minutes: the uptime check fires).
 
 | Step                                  | Do                                                                                                                                                                                | Check                                               |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 1. Start                              | `git switch main && git pull && pnpm install`, `pnpm dev` (or `pnpm mock:api`), `pnpm start`                                                                                      | the app runs                                        |
+| 1. Start                              | `git switch main && git pull && pnpm install`, `pnpm dev`, `pnpm start`                                                                                                           | the app runs                                        |
 | 2. Branch                             | `git switch -c feat/<description>`                                                                                                                                                |                                                     |
 | 3. Change                             | code and tests ([mobile-architecture.md](mobile-architecture.md#adding-a-feature)); `pnpm contract` if the API changed; `pnpm --filter mobile exec expo install` for a dependency | works on Android and iOS                            |
 | 4. Verify                             | `pnpm verify`; `pnpm test:integration` if the API changed                                                                                                                         | green                                               |

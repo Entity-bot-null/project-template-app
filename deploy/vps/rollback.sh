@@ -4,8 +4,9 @@
 # registry access needed. Database migrations are never reversed: the previous
 # release runs on the current schema (expand and contract, docs/database.md).
 # Like deploy.sh, it starts the data services first (or leaves them running),
-# waits until the API is ready, and stops at once while a deployment or
-# another rollback is running.
+# waits until the API is ready, puts the release that was running back up
+# when the previous one does not start, and stops at once while a deployment
+# or another rollback is running.
 #
 # When the last successful deployment redeployed the release that was already
 # running, nothing ran before it but that same release: it refuses (exit 2) rather than
@@ -36,8 +37,17 @@ if [ -f release.redeployed ] && [ "${1:-}" != "--previous" ]; then
   exit 2
 fi
 
+# The release the commands act on: the previous one, or, when it does not
+# start, the one that was running.
+release_file=release.previous.env
 compose() {
-  docker compose --env-file server.env --env-file release.previous.env "$@"
+  docker compose --env-file server.env --env-file "$release_file" "$@"
+}
+
+# Healthy containers only mean the processes answer; ready means the API
+# reaches its database (a rollback after a credential change may not).
+api_ready() {
+  compose exec -T api node -e "fetch('http://127.0.0.1:3000/api/health/ready', { signal: AbortSignal.timeout(10000) }).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
 }
 
 # The data services, as deploy.sh leaves them: Redis, and PostgreSQL with its
@@ -55,14 +65,28 @@ if ! start_data; then
   echo "rollback: the data services did not start: docker compose ps, and their logs" >&2
   exit 1
 fi
-compose up --detach --wait --wait-timeout 180 api web proxy
+release=$(grep '^APP_RELEASE=' release.previous.env | cut -d= -f2)
+if ! compose up --detach --wait --wait-timeout 180 api web proxy; then
+  # Its containers never got healthy: the pointers still name the release
+  # that was running, and it goes back up, as deploy.sh does after a failed
+  # rollout, rather than leave the two releases' containers mixed.
+  echo "rollback: release $release did not start; its containers' last log lines:" >&2
+  compose logs --no-color --tail 60 api web >&2 || true
+  if [ -f release.env ]; then
+    release_file=release.env
+    if compose up --detach --wait --wait-timeout 180 api web proxy && api_ready; then
+      echo "rollback: back to the release that was running" >&2
+    else
+      echo "rollback: the release that was running did not come back ready either: docker compose ps, and the API's log" >&2
+    fi
+  fi
+  exit 1
+fi
 cp release.env release.failed.env 2>/dev/null || true
 cp release.previous.env release.env
 rm -f release.redeployed
-release=$(grep '^APP_RELEASE=' release.env | cut -d= -f2)
-# Healthy containers only mean the processes answer; ready means the API
-# reaches its database (a rollback after a credential change may not).
-if ! compose exec -T api node -e "fetch('http://127.0.0.1:3000/api/health/ready', { signal: AbortSignal.timeout(10000) }).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"; then
+release_file=release.env
+if ! api_ready; then
   echo "rollback: release $release is running, but its API is not ready: docker compose ps, and the API's log" >&2
   exit 1
 fi

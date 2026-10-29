@@ -28,7 +28,7 @@ export const RULESETS = [
   'p/owasp-top-ten',
   'p/typescript',
   // The API (Express under NestJS) and the scripts (the repository's checks,
-  // the app's mock API and tools) run on Node.js.
+  // the app's e2e proxy and tools) run on Node.js.
   'p/nodejs',
   'p/expressjs',
   'p/react',

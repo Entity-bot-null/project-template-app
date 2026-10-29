@@ -17,15 +17,27 @@ import { fileURLToPath } from 'node:url';
 // so the arguments reach expo-doctor as they are, on every platform.
 const require = createRequire(import.meta.url);
 const manifest = require.resolve('expo-doctor/package.json');
-const { bin } = /** @type {{ bin: string }} */ (require('expo-doctor/package.json'));
+const { bin } = /** @type {{ bin: string | Record<string, string> }} */ (
+  require('expo-doctor/package.json')
+);
+// `bin` is one path, or a map of command names to paths (expo-doctor 1.21).
+const entry = typeof bin === 'string' ? bin : bin['expo-doctor'];
+if (entry === undefined) {
+  console.error('Could not run expo-doctor: its package.json declares no expo-doctor command.');
+  process.exit(1);
+}
 
 // The app's directory, whatever the caller's: expo-doctor checks the project
 // it runs in, and in this workspace that is apps/mobile.
-const run = spawnSync(process.execPath, [join(dirname(manifest), bin), ...process.argv.slice(2)], {
-  cwd: fileURLToPath(new URL('..', import.meta.url)),
-  stdio: 'inherit',
-  env: { ...process.env, EXPO_OFFLINE: '1' },
-});
+const run = spawnSync(
+  process.execPath,
+  [join(dirname(manifest), entry), ...process.argv.slice(2)],
+  {
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    stdio: 'inherit',
+    env: { ...process.env, EXPO_OFFLINE: '1' },
+  },
+);
 if (run.error) {
   console.error(`Could not run expo-doctor: ${run.error.message}`);
 }

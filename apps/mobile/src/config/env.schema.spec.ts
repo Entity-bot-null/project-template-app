@@ -18,8 +18,8 @@ describe('parsePublicEnv', () => {
     );
   });
 
-  it('allows plain HTTP for the local mock API only', () => {
-    for (const host of ['localhost:4010', '127.0.0.1:4010', '10.0.2.2:4010']) {
+  it('allows plain HTTP for the local API only', () => {
+    for (const host of ['localhost:3010', '127.0.0.1:3010', '10.0.2.2:3010', 'localhost:4010']) {
       expect(() => parsePublicEnv({ EXPO_PUBLIC_API_URL: `http://${host}` })).not.toThrow();
     }
     expect(() => parsePublicEnv({ EXPO_PUBLIC_API_URL: 'http://api.example.com' })).toThrow(

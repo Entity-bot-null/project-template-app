@@ -199,6 +199,28 @@ describe('Push outbox (integration)', () => {
     expect((await rows()).map((row) => row.status)).toEqual(['delivered', 'delivered']);
   });
 
+  it("never sends Ada's queued notice to the phone once another account signed in on it", async () => {
+    const phone = await registerDevice(
+      '0190b6a1-0000-4000-8000-0000000000d1',
+      'ExponentPushToken[shared-phone]',
+    );
+    await changePassword();
+    // Before the worker sends it, Grace signs in on that phone (same app, same
+    // push token): the installation moves to her (docs/authorization.md).
+    const grace = await seedUser(t.prisma, { email: 'grace@example.com' });
+    await request(t.server)
+      .put('/api/devices/0190b6a1-0000-4000-8000-0000000000d1')
+      .set(asUser(t.app, grace.id))
+      .send({ pushToken: 'ExponentPushToken[shared-phone]', platform: 'android' })
+      .expect(204);
+
+    await worker.runOnce();
+    expect(expo.sends).toEqual([]);
+    expect(await rows()).toMatchObject([
+      { deviceId: phone.id, status: 'expired', lastError: 'device_moved' },
+    ]);
+  });
+
   it('disables a device whose token is dead, at the send and at the receipt', async () => {
     const gone = await registerDevice(
       '0190b6a1-0000-4000-8000-0000000000c1',

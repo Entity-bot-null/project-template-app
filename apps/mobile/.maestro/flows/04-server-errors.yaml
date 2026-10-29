@@ -6,17 +6,17 @@ name: Server errors
 env:
   # REQUIERE CONFIGURACIÓN: the e2e variant of app.config.ts (<identifier>.e2e, <scheme>-e2e).
   APP_ID: com.example.templateapp.e2e
-# Pass or fail, the mock API answers normally for the next flow.
+# Pass or fail, the proxy passes every request to the API for the next flow.
 onFlowComplete:
   - runScript:
-      file: ../scripts/mock-api.js
+      file: ../scripts/e2e-proxy.js
       env:
         CONTROL: faults/clear
 ---
 - assertVisible:
     id: items-list
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: faults
       ROUTE: GET /api/items
@@ -31,7 +31,7 @@ onFlowComplete:
     timeout: 20000
 
 - runScript:
-    file: ../scripts/mock-api.js
+    file: ../scripts/e2e-proxy.js
     env:
       CONTROL: faults/clear
 - tapOn: Try again

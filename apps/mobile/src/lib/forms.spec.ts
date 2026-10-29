@@ -1,7 +1,21 @@
 import { AppError } from './errors';
-import { showFieldErrors } from './forms';
+import { freeText, NUL_REFUSED, showFieldErrors } from './forms';
 
 type Values = { email: string; password: string };
+
+describe('freeText', () => {
+  const name = freeText().min(1).max(10);
+
+  it('trims, and keeps every character but NUL as typed', () => {
+    expect(name.parse('  Zoë 🌱 ')).toBe('Zoë 🌱');
+  });
+
+  it('refuses a NUL, the way the API does, before anything is sent', () => {
+    const result = name.safeParse('Zo\u0000ë');
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.message)).toEqual([NUL_REFUSED]);
+  });
+});
 
 describe('showFieldErrors', () => {
   it('puts each message of a validation error under its field', () => {
