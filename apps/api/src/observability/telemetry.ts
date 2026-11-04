@@ -35,6 +35,8 @@ export type TelemetrySettings = Pick<
   | 'OTEL_SDK_DISABLED'
   | 'OTEL_SERVICE_NAME'
   | 'OTEL_METRIC_EXPORT_INTERVAL'
+  | 'OTEL_TRACES_SAMPLER'
+  | 'OTEL_TRACES_SAMPLER_ARG'
   | 'APP_ENVIRONMENT'
   | 'APP_RELEASE'
 >;
@@ -53,6 +55,8 @@ export async function startTelemetry(settings: TelemetrySettings): Promise<Telem
     environment: settings.APP_ENVIRONMENT,
     release: settings.APP_RELEASE,
     metricExportIntervalMs: settings.OTEL_METRIC_EXPORT_INTERVAL,
+    sampler: settings.OTEL_TRACES_SAMPLER,
+    samplerArg: settings.OTEL_TRACES_SAMPLER_ARG,
   });
   return current;
 }

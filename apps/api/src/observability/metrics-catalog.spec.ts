@@ -5,7 +5,7 @@ import {
   InMemoryMetricExporter,
   type MetricData,
 } from '@opentelemetry/sdk-metrics';
-import { InMemorySpanExporter } from '@opentelemetry/sdk-trace-base';
+import { InMemorySpanExporter } from '@opentelemetry/sdk-trace';
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import {

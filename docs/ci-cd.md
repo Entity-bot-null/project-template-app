@@ -93,6 +93,9 @@ support. Prisma's CLI, client and driver adapter come in one pull request of the
 ([release sets](../SECURITY.md#dependency-policy)): when the trust policy refuses one of the new
 versions, Dependabot still opens the pull request with the others, and it stays red until the
 refused version passes (30 days after its release, `trustPolicyIgnoreAfter`) or a newer one does.
+OpenTelemetry's packages come the same way, in the `opentelemetry` group, majors included: its
+stable 3.x and experimental 0.x lines work only together, and the contrib instrumentations follow
+them.
 
 ## Required check
 

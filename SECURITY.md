@@ -253,7 +253,7 @@ a `faceIDPermission` text in `apps/mobile/app.config.ts`); screenshot blocking w
   enough. From that date `pnpm deps:check` fails until both entries are deleted.
 - `pnpm audit --audit-level=high` in `pnpm security` and CI; Dependabot security updates.
 - Expo SDK packages move together through SDK upgrades; Dependabot proposes their patches only.
-  Prisma's packages move together in one pull request
+  Prisma's packages move together in one pull request, and so do OpenTelemetry's
   ([release sets](#dependency-policy)).
 - Every release carries a CycloneDX SBOM of the production dependencies (`pnpm sbom:generate`):
   the npm packages they resolve to in the lockfile, peer dependencies included (so some tools
@@ -305,7 +305,9 @@ exemption also fails the check from its expiry date on.
   workspace uses them (`scripts/release-sets.mjs`). Prisma's CLI, client and driver adapter are
   one: the CLI generates the code the client runs, so an update that moved the client alone (the
   trust policy had refused the CLI's new version) would build and pass the tests with two releases
-  mixed. Each set has a Dependabot group of its own;
+  mixed. OpenTelemetry JS is two: its stable packages (3.x) and its experimental ones (0.x), each
+  released together and pinning the other line exactly. Each set has a Dependabot group of its
+  own (OpenTelemetry's two share one, with the contrib instrumentations);
 - the supply-chain settings above cannot be weakened without failing the check
   (`scripts/install-settings.mjs`, which reads `pnpm-workspace.yaml` as YAML and fails on what it
   cannot read unambiguously, such as anchors or a key set twice):
