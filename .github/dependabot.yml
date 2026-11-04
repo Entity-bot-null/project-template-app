@@ -3,6 +3,20 @@
 # (minimumReleaseAge): a younger version would not install. Security updates
 # (Dependabot alerts) are not delayed by the cooldown (SECURITY.md#dependencies).
 version: 2
+# One pull request for the images PostgreSQL, Redis and Mailpit run from in
+# CI (the tool images), in development (docker-compose.yml) and on the server
+# (deploy/vps/compose.yaml): scripts/tool-image.test.mjs requires the same tag
+# and digest in all three, and apart, one ecosystem's pull request moved them
+# in its files only and failed. The other tool images and the compose files'
+# other images (Caddy, the observability backend) come in it too. Its
+# schedule and commit message are the group's; its ecosystems may not set
+# them.
+multi-ecosystem-groups:
+  images:
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: build
 updates:
   - package-ecosystem: npm
     directory: /
@@ -147,8 +161,8 @@ updates:
   # every one of these (dependabot/dependabot-core#15237).
   - package-ecosystem: docker
     directory: /scripts/tool-images
-    schedule:
-      interval: weekly
+    multi-ecosystem-group: images
+    patterns: ['*']
     cooldown:
       default-days: 7
     ignore:
@@ -166,11 +180,6 @@ updates:
       # this image together, by hand (docs/ci-cd.md#ubuntu).
       - dependency-name: docker/library/ubuntu
         update-types: [version-update:semver-major, version-update:semver-minor]
-    groups:
-      tools:
-        patterns: ['*']
-    commit-message:
-      prefix: ci
 
   # docker-compose.yml: the development services and the production-like
   # stack's images; and the reference server deployment's pinned images:
@@ -179,8 +188,8 @@ updates:
     directories:
       - /
       - /deploy/vps
-    schedule:
-      interval: weekly
+    multi-ecosystem-group: images
+    patterns: ['*']
     cooldown:
       default-days: 7
     ignore:
@@ -192,8 +201,6 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: redis
         update-types: [version-update:semver-major]
-    commit-message:
-      prefix: build
 
   # The Terraform providers of infra/terraform/digitalocean: the exact version
   # in versions.tf and the checksums of .terraform.lock.hcl, for the platforms

@@ -512,10 +512,10 @@ it.
 The development services (`docker-compose.yml`), CI's integration job (the tool images) and the
 server (`deploy/vps/compose.yaml`) run the same images, pinned by tag and digest; Dependabot
 proposes their new digests and minors, never a major. Its two ecosystems (`docker` for the tool
-images, `docker-compose` for the other two files) open separate pull requests, and
-`scripts/tool-image.test.mjs` (`pnpm test:scripts`) fails while the three files disagree on
-PostgreSQL, Redis or Mailpit: the pull request that moves one gets the same tag and digest in the
-other files before it merges. A major moves by hand, the three files together, in one pull request
+images, `docker-compose` for the other two files) share one pull request, the `images`
+multi-ecosystem group of `.github/dependabot.yml`, and `scripts/tool-image.test.mjs`
+(`pnpm test:scripts`) fails while the three files disagree on PostgreSQL, Redis or Mailpit: an
+update that reaches one file only gets the same tag and digest in the others before it merges. A major moves by hand, the three files together, in one pull request
 with the full CI:
 
 1. Read the release notes (removed settings, changed defaults).
