@@ -178,7 +178,8 @@ gh repo clone OWNER/REPO
 cd REPO
 ```
 
-**Check:** `ls` shows `src`, `docs`, `apps/mobile/app.config.ts`, `apps/mobile/eas.json`.
+**Check:** `ls` shows `apps`, `docs` and `scripts`, and `ls apps` shows `api`, `landing` and
+`mobile` (with `apps/mobile/app.config.ts` and `apps/mobile/eas.json`).
 
 ### 2.2 Your app's identity
 
