@@ -1,6 +1,19 @@
 import type { IncomingMessage } from 'node:http';
-import { type AttributeValue, context, metrics, type ObservableResult } from '@opentelemetry/api';
-import { isTracingSuppressed } from '@opentelemetry/core';
+import {
+  type AnyValue,
+  context,
+  metrics,
+  type ObservableResult,
+  propagation,
+  trace,
+} from '@opentelemetry/api';
+import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
+import {
+  CompositePropagator,
+  isTracingSuppressed,
+  W3CBaggagePropagator,
+  W3CTraceContextPropagator,
+} from '@opentelemetry/core';
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
@@ -22,15 +35,21 @@ import {
   type PushMetricExporter,
 } from '@opentelemetry/sdk-metrics';
 import {
+  AlwaysOffSampler,
+  AlwaysOnSampler,
   BatchSpanProcessor,
+  ParentBasedSampler,
+  type Sampler,
   type Span,
   type SpanExporter,
   type SpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
-import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+  TraceIdRatioBasedSampler,
+  TracerProvider,
+} from '@opentelemetry/sdk-trace';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { OpenTelemetry as RedisTelemetry } from '@redis/client';
 import { register as registerEsmHooks } from 'import-in-the-middle/register-hooks.mjs';
+import type { Env } from '../env/env.schema.js';
 import { isSensitiveKey, REDACTED, redactText, redactUrl } from './redact.js';
 import type { Telemetry } from './telemetry.js';
 
@@ -55,9 +74,39 @@ export interface OpenTelemetryOptions {
   environment: string;
   release: string;
   metricExportIntervalMs: number;
+  /** OTEL_TRACES_SAMPLER and OTEL_TRACES_SAMPLER_ARG (samplerFor). */
+  sampler?: TraceSamplerName | undefined;
+  samplerArg?: number | undefined;
   /** Tests pass in-memory exporters; production uses OTLP. */
   spanExporter?: SpanExporter;
   metricExporter?: PushMetricExporter;
+}
+
+export type TraceSamplerName = NonNullable<Env['OTEL_TRACES_SAMPLER']>;
+
+/**
+ * The sampler OTEL_TRACES_SAMPLER and OTEL_TRACES_SAMPLER_ARG name (the
+ * values env.schema.ts accepts), as SDK 2.x's tracer provider built it from
+ * the environment: unset, every trace (parent-based, always on); a ratio
+ * without its argument, 1. SDK 3.0's provider reads no environment variable,
+ * so the API passes them in.
+ */
+export function samplerFor(name: TraceSamplerName | undefined, ratio = 1): Sampler {
+  switch (name) {
+    case 'always_on':
+      return new AlwaysOnSampler();
+    case 'always_off':
+      return new AlwaysOffSampler();
+    case 'traceidratio':
+      return new TraceIdRatioBasedSampler(ratio);
+    case 'parentbased_always_off':
+      return new ParentBasedSampler({ root: new AlwaysOffSampler() });
+    case 'parentbased_traceidratio':
+      return new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) });
+    case 'parentbased_always_on':
+    case undefined:
+      return new ParentBasedSampler({ root: new AlwaysOnSampler() });
+  }
 }
 
 /** The OTLP/HTTP URL of a signal: <endpoint>/v1/<signal>, keeping any base path. */
@@ -99,19 +148,29 @@ export function startOpenTelemetry(options: OpenTelemetryOptions): Telemetry {
       }),
     );
 
-  const tracerProvider = new NodeTracerProvider({
+  const tracerProvider = new TracerProvider({
     resource,
+    sampler: samplerFor(options.sampler, options.samplerArg),
     // Redaction runs first, while the span can still be changed.
     spanProcessors: [
       new RedactingSpanProcessor(),
-      new BatchSpanProcessor(
-        options.spanExporter ??
+      new BatchSpanProcessor({
+        exporter:
+          options.spanExporter ??
           new OTLPTraceExporter({ url: signalUrl(options.endpoint, 'traces') }),
-      ),
+      }),
     ],
   });
-  // Global tracer, AsyncLocalStorage context, W3C trace context propagation.
-  tracerProvider.register();
+  // What NodeTracerProvider#register() did before SDK 3.0, which dropped the
+  // Node.js provider: the global tracer, AsyncLocalStorage context, and W3C
+  // trace context and baggage propagation.
+  trace.setGlobalTracerProvider(tracerProvider);
+  context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable());
+  propagation.setGlobalPropagator(
+    new CompositePropagator({
+      propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()],
+    }),
+  );
 
   const meterProvider = new MeterProvider({
     resource,
@@ -211,6 +270,8 @@ function observeProcess(): void {
 }
 
 const URL_ATTRIBUTES = new Set(['url.full', 'http.url', 'http.target', 'url.query']);
+/** How deep redaction walks an attribute's arrays and maps; deeper values are masked whole. */
+const MAX_ATTRIBUTE_DEPTH = 8;
 
 /**
  * The last word on what a span may carry: query strings and URL credentials
@@ -229,7 +290,7 @@ export class RedactingSpanProcessor implements SpanProcessor {
   onEnding(span: Span): void {
     for (const [key, value] of Object.entries(span.attributes)) {
       const redacted = redactAttribute(key, value);
-      if (redacted !== undefined && redacted !== value) span.setAttribute(key, redacted);
+      if (redacted !== value) span.setAttribute(key, redacted);
     }
     // Events have no setter: their attributes are rewritten in place, before
     // any processor or exporter reads them.
@@ -263,27 +324,48 @@ export class RedactingSpanProcessor implements SpanProcessor {
 }
 
 /**
- * An attribute value safe to export. Text only: a string, or each string of
- * an array (header capture records string arrays). A value under a sensitive
- * name (authorization, cookie, password, token, api key...: the log
- * redaction's list) is masked whole, since a bare secret has no "key=value"
- * shape to find; URLs lose their credentials and query; any other text is
- * redacted like a log line. Numbers and booleans carry no credential and keep
- * their value, so counts named "...tokens" stay usable.
+ * An attribute value safe to export. Since API 1.10 an attribute may hold any
+ * value (AnyValue): text, numbers, booleans, null and bytes, and arrays and
+ * maps of them, nested. Text is redacted wherever it sits. A value that
+ * carries data under a sensitive name (authorization, cookie, password,
+ * token, api key...: the log redaction's list) is masked whole, since a bare
+ * secret has no "key=value" shape to find; inside a map, each entry's own
+ * name counts. URLs lose their credentials and query; any other text is
+ * redacted like a log line. Numbers, booleans and null carry no credential
+ * and keep their value, so counts named "...tokens" stay usable; bytes keep
+ * theirs too, under a name that is not sensitive. Anything else, and anything
+ * deeper than MAX_ATTRIBUTE_DEPTH, is masked whole.
  */
-function redactAttribute(
-  key: string,
-  value: AttributeValue | undefined,
-): AttributeValue | undefined {
-  const isText =
-    typeof value === 'string' ||
-    (Array.isArray(value) && value.some((item) => typeof item === 'string'));
-  if (!isText) return value;
-  if (key === 'url.query' || isSensitiveKey(key)) return REDACTED;
+function redactAttribute(key: string, value: AnyValue, depth = 0): AnyValue {
+  if (!carriesData(value, depth)) return value;
+  if (key === 'url.query' || isSensitiveKey(key) || depth >= MAX_ATTRIBUTE_DEPTH) return REDACTED;
   if (typeof value === 'string') return redactAttributeText(key, value);
-  return (value as (string | null | undefined)[]).map((item) =>
-    typeof item === 'string' ? redactAttributeText(key, item) : item,
-  );
+  if (value instanceof Uint8Array) return value;
+  if (Array.isArray(value)) {
+    return value.map((item: AnyValue) => redactAttribute(key, item, depth + 1));
+  }
+  if (isPlainMap(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([name, item]) => [name, redactAttribute(name, item, depth + 1)]),
+    );
+  }
+  return REDACTED;
+}
+
+/** Whether a value holds anything but numbers, booleans and null (or undefined). */
+function carriesData(value: AnyValue, depth: number): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'number' || typeof value === 'boolean') return false;
+  if (depth >= MAX_ATTRIBUTE_DEPTH) return true;
+  if (Array.isArray(value)) return value.some((item: AnyValue) => carriesData(item, depth + 1));
+  if (isPlainMap(value)) return Object.values(value).some((item) => carriesData(item, depth + 1));
+  return true;
+}
+
+function isPlainMap(value: AnyValue): value is Record<string, AnyValue> {
+  if (typeof value !== 'object' || value === null) return false;
+  const prototype: unknown = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function redactAttributeText(key: string, value: string): string {

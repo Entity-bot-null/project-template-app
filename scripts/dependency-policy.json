@@ -82,6 +82,10 @@
         "license": "FSL-1.1-MIT",
         "reason": "Sentry CLI (Functional Source License, becomes MIT after two years): a build-time tool the Sentry config plugin runs to upload source maps and native debug symbols. Not part of the app binary; uploading to Sentry is a permitted use."
       },
+      "argparse": {
+        "license": "PSF-2.0",
+        "reason": "Command-line parser of js-yaml 5.5 (@nestjs/swagger 12.0.3 and later, the API's OpenAPI document). argparse 3 declares PSF-2.0 alone; argparse 2 declared Python-2.0, whose PSF License Agreement version 2 section has the same terms (checked 2026-11-04: only the copyright years differ). Permissive, GPL-compatible."
+      },
       "lightningcss": {
         "license": "MPL-2.0",
         "reason": "CSS parser used by Expo Metro at build time (weak copyleft on its own files only, unmodified). Not part of the app binary."
@@ -146,6 +150,25 @@
       "prisma": {
         "packages": ["prisma", "@prisma/client", "@prisma/adapter-pg"],
         "reason": "Prisma releases the three as one version: `prisma generate` writes apps/api/src/prisma/generated stamped with the CLI's version and engine, for the runtime that @prisma/client ships, and the driver adapter implements that runtime's interface."
+      },
+      "opentelemetry": {
+        "packages": [
+          "@opentelemetry/core",
+          "@opentelemetry/resources",
+          "@opentelemetry/sdk-metrics",
+          "@opentelemetry/sdk-trace",
+          "@opentelemetry/context-async-hooks"
+        ],
+        "reason": "The stable packages of OpenTelemetry JS are released together and depend on each other at exact versions (sdk-trace 3.0.0 requires core and resources 3.0.0): one left behind installs a second copy of core, and spans or resources from two releases meet in one process."
+      },
+      "opentelemetry-experimental": {
+        "packages": [
+          "@opentelemetry/exporter-metrics-otlp-http",
+          "@opentelemetry/exporter-trace-otlp-http",
+          "@opentelemetry/instrumentation",
+          "@opentelemetry/instrumentation-http"
+        ],
+        "reason": "The experimental (0.x) packages of OpenTelemetry JS are released together and each line works only with one stable release (0.300.x with 3.0.x): the exporters pin sdk-trace and sdk-metrics exactly, and the instrumentations share @opentelemetry/instrumentation."
       }
     }
   },

@@ -30,7 +30,12 @@ export function startSentry(config: SentryConfig): ErrorReporter {
     environment: config.environment,
     // Release and dist come from the native build (version and build
     // number); the OTA update is tagged below.
-    sendDefaultPii: false,
+    // React Native's own option, not deprecated (BaseReactNativeOptions; it
+    // also reaches the native SDKs, and the RN SDK omits dataCollection).
+    // @sentry/core's deprecated option of the same name leaks into the type
+    // until @sentry/react-native 8.33, past Expo SDK 58's ~8.28.0.
+    sendDefaultPii: false, // eslint-disable-line @typescript-eslint/no-deprecated -- the RN SDK's own option; see above
+
     attachScreenshot: false,
     attachViewHierarchy: false,
     // A failed HTTP request is not an event: its URL and body may carry

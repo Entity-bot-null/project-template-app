@@ -101,6 +101,15 @@ updates:
         patterns:
           - prisma
           - '@prisma/*'
+      # OpenTelemetry JS releases its stable packages (3.x) and its
+      # experimental ones (0.x) together, each line usable only with the
+      # other, and the contrib instrumentations follow them
+      # (scripts/dependency-policy.json, releaseSets): one pull request moves
+      # them all, majors included. Apart, SDK 3.0's packages came in four
+      # pull requests that could only fail one by one.
+      opentelemetry:
+        patterns:
+          - '@opentelemetry/*'
       # The two catch-all groups match every name ('*') on purpose. A
       # dependency that several groups match goes to the most specific one
       # (Dependabot's updater scores the patterns: an exact name 1000, a group

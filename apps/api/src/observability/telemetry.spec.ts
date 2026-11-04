@@ -1,14 +1,19 @@
 import { context, metrics, propagation, SpanStatusCode, trace } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
 import { AggregationTemporality, InMemoryMetricExporter } from '@opentelemetry/sdk-metrics';
-import { InMemorySpanExporter, type Span } from '@opentelemetry/sdk-trace-base';
+import { InMemorySpanExporter, type Span } from '@opentelemetry/sdk-trace';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { recordCacheRead, recordServerError } from './metrics.js';
 import { correlationIds, runWithRequestContext } from './request-context.js';
-import { RedactingSpanProcessor, signalUrl, startOpenTelemetry } from './telemetry-sdk.js';
+import {
+  RedactingSpanProcessor,
+  samplerFor,
+  signalUrl,
+  startOpenTelemetry,
+} from './telemetry-sdk.js';
 import { startTelemetry, telemetryEnabled } from './telemetry.js';
 
 const settings = {
@@ -261,6 +266,52 @@ describe('exported spans of a failure', () => {
   });
 });
 
+describe('samplerFor', () => {
+  // SDK 3.0's tracer provider reads no environment variable: the API builds
+  // the sampler OTEL_TRACES_SAMPLER names, as SDK 2.x did from the environment.
+  const describes = (sampler: { toString(): string }) => String(sampler);
+
+  it('samples every trace by default, following the parent', () => {
+    expect(describes(samplerFor(undefined))).toMatch(/^ParentBased\{root=AlwaysOnSampler,/);
+    expect(describes(samplerFor('parentbased_always_on'))).toMatch(
+      /^ParentBased\{root=AlwaysOnSampler,/,
+    );
+  });
+
+  it('builds each standard sampler, with the ratio OTEL_TRACES_SAMPLER_ARG gives (1 without)', () => {
+    expect(describes(samplerFor('always_on'))).toBe('AlwaysOnSampler');
+    expect(describes(samplerFor('always_off'))).toBe('AlwaysOffSampler');
+    expect(describes(samplerFor('traceidratio', 0.25))).toBe('TraceIdRatioBased{0.25}');
+    expect(describes(samplerFor('traceidratio'))).toBe('TraceIdRatioBased{1}');
+    expect(describes(samplerFor('parentbased_always_off'))).toMatch(
+      /^ParentBased\{root=AlwaysOffSampler,/,
+    );
+    expect(describes(samplerFor('parentbased_traceidratio', 0.1))).toMatch(
+      /^ParentBased\{root=TraceIdRatioBased\{0\.1\},/,
+    );
+  });
+
+  it('is the one the API traces with', async () => {
+    const spans = new InMemorySpanExporter();
+    const telemetry = startOpenTelemetry({
+      endpoint: 'http://127.0.0.1:4318',
+      serviceName: 'api',
+      environment: 'test',
+      release: 'r1',
+      metricExportIntervalMs: 60_000,
+      sampler: 'always_off',
+      spanExporter: spans,
+      metricExporter: new InMemoryMetricExporter(AggregationTemporality.CUMULATIVE),
+    });
+    trace.getTracer('spec').startActiveSpan('GET /api/things', (span) => {
+      span.end();
+    });
+    await telemetry.flush();
+    await telemetry.shutdown();
+    expect(spans.getFinishedSpans()).toEqual([]);
+  });
+});
+
 describe('signalUrl', () => {
   it('appends the signal path, keeping a base path', () => {
     expect(signalUrl('http://localhost:4318', 'traces')).toBe('http://localhost:4318/v1/traces');
@@ -339,6 +390,73 @@ describe('RedactingSpanProcessor', () => {
       'app.session_id': '[REDACTED]',
       'app.notes': ['token=[REDACTED]', 'fine'],
     });
+  });
+
+  it('redacts text inside maps and nested arrays, where each entry name counts', () => {
+    // Since API 1.10 an attribute may hold any value (AnyValue), maps included.
+    const bytes = new Uint8Array([1, 2, 3]);
+    const attributes: Record<string, unknown> = {
+      'app.request': {
+        method: 'POST',
+        headers: { authorization: 'Bearer abcdef123456', accept: 'application/json' },
+        'url.full': 'https://u:p@billing.example.com/x?api_key=k123',
+        note: 'token=t0k3n',
+        attempts: 2,
+        retried: true,
+        missing: null,
+      },
+      'app.batches': [['Bearer abcdef123456', 3], [{ password: 'hunter2', size: 1 }]],
+      'app.counts': { 'gen_ai.usage.input_tokens': 42, items: [1, 2] },
+      'app.payload': bytes,
+      'app.session_token': bytes,
+      'app.when': new Date(0),
+    };
+    const span = {
+      attributes,
+      events: [],
+      status: { code: SpanStatusCode.UNSET },
+      setAttribute(key: string, value: unknown) {
+        attributes[key] = value;
+      },
+    } as unknown as Span;
+    new RedactingSpanProcessor().onEnding(span);
+    expect(attributes).toEqual({
+      'app.request': {
+        method: 'POST',
+        headers: { authorization: '[REDACTED]', accept: 'application/json' },
+        'url.full': 'https://billing.example.com/x',
+        note: 'token=[REDACTED]',
+        attempts: 2,
+        retried: true,
+        missing: null,
+      },
+      'app.batches': [['Bearer [REDACTED]', 3], [{ password: '[REDACTED]', size: 1 }]],
+      // Numbers keep their value at any depth, and a value without text is
+      // left as it is.
+      'app.counts': { 'gen_ai.usage.input_tokens': 42, items: [1, 2] },
+      // Bytes are not text, but nothing under a sensitive name leaves.
+      'app.payload': bytes,
+      'app.session_token': '[REDACTED]',
+      // A value the walk does not know is masked, not trusted.
+      'app.when': '[REDACTED]',
+    });
+  });
+
+  it('masks a value nested deeper than it walks', () => {
+    let deep: unknown = 'Bearer abcdef123456';
+    for (let level = 0; level < 12; level += 1) deep = { level: deep };
+    const attributes: Record<string, unknown> = { 'app.deep': deep };
+    const span = {
+      attributes,
+      events: [],
+      status: { code: SpanStatusCode.UNSET },
+      setAttribute(key: string, value: unknown) {
+        attributes[key] = value;
+      },
+    } as unknown as Span;
+    new RedactingSpanProcessor().onEnding(span);
+    expect(JSON.stringify(attributes)).not.toContain('abcdef123456');
+    expect(JSON.stringify(attributes)).toContain('[REDACTED]');
   });
 
   it('redacts the attributes of every event and the status message, URL rules included', () => {
