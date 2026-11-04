@@ -92,6 +92,16 @@ overrides:
   # within ajv's ^3.0.1 (development tools: commitlint, secretlint, the Nest
   # CLI, the Prisma CLI, astro check).
   'ajv>fast-uri': ^3.1.9
+  # GHSA-5x38-2vff-x55p, GHSA-7wch-p9px-956x, GHSA-8hrf-8g6f-7xwp,
+  # GHSA-hqq3-7jhf-c5jx, GHSA-jc66-7q78-782g (high), GHSA-525v-9gp9-w22h,
+  # GHSA-5cwg-6vw7-rj6p, GHSA-6wvx-3r32-xmcg (moderate) and three low ones:
+  # @expo/cli and @expo/code-signing-certificates pin 1.4.0 (update
+  # code-signing helpers, development tools only).
+  node-forge: ^1.4.1
+  # GHSA-4528-x5fx-h6hg (high): the optional peer of @hookform/resolvers'
+  # joi resolver, auto-installed at 17.13.8. Narrowed, it is no longer
+  # installed at all (the app validates with zod; joi is never imported).
+  '@hookform/resolvers>joi': ^17.13.9
 
 # Advisories `pnpm audit` (pnpm security, CI) skips, each reviewed: no fixed
 # version exists, and the package never reaches the app binary. `pnpm
@@ -100,12 +110,6 @@ overrides:
 # (SECURITY.md#known-advisories).
 audit:
   ignore:
-    # node-forge <=1.4.0 (high), RSA signature verification: @expo/cli's
-    # update code-signing helpers, a development tool.
-    - GHSA-86w9-cpqp-85rv
-    # braces <=3.0.3 (high), denial of service on deeply nested patterns:
-    # Metro's file watcher, fed by the project's own configuration.
-    - GHSA-vfj7-8cjw-p6xm
     # zod <4.6.6 (high), memory exhausted validating oversized constrained
     # collections: @expo/cli's zod 3 (every @expo/cli up to 58.1.15 requires
     # ^3.25.76, and no 3.x is fixed), a development tool validating its own

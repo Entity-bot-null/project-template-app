@@ -170,6 +170,8 @@ overrides:
   '@nestjs/platform-express>multer': ^2.5.0
   express>body-parser: ^2.4.0
   ajv>fast-uri: ^3.1.9
+  node-forge: ^1.4.1
+  '@hookform/resolvers>joi': ^17.13.9
 
 importers:
 
@@ -428,7 +430,7 @@ importers:
         version: 15.1.1(expo-font@58.0.8(expo@58.0.14)(react-native@0.88.0(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.3.0)(react@19.3.0)(supports-color@10.2.2))(react@19.3.0))(react-native@0.88.0(@babel/core@7.29.7(supports-color@10.2.2))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.3.0)(react@19.3.0)(supports-color@10.2.2))(react@19.3.0)
       '@hookform/resolvers':
         specifier: ^5.9.2
-        version: 5.9.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(effect@3.20.0)(joi@17.13.8)(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
+        version: 5.9.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(effect@3.20.0)(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)
       '@sentry/react-native':
         specifier: ~8.28.0
         version: 8.28.0(abf3c11eb42bb2f0445d391b31b0954b)
@@ -1746,12 +1748,6 @@ packages:
     resolution: {integrity: sha512-EbxYllZ7/ozONVZd425cm4XnolfW+AmSFT5aP7Jdno6oc3WrYQcHz2CO20z/2rwWwYgztmV2PXvYH+BQ8YFjqg==}
     hasBin: true
 
-  '@hapi/hoek@9.3.0':
-    resolution: {integrity: sha512-/c6rf4UJlmHlC9b5BaNvzAcFv7HZ2QHaV0D4/HNlBdvFnvQq8RI4kYdhyPCl7Xj+oWvTWQ8ujhqS53LIgAe6KQ==}
-
-  '@hapi/topo@5.1.0':
-    resolution: {integrity: sha512-foQZKJig7Ob0BMAYBfcJk8d77QtOe7Wo4ox7ff1lQYoNNAb6jwcY1ncdoy2e9wQZzvNy7ODZCYJkK8kzmcAnAg==}
-
   '@hookform/resolvers@5.9.2':
     resolution: {integrity: sha512-RtjTnZqsC38s4NKp2XO3fD8IA5uyN4tB7McQ5C6uiMPcV+WWO8F+wVa3e+BXUpH2ScgxghAlwFRMVqjT9WChAQ==}
     peerDependencies:
@@ -1771,7 +1767,7 @@ packages:
       fluentvalidation-ts: ^3.0.0
       fp-ts: ^2.7.0
       io-ts: ^2.0.0
-      joi: ^17.0.0 || ^18.0.0
+      joi: ^17.13.9
       nope-validator: '>=0.12.0'
       react-hook-form: ^7.55.0
       superstruct: '>=0.12.0'
@@ -2476,12 +2472,14 @@ packages:
   '@opentelemetry/sdk-trace-base@2.12.0':
     resolution: {integrity: sha512-JOERgZCxRM06FEJ5kEWxlSRChah6MmXDx3KwCruqEv/iEyLkTokCSemf2y1w8oIHtfrr8EVTpzebq/31vn2Cpg==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.3.0 <1.10.0'
 
   '@opentelemetry/sdk-trace-node@2.12.0':
     resolution: {integrity: sha512-9DufH1IlmQMoKAfot5y/FhTP1RnmhLb5K6eKmJO/bvzPjYwPAazoiAUbTZFdPbqxOXN0FEbhZx/e6SB1Og4jmg==}
     engines: {node: ^18.19.0 || >=20.6.0}
+    deprecated: Use @opentelemetry/sdk-trace package
     peerDependencies:
       '@opentelemetry/api': '>=1.0.0 <1.10.0'
 
@@ -3415,15 +3413,6 @@ packages:
 
   '@shikijs/vscode-textmate@10.0.2':
     resolution: {integrity: sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg==}
-
-  '@sideway/address@4.1.5':
-    resolution: {integrity: sha512-IqO/DUQHUkPeixNQ8n0JA6102hT9CmaljNTPmQ1u8MEhBo/R4Q8eKLN/vGZxuebwOroDB4cbpjheD4+/sKFK4Q==}
-
-  '@sideway/formula@3.0.1':
-    resolution: {integrity: sha512-/poHZJJVjx3L+zVD6g9KgHfYnb443oi7wLu/XKojDviHy6HOEOA6z1Trk5aR1dGcmPenJEgb2sK2I80LeS3MIg==}
-
-  '@sideway/pinpoint@2.0.0':
-    resolution: {integrity: sha512-RNiOoTPkptFtSVzQevY/yWtZwf/RxyVnPy/OcA9HBM3MlGDnBEYL5B41H0MTn0Uec8Hi+2qUtTfG2WWZBmMejQ==}
 
   '@simple-libs/child-process-utils@2.0.0':
     resolution: {integrity: sha512-dvNoRKLijXnD0XoJAz94pbNuB5GQgDr55UhpSPhffDkTT0Cmcqh9jSCOtwfT2d4H6MI9E7c4SgtMuJXZ6F3c6A==}
@@ -6670,9 +6659,6 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
-  joi@17.13.8:
-    resolution: {integrity: sha512-iPKOGmiRw1jxf/JOPwxmCcUQAOdF359mdzYiP2DJ+TMX0YK2zjK3D+zYOaGjpumWxOFF/l2xVWjRVK5bGSLdEw==}
-
   js-levenshtein@1.1.6:
     resolution: {integrity: sha512-X2BB11YZtrRqY4EnQcLX5Rh373zbK4alC1FW7D7MBhL2gtcC17cTnr6DmfHZeS0s2rTHjUTMMHfG7gO8SSdw+g==}
     engines: {node: '>=0.10.0'}
@@ -7329,8 +7315,8 @@ packages:
       encoding:
         optional: true
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+  node-forge@1.4.2:
+    resolution: {integrity: sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==}
     engines: {node: '>= 6.13.0'}
 
   node-gyp-build@4.8.4:
@@ -10702,7 +10688,7 @@ snapshots:
       glob: 13.0.6
       lan-network: 0.2.1
       multitars: 1.0.2
-      node-forge: 1.4.0
+      node-forge: 1.4.2
       npm-package-arg: 11.0.3
       ora: 3.4.0
       picomatch: 4.0.7
@@ -10739,7 +10725,7 @@ snapshots:
 
   '@expo/code-signing-certificates@0.0.7':
     dependencies:
-      node-forge: 1.4.0
+      node-forge: 1.4.2
 
   '@expo/config-plugins@58.0.9(supports-color@10.2.2)(typescript@6.0.3)':
     dependencies:
@@ -11048,15 +11034,7 @@ snapshots:
       chalk: 4.1.2
       js-yaml: 4.3.2
 
-  '@hapi/hoek@9.3.0':
-    optional: true
-
-  '@hapi/topo@5.1.0':
-    dependencies:
-      '@hapi/hoek': 9.3.0
-    optional: true
-
-  '@hookform/resolvers@5.9.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(effect@3.20.0)(joi@17.13.8)(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)':
+  '@hookform/resolvers@5.9.2(@sinclair/typebox@0.34.52)(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(effect@3.20.0)(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.7)':
     dependencies:
       '@standard-schema/utils': 0.3.0
       react-hook-form: 7.90.0(@types/react@19.3.0)(react@19.3.0)
@@ -11066,7 +11044,6 @@ snapshots:
       ajv: 8.20.0
       ajv-formats: 2.1.1(ajv@8.20.0)
       effect: 3.20.0
-      joi: 17.13.8
       valibot: 1.4.2(typescript@6.0.3)
       zod: 4.6.7
 
@@ -12737,17 +12714,6 @@ snapshots:
       '@types/hast': 3.0.5
 
   '@shikijs/vscode-textmate@10.0.2': {}
-
-  '@sideway/address@4.1.5':
-    dependencies:
-      '@hapi/hoek': 9.3.0
-    optional: true
-
-  '@sideway/formula@3.0.1':
-    optional: true
-
-  '@sideway/pinpoint@2.0.0':
-    optional: true
 
   '@simple-libs/child-process-utils@2.0.0':
     dependencies:
@@ -16702,15 +16668,6 @@ snapshots:
 
   jiti@2.7.0: {}
 
-  joi@17.13.8:
-    dependencies:
-      '@hapi/hoek': 9.3.0
-      '@hapi/topo': 5.1.0
-      '@sideway/address': 4.1.5
-      '@sideway/formula': 3.0.1
-      '@sideway/pinpoint': 2.0.0
-    optional: true
-
   js-levenshtein@1.1.6: {}
 
   js-tokens@10.0.0: {}
@@ -17412,7 +17369,7 @@ snapshots:
     dependencies:
       whatwg-url: 5.0.0
 
-  node-forge@1.4.0: {}
+  node-forge@1.4.2: {}
 
   node-gyp-build@4.8.4: {}
 
