@@ -22,7 +22,7 @@ services:
   db:
     # Pinned by digest, the same as CI's (scripts/tool-images/Dockerfile);
     # Dependabot proposes updates.
-    image: postgres:18-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5
+    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
     restart: unless-stopped
     environment:
       POSTGRES_DB: app
@@ -52,7 +52,7 @@ services:
   # `docker compose down`. Chaos (MP_ENABLE_CHAOS) only arms Mailpit's API to
   # inject SMTP errors on demand (the outbox specs do, then disarm it).
   mailpit:
-    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    image: axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498
     restart: unless-stopped
     environment:
       MP_MAX_MESSAGES: 500
@@ -190,7 +190,7 @@ services:
   # deploy this service). docs/observability.md#local-backend.
   otel-lgtm:
     profiles: [observability]
-    image: grafana/otel-lgtm:0.37.0@sha256:57b5ab1ca6619beb180174e2fccce04762470750669d043f544b4726d0582d07
+    image: grafana/otel-lgtm:0.38.0@sha256:75cdf892daffadf3763ef61c16a6d7f8586216fce0b40bba7874a0b053121084
     ports:
       - '127.0.0.1:${OTLP_HTTP_PORT:-4328}:4318'
       - '127.0.0.1:${GRAFANA_PORT:-3011}:3000'

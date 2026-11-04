@@ -2,7 +2,8 @@
 # otel-lgtm, profile observability). It replaces the image's own
 # /otel-lgtm/prometheus.yaml, because Prometheus reads rule files only from its
 # configuration file: everything below `rule_files` is the image's file as
-# shipped in grafana/otel-lgtm:0.36.0 (compare it when changing the image tag).
+# shipped in grafana/otel-lgtm:0.38.0, unchanged since 0.36.0 (compare it when
+# changing the image tag).
 # Development only: a deployed Prometheus, Mimir or Grafana Cloud stack loads
 # the same rule files its own way (docs/observability.md#dashboards-and-alerts-as-code).
 global:
