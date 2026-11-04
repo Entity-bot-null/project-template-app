@@ -21,7 +21,7 @@ FROM rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fe
 FROM ghcr.io/zizmorcore/zizmor:1.31.1@sha256:42d409dbb851d4c5d35a058cf042b828bea1e3f2884378c526eb0974780e18d9 AS zizmor
 
 # Static application security testing.
-FROM semgrep/semgrep:1.181.0@sha256:81474464c1f07483ba0682a44787fd93c91397419762a04abe2bafaae396304b AS semgrep
+FROM semgrep/semgrep:1.182.1@sha256:451b3d875c00dac7ed5db5293e584a07de11449a409c10b3c2d2652f429630b6 AS semgrep
 
 # Secrets in the git history.
 FROM ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f AS gitleaks
@@ -33,7 +33,7 @@ FROM ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9
 # schema check of its user data. Terraform from HashiCorp's ECR Public
 # repository and Ubuntu from ECR Public's mirror of Docker's official images:
 # the same digests as on Docker Hub, without its anonymous pull limit.
-FROM public.ecr.aws/hashicorp/terraform:1.17.0@sha256:4d1b496a256f2989bccdb04b9104a4ede97234b10fba90259e173e905ec4fb58 AS terraform
+FROM public.ecr.aws/hashicorp/terraform:1.17.1@sha256:a5d5a5a892c98f60fcbfa81eac2a40fc19e7b3fa7719bccae10ff6111d22524a AS terraform
 FROM ghcr.io/terraform-linters/tflint:v0.65.0@sha256:2788f4d4fc663c0e953b011b01bf443fe5bfce7587ee916e588e6057b85d6359 AS tflint
 FROM public.ecr.aws/docker/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55 AS ubuntu
 
@@ -41,7 +41,7 @@ FROM public.ecr.aws/docker/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8d
 # (docker/setup-buildx-action in docker-images.yml and deploy.yml), whose own
 # default is a moving tag (moby/buildkit:buildx-stable-1). Its built-in
 # Dockerfile frontend parses apps/*/Dockerfile, which name no `# syntax=` image.
-FROM moby/buildkit:v0.34.0@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c AS buildkit
+FROM moby/buildkit:v0.34.1@sha256:99368f3e46177c6405b9740e4461d91cee004128daeecca78d4ceac50ec1da5c AS buildkit
 
 # Image vulnerability scanning (.github/workflows/docker-images.yml, and
 # scripts/check-iac.mjs).
@@ -49,7 +49,7 @@ FROM ghcr.io/aquasecurity/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea70240
 
 # Test database of the integration job; keep the major version equal to
 # docker-compose.yml.
-FROM public.ecr.aws/docker/library/postgres:18-alpine@sha256:898c60cb390d1085bc97bdd6a1ae968757421df394b071848b52b1c09c89d6a5 AS postgres
+FROM public.ecr.aws/docker/library/postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5 AS postgres
 
 # Redis of the integration job (the Redis-backed adapters); keep the major
 # version equal to docker-compose.yml.
@@ -58,10 +58,10 @@ FROM public.ecr.aws/docker/library/redis:8-alpine@sha256:0bf6577d7774e592b29d093
 # Mail catcher of the integration job: the outbox specs send real SMTP to it
 # and read the messages back through its API. Keep the version equal to
 # docker-compose.yml.
-FROM axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387 AS mailpit
+FROM axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498 AS mailpit
 
 # Dynamic application security testing (.github/workflows/dast.yml).
-FROM ghcr.io/zaproxy/zaproxy:2.17.0@sha256:5ccfff9a411743ab2615136a2edd7416bec9ce41572fa94e935df38c14adb2b6 AS zap
+FROM ghcr.io/zaproxy/zaproxy:2.17.0@sha256:030d3df57735dacbb83464854758e674dd9ad01d79d12a129a8e58b1fd384238 AS zap
 
 # Observability as code (pnpm observability:check): promtool checks the
 # Prometheus configuration, alert and recording rules and the dashboards'
