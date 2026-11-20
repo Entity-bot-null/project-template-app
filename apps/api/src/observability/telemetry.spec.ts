@@ -170,6 +170,16 @@ describe('the resource every span and metric carries', () => {
       vi.unstubAllEnvs();
     }
   });
+
+  it('names the service after its validated setting, never a raw environment value', async () => {
+    vi.stubEnv('OTEL_RESOURCE_ATTRIBUTES', 'service.name=from-attributes');
+    vi.stubEnv('OTEL_SERVICE_NAME', 'from-environment');
+    try {
+      expect(await resourceAttributes()).toMatchObject({ 'service.name': 'api' });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe("the telemetry's own requests", () => {

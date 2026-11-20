@@ -159,7 +159,7 @@
           "@opentelemetry/sdk-trace",
           "@opentelemetry/context-async-hooks"
         ],
-        "reason": "The stable packages of OpenTelemetry JS are released together and depend on each other at exact versions (sdk-trace 3.0.0 requires core and resources 3.0.0): one left behind installs a second copy of core, and spans or resources from two releases meet in one process."
+        "reason": "The stable packages of OpenTelemetry JS are released together and depend on each other at exact versions (sdk-trace 3.1.1 requires core and resources 3.1.1): one left behind installs a second copy of core, and spans or resources from two releases meet in one process."
       },
       "opentelemetry-experimental": {
         "packages": [
@@ -168,7 +168,7 @@
           "@opentelemetry/instrumentation",
           "@opentelemetry/instrumentation-http"
         ],
-        "reason": "The experimental (0.x) packages of OpenTelemetry JS are released together and each line works only with one stable release (0.300.x with 3.0.x): the exporters pin sdk-trace and sdk-metrics exactly, and the instrumentations share @opentelemetry/instrumentation."
+        "reason": "The experimental (0.x) packages of OpenTelemetry JS are released together and each line works only with one stable release (0.301.x with 3.1.x): the exporters pin sdk-trace and sdk-metrics exactly, and the instrumentations share @opentelemetry/instrumentation."
       }
     }
   },

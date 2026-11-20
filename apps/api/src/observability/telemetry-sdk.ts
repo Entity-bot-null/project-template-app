@@ -25,7 +25,7 @@ import { UndiciInstrumentation } from '@opentelemetry/instrumentation-undici';
 import {
   defaultResource,
   detectResources,
-  envDetector,
+  resourceAttributesEnvDetector,
   resourceFromAttributes,
   serviceInstanceIdDetector,
 } from '@opentelemetry/resources';
@@ -137,9 +137,12 @@ export function startOpenTelemetry(options: OpenTelemetryOptions): Telemetry {
   // computer it is often the person's name, sent with a stable machine id to
   // whatever backend the endpoint points at. An operator who wants the
   // server's name sets OTEL_RESOURCE_ATTRIBUTES=host.name=<name>, which wins
-  // over the detected values.
+  // over the detected values. The service name is not detected: it is the
+  // validated OTEL_SERVICE_NAME, set below over anything detected.
   const resource = defaultResource()
-    .merge(detectResources({ detectors: [serviceInstanceIdDetector, envDetector] }))
+    .merge(
+      detectResources({ detectors: [serviceInstanceIdDetector, resourceAttributesEnvDetector] }),
+    )
     .merge(
       resourceFromAttributes({
         [ATTR_SERVICE_NAME]: options.serviceName,

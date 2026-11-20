@@ -38,7 +38,7 @@ services:
     <<: *hardening
     logging: *logging
     # Tag for readers, digest for the server (Dependabot updates both).
-    image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    image: caddy:2.11.7-alpine@sha256:e70b164da81ef698b3ad19af799ea6086ce6d9e48ed4079eb9fe26f6fbf14ee5
     restart: unless-stopped
     # Ports 80 and 443 are privileged: the one capability Caddy keeps.
     cap_add: [NET_BIND_SERVICE]
@@ -144,7 +144,7 @@ services:
     profiles: [db]
     # Tag for readers, digest for the server (Dependabot updates both): the
     # PostgreSQL of development and CI.
-    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    image: postgres:18-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
     restart: unless-stopped
     # As the postgres user from the start: no privilege to drop, and the data
     # directory is its own.
@@ -189,7 +189,7 @@ services:
     <<: *hardening
     logging: *logging
     profiles: [db]
-    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    image: postgres:18-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
     restart: unless-stopped
     user: postgres
     entrypoint: ['/bin/sh', '/usr/local/bin/backup.sh']
@@ -233,7 +233,7 @@ services:
     logging: *logging
     # Tag for readers, digest for the server (Dependabot updates both): the
     # Redis of development and CI.
-    image: redis:8-alpine@sha256:0bf6577d7774e592b29d093e3ac9390eb91e13d72c21e506afce736de5e0eeb0
+    image: redis:8-alpine@sha256:71885d8cc6e42f2bc0aa2eb853bfc4be200b5108a46ac50e117ae1df0531fb80
     restart: unless-stopped
     user: redis
     # REDIS_PASSWORD, the app user's; the API's REDIS_URL carries the same.

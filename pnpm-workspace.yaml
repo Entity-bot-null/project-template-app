@@ -79,6 +79,10 @@ overrides:
   # GHSA-ggr8-5vv4-36mx (high), pinned at 7.1.5 by @prisma/config 7.10 (the
   # API's Prisma CLI and client).
   '@prisma/config>deepmerge-ts': ^8.0.2
+  # GHSA-7589-6fvf-x4pw (high), pinned at 3.20.0 by @prisma/config 7.10: the
+  # schema the Prisma CLI validates prisma.config.ts with (the CLI, also in the
+  # migration image).
+  '@prisma/config>effect': ^3.22.1
   # GHSA-3f6p-5ww8-9rcr (high) and GHSA-rgwj-5xj2-c3m3 (moderate), pinned at
   # 3.15.3 by the prisma CLI 7.10 (MySQL support; the API uses PostgreSQL).
   'prisma>mysql2': ^3.24.5
@@ -94,10 +98,11 @@ overrides:
   'ajv>fast-uri': ^3.1.9
   # GHSA-5x38-2vff-x55p, GHSA-7wch-p9px-956x, GHSA-8hrf-8g6f-7xwp,
   # GHSA-hqq3-7jhf-c5jx, GHSA-jc66-7q78-782g (high), GHSA-525v-9gp9-w22h,
-  # GHSA-5cwg-6vw7-rj6p, GHSA-6wvx-3r32-xmcg (moderate) and three low ones:
+  # GHSA-5cwg-6vw7-rj6p, GHSA-6wvx-3r32-xmcg, GHSA-w4xr-hqv8-ch44,
+  # GHSA-6cv4-p8m7-4r25, GHSA-j8rw-jp99-435v (moderate) and four low ones:
   # @expo/cli and @expo/code-signing-certificates pin 1.4.0 (update
   # code-signing helpers, development tools only).
-  node-forge: ^1.4.1
+  node-forge: ^1.4.3
   # GHSA-4528-x5fx-h6hg (high): the optional peer of @hookform/resolvers'
   # joi resolver, auto-installed at 17.13.8. Narrowed, it is no longer
   # installed at all (the app validates with zod; joi is never imported).
