@@ -13,7 +13,7 @@ and runs every command ([docs/adr/0002-pnpm-monorepo.md](docs/adr/0002-pnpm-mono
 [docs/adr/0008-public-site-and-app-links.md](docs/adr/0008-public-site-and-app-links.md)). Paths
 below start at the repository root.
 
-Read [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) first, then the doc for the area you
+Read [docs/engineering-standards.md](docs/engineering-standards.md) first, then the doc for the area you
 touch. The app: [docs/mobile-architecture.md](docs/mobile-architecture.md) (layers, navigation,
 state, API, auth, storage, errors, native code), [docs/performance.md](docs/performance.md),
 [docs/releases.md](docs/releases.md). The API: [docs/architecture.md](docs/architecture.md),
@@ -24,7 +24,7 @@ server: [docs/deploy-vps.md](docs/deploy-vps.md), [docs/incident-response.md](do
 [docs/alerting.md](docs/alerting.md). Both:
 [docs/error-handling.md](docs/error-handling.md), [docs/testing.md](docs/testing.md),
 [SECURITY.md](SECURITY.md). [docs/manual.md](docs/manual.md) lists every command. A change is done
-when it meets [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md).
+when it meets [docs/definition-of-done.md](docs/definition-of-done.md).
 
 This file is the shared context for every agent (Claude Code reads it through `CLAUDE.md`; Codex,
 Cursor and other tools read `AGENTS.md`). Tools with their own rules files should point them here

@@ -1073,7 +1073,7 @@ expo.dev → your project → Builds.
 
 **Check:** the builds finish; testers install them from the build page link (Android: the APK;
 iPhone: registered devices only) and the app talks to your staging API. Test it with the checklist
-of [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md#devices-and-platforms).
+of [definition-of-done.md](definition-of-done.md#devices-and-platforms).
 
 **If it fails:**
 
@@ -1282,7 +1282,7 @@ a few minutes: the uptime check fires).
 
 ## Phase 14. Before real users
 
-- [ ] [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md) holds for every shipped feature.
+- [ ] [definition-of-done.md](definition-of-done.md) holds for every shipped feature.
 - [ ] Tested on a small/old Android phone and a recent iPhone, largest font size, dark mode,
       TalkBack and VoiceOver, airplane mode in the middle of a request.
 - [ ] The store privacy forms (data safety, App Privacy) match what the app and its SDKs collect.

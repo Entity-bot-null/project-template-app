@@ -310,7 +310,7 @@ jobs:
         if: steps.browsers.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
       # The landing for its preview server; the web image is built by the
-      # suite itself (playwright.config.ts).
+      # suite itself (e2e/playwright.config.ts).
       - run: pnpm --filter landing build
       - run: pnpm test:e2e
       - name: Upload the Playwright report

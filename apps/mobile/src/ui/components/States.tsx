@@ -9,7 +9,7 @@ import { AlertText } from './AlertText';
 import { Text } from './Text';
 
 // The three states every data screen has besides its content
-// (DEFINITION_OF_DONE.md): loading, empty and error. One look everywhere.
+// (docs/definition-of-done.md): loading, empty and error. One look everywhere.
 
 const useStyles = createStyles((theme) => ({
   centered: {

@@ -1,4 +1,4 @@
-// The web image for the browser suite (playwright.config.ts starts it, and
+// The web image for the browser suite (e2e/playwright.config.ts starts it, and
 // stops it with the suite): built from apps/landing/Dockerfile for the
 // release, then run on the port and with the app identity the suite passes in
 // its environment (e2e/support/web-image.ts), and an API upstream that answers

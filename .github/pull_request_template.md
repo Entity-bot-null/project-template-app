@@ -28,7 +28,7 @@ See CONTRIBUTING.md#commits.
 <!-- New environment variables, API changes the app depends on, feature flags,
      migrations of stored data. "None" is a valid answer. -->
 
-## Definition of Done (DEFINITION_OF_DONE.md)
+## Definition of Done (docs/definition-of-done.md)
 
 - [ ] Acceptance criteria of the issue are met.
 - [ ] Tests cover the change: unit and component tests; an integration test (screen → hook → API client → stubbed API) for data flows; a Maestro flow for a new critical journey.

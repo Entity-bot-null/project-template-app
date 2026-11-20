@@ -7,4 +7,4 @@ apps/mobile/src/api/schema.d.ts
 apps/api/prisma/migrations/
 # Written by release-please (.github/workflows/release.yml).
 CHANGELOG.md
-.release-please-manifest.json
+.github/.release-please-manifest.json

@@ -184,7 +184,7 @@ and `/api/health/` requires the bearer token).
 ## Review
 
 Reviewers ask for these on every change to the API
-([DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md)):
+([definition-of-done.md](definition-of-done.md)):
 
 - [ ] Every route: `@Auth(...)` with the right roles, or public on purpose, with the reason in a
       comment.

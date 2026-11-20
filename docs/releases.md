@@ -318,7 +318,7 @@ From a merged commit to every user, the same order every time; each stage has it
 
 | Stage               | Build (store version)                                  | Update (OTA)                                            | Move on when                                                                  |
 | ------------------- | ------------------------------------------------------ | ------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1. Preview          | `preview` build, installed by the team                 | `preview` channel                                       | the change works on devices (DEFINITION_OF_DONE.md)                           |
+| 1. Preview          | `preview` build, installed by the team                 | `preview` channel                                       | the change works on devices (docs/definition-of-done.md)                      |
 | 2. Internal testing | `production` build: Play internal track, TestFlight    | —                                                       | testers confirm; no new crash in Sentry                                       |
 | 3. Staged rollout   | Play staged rollout (5–20 %), App Store phased release | `production` channel at 5–10 % (`--rollout-percentage`) | crash-free rate holds for a day (store vitals, Sentry, `eas update:insights`) |
 | 4. Production       | 100 %                                                  | `eas update:edit` to 100 %                              | —                                                                             |
