@@ -22,7 +22,7 @@ services:
   db:
     # Pinned by digest, the same as CI's (scripts/tool-images/Dockerfile);
     # Dependabot proposes updates.
-    image: postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    image: postgres:18-alpine@sha256:123b17998ccaf47e53b502e8c6a1e79afd8f579c6f3eec83c563da026f957395
     restart: unless-stopped
     environment:
       POSTGRES_DB: app
@@ -52,7 +52,7 @@ services:
   # `docker compose down`. Chaos (MP_ENABLE_CHAOS) only arms Mailpit's API to
   # inject SMTP errors on demand (the outbox specs do, then disarm it).
   mailpit:
-    image: axllent/mailpit:v1.32.0@sha256:0790692be935ea4420d085694f7985b1f692ca6a8771ab0e0bd8ba75ac180498
+    image: axllent/mailpit:v1.33.0@sha256:9b3a463be15354c0f0eba91697d80e3e0d8a5623ef0e627cacc836bc17fd5231
     restart: unless-stopped
     environment:
       MP_MAX_MESSAGES: 500
@@ -157,7 +157,7 @@ services:
   # future keys without a TTL (queues) are never dropped. `exec` makes
   # redis-server PID 1: SIGTERM reaches it and it saves before exiting.
   redis:
-    image: redis:8-alpine@sha256:0bf6577d7774e592b29d093e3ac9390eb91e13d72c21e506afce736de5e0eeb0
+    image: redis:8-alpine@sha256:71885d8cc6e42f2bc0aa2eb853bfc4be200b5108a46ac50e117ae1df0531fb80
     restart: unless-stopped
     user: redis
     environment:
@@ -190,7 +190,7 @@ services:
   # deploy this service). docs/observability.md#local-backend.
   otel-lgtm:
     profiles: [observability]
-    image: grafana/otel-lgtm:0.38.0@sha256:75cdf892daffadf3763ef61c16a6d7f8586216fce0b40bba7874a0b053121084
+    image: grafana/otel-lgtm:0.39.0@sha256:4c8056c9c05fcb3c8fd93800e85334bfd79b4d0271b47a54a121a64af41fe1fe
     ports:
       - '127.0.0.1:${OTLP_HTTP_PORT:-4328}:4318'
       - '127.0.0.1:${GRAFANA_PORT:-3011}:3000'
