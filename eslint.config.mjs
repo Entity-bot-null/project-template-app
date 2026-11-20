@@ -340,7 +340,7 @@ export default defineConfig([
     },
   },
 
-  // No JavaScript in the app's src/ (ENGINEERING_STANDARDS.md): TypeScript
+  // No JavaScript in the app's src/ (docs/engineering-standards.md): TypeScript
   // never reads a .js file nothing imports, and Expo Router would still load
   // one under src/app as a route.
   {
@@ -519,10 +519,10 @@ export default defineConfig([
   },
 
   // The landing's TypeScript (apps/landing: dictionaries, helpers, specs) and
-  // the browser suite (e2e/, playwright.config.ts): strict, type-aware
+  // the browser suite (e2e/, its playwright.config.ts included): strict, type-aware
   // TypeScript, as in the web template, where they come from.
   {
-    files: ['apps/landing/**/*.ts', 'e2e/**/*.ts', 'playwright.config.ts'],
+    files: ['apps/landing/**/*.ts', 'e2e/**/*.ts'],
     extends: [js.configs.recommended, tsConfigs.strictTypeChecked, tsConfigs.stylisticTypeChecked],
     languageOptions: {
       globals: globals.node,
@@ -584,8 +584,10 @@ export default defineConfig([
     },
   },
   // The landing's and the browser suite's tests: fixtures need some latitude.
+  // The suite's configuration is not a test: it keeps the strict rules.
   {
     files: ['apps/landing/**/*.spec.ts', 'e2e/**'],
+    ignores: ['e2e/playwright.config.ts'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   // The landing's Node.js files: its Astro configuration and the wrapper of

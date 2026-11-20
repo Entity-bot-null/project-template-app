@@ -1,7 +1,7 @@
 # Engineering standards
 
 The rules every change follows. Most are enforced by tools (column "Enforced by"); the rest are
-checked in review. The reasons and details live in [docs/](docs/).
+checked in review. The reasons and details live in [docs/](./).
 
 ## Language and code
 
@@ -25,8 +25,8 @@ checked in review. The reasons and details live in [docs/](docs/).
 ## Architecture
 
 The app's layers and their import rules are in
-[docs/mobile-architecture.md](docs/mobile-architecture.md#layers-and-dependency-rules); the API's
-modules in [docs/architecture.md](docs/architecture.md).
+[docs/mobile-architecture.md](mobile-architecture.md#layers-and-dependency-rules); the API's
+modules in [docs/architecture.md](architecture.md).
 
 | Rule                                                                                                                        | Enforced by                       |
 | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
@@ -41,24 +41,24 @@ modules in [docs/architecture.md](docs/architecture.md).
 | Server data in TanStack Query, client state in Zustand, never copied between them                                           | review                            |
 | A feature does not import another feature's internals                                                                       | review                            |
 | Native projects are generated, never edited; native configuration in `apps/mobile/app.config.ts` and config plugins         | `.gitignore`, review              |
-| Significant decisions recorded as ADRs ([docs/adr/](docs/adr/))                                                             | review                            |
+| Significant decisions recorded as ADRs ([docs/adr/](adr/))                                                                  | review                            |
 
 ## API and data
 
 - The API generates the contract: `openapi/openapi.json` and the app's types are regenerated with
   the code that needs them (`pnpm contract`), committed and drift-checked on both sides
-  ([openapi/README.md](openapi/README.md)). Changes are additive: installed apps keep the old
-  contract ([docs/api-conventions.md](docs/api-conventions.md)).
+  ([openapi/README.md](../openapi/README.md)). Changes are additive: installed apps keep the old
+  contract ([docs/api-conventions.md](api-conventions.md)).
 - The API: `{ data, message }` envelope, `errors[]` on a 400 that names its fields; every input
   validated by a schema, every output built from an explicit select; errors through the standard
-  filter, never leaking internals ([docs/error-handling.md](docs/error-handling.md)).
+  filter, never leaking internals ([docs/error-handling.md](error-handling.md)).
 - The app: every response validated with Zod before use (`unwrapWith`, schemas that `satisfies` the
   generated types); every form with a Zod schema; every stored value read back through a schema.
 - Errors in the app are `AppError`s; users see `userMessage()`, never a technical message
-  ([docs/mobile-architecture.md](docs/mobile-architecture.md#errors)).
+  ([docs/mobile-architecture.md](mobile-architecture.md#errors)).
 - Every schema change is a committed migration, compatible with the running version
   (expand/contract); snake_case tables, UUIDv7 keys, `timestamptz`, explicit `onDelete`
-  ([docs/database.md](docs/database.md)).
+  ([docs/database.md](database.md)).
 
 ## User interface
 
@@ -75,15 +75,15 @@ modules in [docs/architecture.md](docs/architecture.md).
 
 - No secret in the app or in git; `EXPO_PUBLIC_*` values are public.
 - Every API route `@Auth(...)` unless deliberately public; ownership checked in the service's query
-  (404 for others' records) ([docs/authorization.md](docs/authorization.md)).
+  (404 for others' records) ([docs/authorization.md](authorization.md)).
 - Rate limits count a person, never an address alone: phones share carrier addresses
-  ([docs/security.md](docs/security.md#rate-limiting)).
+  ([docs/security.md](security.md#rate-limiting)).
 - Credentials only in secure storage; no personal data in logs, analytics or error reports.
 - Links, notifications and API responses are validated input; links never act by themselves.
 - Permissions asked in context, only those used.
 - No security finding is silenced without its reason on the same line (`nosemgrep`,
   `eslint-disable`), visible in review.
-- Full list: [SECURITY.md](SECURITY.md); the API's design: [docs/security.md](docs/security.md).
+- Full list: [SECURITY.md](../SECURITY.md); the API's design: [docs/security.md](security.md).
 
 ## Supply chain
 
@@ -110,12 +110,12 @@ modules in [docs/architecture.md](docs/architecture.md).
 | Every cache entry has a TTL; sensitive data and authorization decisions are never cached                                | `CacheService` (TTL), review                     |
 | Configuration validated at boot; one set of secrets per environment                                                     | `env.schema.ts`, review                          |
 
-Details: [docs/observability.md](docs/observability.md), [docs/environment.md](docs/environment.md).
+Details: [docs/observability.md](observability.md), [docs/environment.md](environment.md).
 
 ## Performance
 
 - Lists virtualized; no work in render that could run once; images through `Image`
-  ([docs/performance.md](docs/performance.md)).
+  ([docs/performance.md](performance.md)).
 - The bundle stays within `apps/mobile/bundle-budget.json` (`pnpm perf:check`).
 - Optimizations come with a measurement, on a release build.
 
@@ -123,7 +123,7 @@ Details: [docs/observability.md](docs/observability.md), [docs/environment.md](d
 
 - Unit and component tests next to the code (`*.spec.ts(x)`), the app's screen-to-API integration
   tests (`*.int.spec.tsx`), the API's integration tests on PostgreSQL (`*.int.spec.ts`), Maestro
-  flows for critical journeys ([docs/testing.md](docs/testing.md)).
+  flows for critical journeys ([docs/testing.md](testing.md)).
 - Tests query by role and label, and stub the network, not the code.
 - Coverage thresholds are a ratchet: never lowered silently.
 - Every bug fix starts with a failing test.
@@ -131,11 +131,11 @@ Details: [docs/observability.md](docs/observability.md), [docs/environment.md](d
 ## Workflow
 
 - Short-lived branches, Conventional Commits, pull requests only, squash merge
-  ([CONTRIBUTING.md](CONTRIBUTING.md)).
-- Hooks on commit and push; every gate in CI, one required check ([docs/ci-cd.md](docs/ci-cd.md)).
+  ([CONTRIBUTING.md](../CONTRIBUTING.md)).
+- Hooks on commit and push; every gate in CI, one required check ([docs/ci-cd.md](ci-cd.md)).
 - Releases: semantic versions from commit titles; builds, submissions and OTA updates started by
-  people, from `main`, through protected workflows ([docs/releases.md](docs/releases.md)).
-- Done means [DEFINITION_OF_DONE.md](DEFINITION_OF_DONE.md).
+  people, from `main`, through protected workflows ([docs/releases.md](releases.md)).
+- Done means [definition-of-done.md](definition-of-done.md).
 
 ## The pipeline
 

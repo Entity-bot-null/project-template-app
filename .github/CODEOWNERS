@@ -35,7 +35,7 @@
 # /apps/mobile/app.config.ts                 @your-org/mobile-leads
 # /apps/mobile/eas.json                      @your-org/mobile-leads
 # /apps/mobile/assets/images/                @your-org/mobile-leads
-# /release-please-config.json                @your-org/mobile-leads
+# /.github/release-please-config.json        @your-org/mobile-leads
 # Supply chain: dependencies and install settings.
 # /pnpm-workspace.yaml                       @your-org/mobile-leads
 # /pnpm-lock.yaml                            @your-org/mobile-leads
@@ -44,15 +44,16 @@
 # Dockerfile                                 @your-org/backend
 # /.dockerignore                             @your-org/backend
 # /docker-compose.yml                        @your-org/backend
-# The server: its deployment, its infrastructure, the dashboards and alerts
-# that watch it, and the rules of the dynamic analysis.
+# The server: its deployment, its infrastructure, and the dashboards and
+# alerts that watch it.
 # /deploy/                                   @your-org/backend
 # /infra/                                    @your-org/backend
 # /observability/                            @your-org/backend
-# /.zap/                                     @your-org/security-reviewers
 # Gates: CI, hooks and the checks they run. Owning these is what keeps the
 # rules above from being edited away.
 # /.github/                                  @your-org/mobile-leads
+# The rules of the dynamic analysis live in .github/: after it, so they win.
+# /.github/zap-rules.tsv                     @your-org/security-reviewers
 # /.husky/                                   @your-org/mobile-leads
 # /scripts/                                  @your-org/mobile-leads
 # /eslint.config.mjs                         @your-org/mobile-leads

@@ -20,7 +20,7 @@ checked" is not. The pull request template repeats the essentials as a checklist
       (screen → hook → API client → stubbed API) for data flows, a Maestro flow for a new or changed
       critical journey; in the API, unit tests for services and guards and an integration test (HTTP
       → PostgreSQL) for every route, with the authorization matrix of each owned record
-      ([docs/authorization.md](docs/authorization.md#tests)).
+      ([docs/authorization.md](authorization.md#tests)).
 - [ ] A bug fix comes with the test that failed before the fix.
 - [ ] No new `eslint-disable`, `nosemgrep`, `@ts-expect-error` or type assertion without its reason.
 - [ ] CI is green; the E2E workflow is green when the change touches a critical flow.
@@ -39,7 +39,7 @@ checked" is not. The pull request template repeats the essentials as a checklist
 
 - [ ] Every interactive element has a role and an accessible name; images are labeled or decorative;
       new screens are in `apps/mobile/src/a11y.spec.tsx`
-      ([docs/accessibility.md](docs/accessibility.md#checklist-for-every-feature)).
+      ([docs/accessibility.md](accessibility.md#checklist-for-every-feature)).
 - [ ] Messages that appear without navigation (errors, results, status) use `AlertText`, so screen
       readers announce them on both platforms.
 - [ ] Touch targets of at least 48 dp; contrast from the theme tokens (no new color literals).
@@ -54,12 +54,12 @@ checked" is not. The pull request template repeats the essentials as a checklist
       parameters; in the API, every body, query and parameter by its schema.
 - [ ] API routes: `@Auth(...)` unless deliberately public, ownership in the query (another user's
       record answers 404), rate limits counted per person or account, not per address alone
-      ([docs/security.md](docs/security.md)).
+      ([docs/security.md](security.md)).
 - [ ] New permissions asked in context, declared in `apps/mobile/app.config.ts` with their usage
       text, and reflected in the store privacy declarations
-      ([docs/store-compliance.md](docs/store-compliance.md)).
+      ([docs/store-compliance.md](store-compliance.md)).
 - [ ] New data the app keeps or sends has its row in the data inventory
-      ([SECURITY.md](SECURITY.md#data-inventory)), and anything stored per user is cleared at sign-out.
+      ([SECURITY.md](../SECURITY.md#data-inventory)), and anything stored per user is cleared at sign-out.
 - [ ] New dependencies justified, installed with `expo install` (the app) or `pnpm --filter api add`
       (the API), license and source policy passing.
 
@@ -68,9 +68,9 @@ checked" is not. The pull request template repeats the essentials as a checklist
 - [ ] API changes: the contract regenerated (`pnpm contract`, both files committed), and the
       change backwards compatible with app versions already installed, or shipped with a raised
       minimum version
-      ([docs/adr/0010-minimum-supported-app-version.md](docs/adr/0010-minimum-supported-app-version.md)).
+      ([docs/adr/0010-minimum-supported-app-version.md](adr/0010-minimum-supported-app-version.md)).
 - [ ] Database changes: a committed migration, safe while the previous version still runs
-      ([docs/database.md](docs/database.md#expand-and-contract)).
+      ([docs/database.md](database.md#expand-and-contract)).
 - [ ] New environment variables in `apps/mobile/src/config/env.schema.ts`,
       `apps/mobile/src/config/env.ts`, `apps/mobile/.env.example`,
       docs/releases.md#environment-variables and each EAS environment; the API's in

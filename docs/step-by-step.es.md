@@ -1112,7 +1112,7 @@ síguelos en expo.dev → tu proyecto → Builds.
 **Comprobación:** los builds terminan; los testers los instalan desde el enlace de la página del
 build (Android: el APK; iPhone: solo dispositivos registrados) y la app habla con tu API de staging.
 Pruébala con la checklist de
-[DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md#devices-and-platforms).
+[definition-of-done.md](definition-of-done.md#devices-and-platforms).
 
 **Si falla:**
 
@@ -1330,7 +1330,7 @@ staging unos minutos: salta la comprobación de disponibilidad).
 
 ## Fase 14. Antes de los usuarios reales
 
-- [ ] [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md) se cumple en cada funcionalidad publicada.
+- [ ] [definition-of-done.md](definition-of-done.md) se cumple en cada funcionalidad publicada.
 - [ ] Probada en un teléfono Android pequeño/antiguo y en un iPhone reciente, con el tamaño de letra
       más grande, modo oscuro, TalkBack y VoiceOver, y modo avión en mitad de una petición.
 - [ ] Los formularios de privacidad de las tiendas (data safety, App Privacy) coinciden con lo que

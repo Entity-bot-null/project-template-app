@@ -2,7 +2,7 @@
 
 How the app is put together, and the rules that keep it that way. Each section is linked from the
 code it describes. The standards for writing code are in
-[ENGINEERING_STANDARDS.md](../ENGINEERING_STANDARDS.md); performance in
+[engineering-standards.md](engineering-standards.md); performance in
 [performance.md](performance.md); builds, updates and store releases in [releases.md](releases.md);
 tests in [testing.md](testing.md).
 

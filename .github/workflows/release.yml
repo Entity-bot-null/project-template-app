@@ -3,7 +3,7 @@ name: Release
 # Release management (docs/releases.md#versioning). release-please reads the
 # Conventional Commits that reach main (the squashed pull request titles) and
 # keeps one release pull request open: the next semantic version, one for the
-# whole repository (package.json; as extra-files of release-please-config.json,
+# whole repository (package.json; as extra-files of .github/release-please-config.json,
 # apps/mobile/package.json, the app's user-visible version that
 # apps/mobile/app.config.ts reads, apps/api/package.json and the contract's
 # info.version in openapi/openapi.json), and the CHANGELOG.md entry. Merging
@@ -47,8 +47,8 @@ jobs:
           # pull request workflow runs on it. Without it, the workflow's token
           # opens it, and the next job starts CI on it.
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
 
   # A pull request opened or updated with the workflow's token gets its
   # pull request runs only once someone approves them, and the ruleset

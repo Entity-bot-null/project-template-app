@@ -24,7 +24,7 @@ also installs the Git hooks.
 3. **The API first** when the contract changes: the route and its schemas in `apps/api`, then
    `pnpm contract`, and commit both generated files ([openapi/README.md](openapi/README.md)); a
    database change comes with its migration ([docs/database.md](docs/database.md)).
-4. **Code and tests together**, following [ENGINEERING_STANDARDS.md](ENGINEERING_STANDARDS.md) and
+4. **Code and tests together**, following [docs/engineering-standards.md](docs/engineering-standards.md) and
    [docs/testing.md](docs/testing.md).
    [docs/mobile-architecture.md](docs/mobile-architecture.md#adding-a-feature) has the steps for a
    new feature, and [docs/how-to.md](docs/how-to.md) the recipes for the usual changes.

@@ -1,5 +1,5 @@
 // Where the suite reaches the web image (apps/landing/Dockerfile), which
-// playwright.config.ts builds and starts through scripts/e2e-web-image.mjs,
+// e2e/playwright.config.ts builds and starts through scripts/e2e-web-image.mjs,
 // the release it is built for, and the app identity it runs with, made up for
 // the tests (docs/environment.md#web-variables): its link files exist.
 export const WEB_IMAGE_PORT = 8091;

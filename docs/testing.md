@@ -33,7 +33,7 @@ how to run every level, end-to-end on a device included.
 | Deployment      | node:test, the real shell scripts      | `deploy.sh` and `rollback.sh` against a stand-in for Docker; the server's files against the apps they configure                                            | `scripts/deploy-vps.test.mjs` ([deploy-vps.md](deploy-vps.md#how-it-works))                                    |
 | Infrastructure  | `pnpm iac:check` (Docker)              | Terraform's own tests (provider mocked), TFLint, Trivy, cloud-init, the database roles on a real PostgreSQL                                                | `infra/terraform/digitalocean/tests/`, `scripts/check-iac.mjs` ([ci-cd.md](ci-cd.md#infrastructure-as-code))   |
 | Alert rules     | promtool (`pnpm observability:check`)  | every alert fires on the series it is for, and not on the ones it must ignore; dashboards read only real metrics                                           | `observability/prometheus/tests/` ([observability.md](observability.md#dashboards-and-alerts-as-code))         |
-| DAST            | OWASP ZAP (advisory, weekly)           | the production images, started on the runner, answer no attack the rules fail on                                                                           | `.github/workflows/dast.yml`, `.zap/rules.tsv` ([security.md](security.md#dynamic-analysis))                   |
+| DAST            | OWASP ZAP (advisory, weekly)           | the production images, started on the runner, answer no attack the rules fail on                                                                           | `.github/workflows/dast.yml`, `.github/zap-rules.tsv` ([security.md](security.md#dynamic-analysis))            |
 
 The bulk is unit and integration tests: fast, deterministic, run before every push and in CI.
 End-to-end flows cover the critical journeys only; each one is minutes of CI time and a source of
@@ -423,7 +423,7 @@ fixed sleeps; keep the seed's accounts and items (`member@example.com` / `member
 
 ## Browser end-to-end
 
-`pnpm test:e2e` (Playwright, `playwright.config.ts`) runs two projects against what ships:
+`pnpm test:e2e` (Playwright, `e2e/playwright.config.ts`) runs two projects against what ships:
 
 | Project     | Against                                                                                                                                              | Covers                                                                                                                                                                                                                                     |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -456,7 +456,7 @@ Automated tests do not replace a person using the app on real hardware before a 
 a small Android phone, a recent iPhone, the largest font size, dark mode, TalkBack/VoiceOver, a slow
 or lost connection (airplane mode mid-request), backgrounding during a request, rotating if
 supported, and an upgrade from the previous store version (stored data and session survive). The
-[Definition of Done](../DEFINITION_OF_DONE.md) lists what each change must be checked against; the
+[Definition of Done](definition-of-done.md) lists what each change must be checked against; the
 accessibility pass follows [accessibility.md](accessibility.md#manual-testing) and the upgrade
 pass [releases.md](releases.md#upgrade-testing).
 

@@ -23,4 +23,4 @@ A story can start when all of these hold. The feature issue template
 
 A story that is not ready goes back for refinement instead of starting with open questions.
 
-Done is defined in [DEFINITION_OF_DONE.md](../DEFINITION_OF_DONE.md).
+Done is defined in [definition-of-done.md](definition-of-done.md).

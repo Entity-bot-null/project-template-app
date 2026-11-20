@@ -3,7 +3,7 @@ run-name: DAST against ${{ inputs.target || 'the local stack' }}
 
 # Dynamic application security testing with OWASP ZAP (docs/security.md#dynamic-analysis).
 # ADVISORY: not part of "CI passed"; a failure opens no gate, it asks for a
-# look at the report. Rule levels (FAIL, WARN, IGNORE) live in .zap/rules.tsv.
+# look at the report. Rule levels (FAIL, WARN, IGNORE) live in .github/zap-rules.tsv.
 #
 #   local-stack  every Monday and on demand: builds the production images,
 #                starts them with Docker Compose on the runner, then the ZAP
@@ -78,7 +78,8 @@ jobs:
       - name: Prepare the report folder
         run: |
           mkdir -p zap
-          cp .zap/rules.tsv openapi/openapi.json zap/
+          cp .github/zap-rules.tsv zap/rules.tsv
+          cp openapi/openapi.json zap/
           chmod -R a+rwX zap
           image=$(node scripts/tool-image.mjs zap)
           echo "image=$image" >> "$GITHUB_ENV"
@@ -124,7 +125,7 @@ jobs:
           API: ${{ steps.api.outcome }}
         run: |
           if [[ "$BASELINE" == failure || "$API" == failure ]]; then
-            echo "::error title=DAST::A FAIL rule of .zap/rules.tsv was triggered, or a scan could not run; see the zap-reports artifact and the step logs."
+            echo "::error title=DAST::A FAIL rule of .github/zap-rules.tsv was triggered, or a scan could not run; see the zap-reports artifact and the step logs."
             exit 1
           fi
           echo "No FAIL rule triggered (warnings, if any, are in the reports)."
