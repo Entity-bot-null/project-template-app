@@ -28,7 +28,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~58.0.17",
     "@expo/vector-icons": "^15.0.2",
-    "@hookform/resolvers": "^6.0.0",
+    "@hookform/resolvers": "^7.0.6",
     "@sentry/react-native": "~8.28.0",
     "@tanstack/react-query": "^5.107.1",
     "expo": "~58.0.23",
